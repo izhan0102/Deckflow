@@ -4,15 +4,6 @@ AI presentation builder. Type a short prompt, pick a theme, get an editable deck
 
 Live preview, full-screen presenter mode, and slide reorder all included.
 
-## Demo
-
-<video src="https://raw.githubusercontent.com/izhan0102/Deckflow/main/media/preview.mp4" autoplay loop muted playsinline controls width="800">
-  Your browser doesn't render this video inline.
-  <a href="./media/preview.mp4">Watch the demo here</a>.
-</video>
-
-> If the video doesn't appear above when viewing on GitHub, watch it directly: [media/preview.mp4](./media/preview.mp4)
-
 ## Features
 
 - Three-step generator: prompt -> theme -> deck
