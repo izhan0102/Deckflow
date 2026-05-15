@@ -1,5 +1,6 @@
 import "./globals.css";
 import type { Metadata } from "next";
+import MobileGate from "@/components/MobileGate";
 
 export const metadata: Metadata = {
   title: "DeckFlow — Presentations from a prompt",
@@ -14,7 +15,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        {children}
+        <MobileGate />
+      </body>
     </html>
   );
 }
