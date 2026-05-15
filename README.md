@@ -94,7 +94,7 @@ lib/
 
 ## Notes
 
-- Built by Muhammad Izhan, Computer Science undergraduate at RNS Institute of Technology, Bengaluru.
+
 - LinkedIn: https://www.linkedin.com/in/muhammad-izhan-a404752a6/
 - GitHub: https://github.com/izhan0102
 
