@@ -4,6 +4,18 @@ AI presentation builder. Type a short prompt, pick a theme, get an editable deck
 
 Live preview, full-screen presenter mode, and slide reorder all included.
 
+## Demo
+
+<!--
+  GitHub does not autoplay <video> tags that point to repo-relative paths.
+  To make this autoplay inline on the README, drag the video into a new
+  GitHub issue (don't submit the issue — just upload), copy the
+  https://github.com/user-attachments/... URL it gives you, and paste it
+  on its own line below in place of this fallback link.
+-->
+
+[![Watch the DeckFlow demo](https://img.shields.io/badge/▶_Watch_demo-1.5_min-7C5CFF?style=for-the-badge)](./media/preview.mp4)
+
 ## Features
 
 - Three-step generator: prompt -> theme -> deck
