@@ -10,14 +10,14 @@ The user-facing flow is five steps. The shape doesn't change between sessions 鈥
 
 ```mermaid
 flowchart LR
-    A([Brief]) --> B([Theme])
-    B --> C([Font])
-    C --> D([Graphic])
-    D --> E[/Generate/]
-    E --> F([Editor])
-    F --> G([Export .pptx / .pdf])
-    F -.->|chat: 'rewrite slide 3'| F
-    F -.->|drag, recolor, swap layout| F
+    A(["Brief"]) --> B(["Theme"])
+    B --> C(["Font"])
+    C --> D(["Graphic"])
+    D --> E["Generate"]
+    E --> F(["Editor"])
+    F --> G(["Export .pptx / .pdf"])
+    F -. "chat: rewrite slide 3" .-> F
+    F -. "drag, recolor, swap layout" .-> F
 
     classDef step fill:#1f2937,stroke:#7c5cff,color:#fff,rx:8
     classDef action fill:#7c5cff,stroke:#7c5cff,color:#fff,rx:8
@@ -30,22 +30,22 @@ Under the hood, the browser stays thin. Long-running and key-sensitive work happ
 ```mermaid
 flowchart TB
     subgraph Browser
-      UI[Editor & landing UI]
-      PDF[jsPDF + html2canvas\nclient-side PDF render]
-      AUTH[Firebase Auth client]
+      UI["Editor & landing UI"]
+      PDF["jsPDF + html2canvas<br/>client-side PDF render"]
+      AUTH["Firebase Auth client"]
     end
 
     subgraph "Next.js API routes"
-      GEN[/api/generate]
-      EDIT[/api/edit-slide]
-      EXPORT[/api/export]
-      ICON[/api/icon-search]
+      GEN["/api/generate"]
+      EDIT["/api/edit-slide"]
+      EXPORT["/api/export"]
+      ICON["/api/icon-search"]
     end
 
     subgraph "External services"
-      GROQ[Groq 路 openai/gpt-oss-120b]
-      ICONIFY[Iconify 路 200k+ icons]
-      FB_DB[Firebase Realtime DB]
+      GROQ["Groq 路 openai/gpt-oss-120b"]
+      ICONIFY["Iconify 路 200k+ icons"]
+      FB_DB["Firebase Realtime DB"]
     end
 
     UI -->|"prompt + theme + font + graphic"| GEN
@@ -56,11 +56,11 @@ flowchart TB
     GEN --> GROQ
     EDIT --> GROQ
     EDIT --> ICONIFY
-    EXPORT --> EXPORT_OUT([pptxgenjs builds .pptx])
+    EXPORT --> EXPORT_OUT(["pptxgenjs builds .pptx"])
     ICON --> ICONIFY
 
     UI -->|"deck JSON"| PDF
-    PDF --> PDF_OUT([Downloaded .pdf])
+    PDF --> PDF_OUT(["Downloaded .pdf"])
 
     UI <-->|"sign in / events"| AUTH
     AUTH --> FB_DB
