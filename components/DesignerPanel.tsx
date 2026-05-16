@@ -1,8 +1,9 @@
 "use client";
-import type { Slide, SlideLayout, UploadedImage } from "@/lib/types";
+import type { Slide, SlideLayout, UploadedImage, Deck } from "@/lib/types";
 import type { Theme } from "@/lib/themes";
 import { Eye, Layout, Palette, Shapes, Trash2 } from "lucide-react";
 import { getDecoration } from "@/lib/decorations";
+import StyleVariants from "./StyleVariants";
 
 const LAYOUT_OPTIONS: { id: SlideLayout; label: string }[] = [
   { id: "title-hero", label: "Title hero" },
@@ -24,12 +25,14 @@ const ELEMENTS: { id: keyof NonNullable<Slide["elementHidden"]>; label: string }
 ];
 
 export default function DesignerPanel({
-  slide, theme, onUpdate,
+  slide, theme, deck, onUpdate, onReplace,
   selectedImageId, onDeselectImage,
 }: {
   slide: Slide;
   theme: Theme;
+  deck: Deck;
   onUpdate: (patch: Partial<Slide>) => void;
+  onReplace?: (next: Slide) => void;
   selectedImageId?: string | null;
   onDeselectImage?: () => void;
 }) {
@@ -57,7 +60,25 @@ export default function DesignerPanel({
   const hidden = ELEMENTS.filter((e) => slide.elementHidden?.[e.id]);
 
   return (
-    <aside className="flex h-full flex-col gap-5 overflow-y-auto border-l border-white/10 bg-zinc-950/60 p-4">
+    <aside className="flex max-h-[calc(100vh-160px)] flex-col gap-5 overflow-y-auto border-l border-white/10 bg-zinc-950/60 p-4">
+      <StyleVariants
+        slide={slide}
+        deck={deck}
+        theme={theme}
+        onApply={(next) => {
+          if (onReplace) onReplace(next);
+          else onUpdate({
+            titleVariant: next.titleVariant,
+            bulletsVariant: next.bulletsVariant,
+            twoColumnVariant: next.twoColumnVariant,
+            tableVariant: next.tableVariant,
+            quoteVariant: next.quoteVariant,
+            sectionVariant: next.sectionVariant,
+            closingVariant: next.closingVariant,
+          });
+        }}
+      />
+
       <div>
         <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-wider text-white/50">
           <Layout size={12} /> Layout
@@ -188,7 +209,7 @@ function GraphicPanel({
     dec?.name || "Uploaded image";
 
   return (
-    <aside className="flex h-full flex-col gap-5 overflow-y-auto border-l border-white/10 bg-zinc-950/60 p-4">
+    <aside className="flex max-h-[calc(100vh-160px)] flex-col gap-5 overflow-y-auto border-l border-white/10 bg-zinc-950/60 p-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-white/50">
           <Shapes size={12} /> {headerLabel}

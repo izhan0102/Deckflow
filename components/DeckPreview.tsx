@@ -53,7 +53,11 @@ export default function DeckPreview({ deck, setDeck, theme, onRestart }: Props) 
 
   const enrichedSlides = useMemo(() => {
     return deck.slides.map((s) =>
-      s.layout === "references" ? { ...s, references: deck.references || [] } : s,
+      s.layout === "references"
+        // Only fall back to deck-level references when the slide hasn't
+        // started owning its own list (so inline edits stick).
+        ? { ...s, references: s.references && s.references.length ? s.references : (deck.references || []) }
+        : s,
     );
   }, [deck.slides, deck.references]);
 
@@ -301,7 +305,9 @@ export default function DeckPreview({ deck, setDeck, theme, onRestart }: Props) 
           <DesignerPanel
             slide={deck.slides[active]}
             theme={theme}
+            deck={deck}
             onUpdate={updateActive}
+            onReplace={replaceActive}
             selectedImageId={selectedImageId}
             onDeselectImage={() => setSelectedImageId(null)}
           />

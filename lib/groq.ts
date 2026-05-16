@@ -38,6 +38,13 @@ Schema:
       "bullets": string[],
       "body": string,
       "table": { "headers": string[], "rows": [ string[] ], "source": string },
+      "kicker": string,         // OPTIONAL. ONLY for the first "title-hero" slide. Short uppercase context line shown above the title (e.g. "Q3 INVESTOR UPDATE", "INTRO LECTURE", "INTERNAL TRAINING"). 2-5 words, always uppercase. If you don't have a strong one, omit.
+      "titleVariant": "centered" | "asymmetric" | "big-initial" | "numbered" | "underlined",  // OPTIONAL. ONLY for "title-hero". Pick one based on tone:
+                                //   "centered"     - safe / academic / corporate (default)
+                                //   "asymmetric"   - editorial / pitch / brand-forward
+                                //   "big-initial"  - creative / story-driven
+                                //   "numbered"     - report / quarterly / chapter feel
+                                //   "underlined"   - confident / single-statement
       "notes": string
     }
   ]
@@ -45,6 +52,9 @@ Schema:
 
 Layout rules — pick the layout that fits the content:
 - "title-hero":  opening slide.
+  - ALWAYS set "kicker" (short uppercase context line, e.g. "Q3 INVESTOR UPDATE") and "titleVariant".
+  - Vary the variant based on tone: pick "asymmetric" for pitches/brand decks, "numbered" for reports/quarterly updates, "big-initial" for stories/keynotes, "underlined" for single-statement bold openings, "centered" only if the topic is academic or formal.
+  - DO NOT default to "centered" — most decks should use one of the other four.
 - "bullets":     3-6 bullets. Default content slide. NEVER leave bullets empty.
 - "table":       data, metrics, comparisons, numbers. Always include "source".
 - "two-column":  qualitative comparison without numbers.
@@ -282,6 +292,13 @@ export async function generateDeck(opts: {
       body: s.body ? clean(s.body) : undefined,
       table: cleanTable(s.table),
       notes: s.notes ? clean(s.notes) : undefined,
+      kicker: s.kicker ? clean(s.kicker).toUpperCase().slice(0, 60) : undefined,
+      titleVariant:
+        s.titleVariant === "asymmetric"  ? "asymmetric"  :
+        s.titleVariant === "big-initial" ? "big-initial" :
+        s.titleVariant === "numbered"    ? "numbered"    :
+        s.titleVariant === "underlined"  ? "underlined"  :
+        s.titleVariant === "centered"    ? "centered"    : undefined,
       annotations: [],
     };
   });

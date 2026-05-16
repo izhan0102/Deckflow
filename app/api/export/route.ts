@@ -98,6 +98,17 @@ function applyGraphicBg(s: PptxGenJS.Slide, theme: Theme, deck: Deck) {
 async function renderTitleHero(
   pptx: PptxGenJS, deck: Deck, slide: Slide, theme: Theme,
 ): Promise<PptxGenJS.Slide> {
+  const variant = slide.titleVariant || "centered";
+  if (variant === "asymmetric")  return renderTitleAsymmetric(pptx, deck, slide, theme);
+  if (variant === "big-initial") return renderTitleBigInitial(pptx, deck, slide, theme);
+  if (variant === "numbered")    return renderTitleNumbered(pptx, deck, slide, theme);
+  if (variant === "underlined")  return renderTitleUnderlined(pptx, deck, slide, theme);
+  return renderTitleCentered(pptx, deck, slide, theme);
+}
+
+async function renderTitleCentered(
+  pptx: PptxGenJS, deck: Deck, slide: Slide, theme: Theme,
+): Promise<PptxGenJS.Slide> {
   const s = pptx.addSlide();
   s.background = { color: hex(theme.bg) };
   applyGraphicBg(s, theme, deck);
@@ -105,6 +116,13 @@ async function renderTitleHero(
   const title = slide.title || deck.title;
   const sub = slide.subtitle || deck.subtitle || "";
 
+  if (slide.kicker) {
+    s.addText(slide.kicker, {
+      x: PAD, y: 2.2, w: W - 2 * PAD, h: 0.4,
+      fontSize: 11, bold: true, color: hex(theme.accent),
+      charSpacing: 4, fontFace: fontFor(theme, slide), align: "center",
+    });
+  }
   if (!isHidden(slide, "title")) {
     const o = offset(slide, "title");
     s.addText(title, {
@@ -119,8 +137,176 @@ async function renderTitleHero(
     s.addText(sub, {
       x: PAD + o.dx, y: H / 2 + 0.6 + o.dy, w: W - 2 * PAD, h: 0.8,
       fontSize: subtitleSize(sub, "title-hero", slide),
+      color: hex(theme.muted),
+      fontFace: fontFor(theme, slide), align: "center", valign: "top",
+    });
+  }
+  if (slide.notes) s.addNotes(slide.notes);
+  return s;
+}
+
+async function renderTitleAsymmetric(
+  pptx: PptxGenJS, deck: Deck, slide: Slide, theme: Theme,
+): Promise<PptxGenJS.Slide> {
+  const s = pptx.addSlide();
+  s.background = { color: hex(theme.bg) };
+  applyGraphicBg(s, theme, deck);
+
+  const panelW = W * 0.42;
+  s.addShape("rect", {
+    x: 0, y: 0, w: panelW, h: H,
+    fill: { color: hex(theme.accent) }, line: { color: hex(theme.accent), width: 0 },
+  });
+
+  const title = slide.title || deck.title;
+  const sub = slide.subtitle || deck.subtitle || "";
+  const textX = panelW + 0.4;
+  const textW = W - textX - PAD;
+
+  if (slide.kicker) {
+    s.addText(slide.kicker, {
+      x: textX, y: 0.6, w: textW, h: 0.4,
+      fontSize: 10, bold: true, color: hex(theme.muted),
+      charSpacing: 5, fontFace: fontFor(theme, slide),
+    });
+  }
+  s.addText(title, {
+    x: textX, y: H * 0.30, w: textW, h: 2.4,
+    fontSize: titleSize(title, "title-hero", slide), bold: true,
+    color: hex(theme.fg), fontFace: fontFor(theme, slide),
+    valign: "top",
+  });
+  if (sub) {
+    s.addText(sub, {
+      x: textX, y: H * 0.62, w: textW, h: 1.2,
+      fontSize: subtitleSize(sub, "title-hero", slide),
       color: hex(theme.muted), fontFace: fontFor(theme, slide),
-      align: "center", valign: "top",
+      valign: "top",
+    });
+  }
+  s.addText("DECKFLOW", {
+    x: 0.6, y: H - 0.7, w: panelW - 1, h: 0.4,
+    fontSize: 10, bold: true, color: hex(theme.bg),
+    charSpacing: 5, fontFace: fontFor(theme, slide),
+  });
+  if (slide.notes) s.addNotes(slide.notes);
+  return s;
+}
+
+async function renderTitleBigInitial(
+  pptx: PptxGenJS, deck: Deck, slide: Slide, theme: Theme,
+): Promise<PptxGenJS.Slide> {
+  const s = pptx.addSlide();
+  s.background = { color: hex(theme.bg) };
+  applyGraphicBg(s, theme, deck);
+
+  const title = slide.title || deck.title;
+  const sub = slide.subtitle || deck.subtitle || "";
+  const initial = (title || "D").trim().charAt(0).toUpperCase();
+
+  s.addText(initial, {
+    x: 0.4, y: -0.6, w: 7, h: 7.6,
+    fontSize: 360, bold: true, color: hex(theme.accent),
+    transparency: 82, fontFace: fontFor(theme, slide),
+  } as any);
+
+  if (slide.kicker) {
+    s.addText(slide.kicker, {
+      x: PAD, y: 2.4, w: W - 2 * PAD, h: 0.4,
+      fontSize: 10, bold: true, color: hex(theme.accent),
+      charSpacing: 6, fontFace: fontFor(theme, slide),
+    });
+  }
+  s.addText(title, {
+    x: PAD, y: 3.0, w: W - 2 * PAD, h: 2.0,
+    fontSize: titleSize(title, "title-hero", slide), bold: true,
+    color: hex(theme.fg), fontFace: fontFor(theme, slide),
+    valign: "top",
+  });
+  if (sub) {
+    s.addText(sub, {
+      x: PAD, y: 5.2, w: W - 2 * PAD, h: 1.2,
+      fontSize: subtitleSize(sub, "title-hero", slide),
+      color: hex(theme.muted), fontFace: fontFor(theme, slide),
+    });
+  }
+  if (slide.notes) s.addNotes(slide.notes);
+  return s;
+}
+
+async function renderTitleNumbered(
+  pptx: PptxGenJS, deck: Deck, slide: Slide, theme: Theme,
+): Promise<PptxGenJS.Slide> {
+  const s = pptx.addSlide();
+  s.background = { color: hex(theme.bg) };
+  applyGraphicBg(s, theme, deck);
+
+  const title = slide.title || deck.title;
+  const sub = slide.subtitle || deck.subtitle || "";
+  const numMatch = (slide.kicker || "").match(/\b(20\d{2}|Q[1-4]|\d{2,4})\b/);
+  const big = numMatch?.[0] || "01";
+  const restKicker = (slide.kicker || "").replace(big, "").trim();
+
+  s.addText(big, {
+    x: PAD, y: 1.5, w: 6, h: 2,
+    fontSize: 120, bold: true, color: hex(theme.accent),
+    fontFace: fontFor(theme, slide),
+  });
+  if (restKicker) {
+    s.addText(restKicker.toUpperCase(), {
+      x: PAD, y: 3.6, w: W - 2 * PAD, h: 0.4,
+      fontSize: 11, bold: true, color: hex(theme.muted),
+      charSpacing: 5, fontFace: fontFor(theme, slide),
+    });
+  }
+  s.addText(title, {
+    x: PAD, y: 4.2, w: W - 2 * PAD, h: 1.6,
+    fontSize: titleSize(title, "title-hero", slide), bold: true,
+    color: hex(theme.fg), fontFace: fontFor(theme, slide),
+  });
+  if (sub) {
+    s.addText(sub, {
+      x: PAD, y: 6.1, w: W - 2 * PAD, h: 0.8,
+      fontSize: subtitleSize(sub, "title-hero", slide),
+      color: hex(theme.muted), fontFace: fontFor(theme, slide),
+    });
+  }
+  if (slide.notes) s.addNotes(slide.notes);
+  return s;
+}
+
+async function renderTitleUnderlined(
+  pptx: PptxGenJS, deck: Deck, slide: Slide, theme: Theme,
+): Promise<PptxGenJS.Slide> {
+  const s = pptx.addSlide();
+  s.background = { color: hex(theme.bg) };
+  applyGraphicBg(s, theme, deck);
+
+  const title = slide.title || deck.title;
+  const sub = slide.subtitle || deck.subtitle || "";
+
+  if (slide.kicker) {
+    s.addText(slide.kicker, {
+      x: PAD, y: 2.0, w: W - 2 * PAD, h: 0.4,
+      fontSize: 11, bold: true, color: hex(theme.accent),
+      charSpacing: 6, fontFace: fontFor(theme, slide),
+    });
+  }
+  s.addText(title, {
+    x: PAD, y: 2.6, w: W - 2 * PAD, h: 1.8,
+    fontSize: titleSize(title, "title-hero", slide), bold: true,
+    color: hex(theme.fg), fontFace: fontFor(theme, slide),
+  });
+  // Heavy accent underline
+  s.addShape("rect", {
+    x: PAD, y: 4.7, w: 2.5, h: 0.12,
+    fill: { color: hex(theme.accent) }, line: { color: hex(theme.accent), width: 0 },
+  });
+  if (sub) {
+    s.addText(sub, {
+      x: PAD, y: 5.0, w: W * 0.7, h: 1.6,
+      fontSize: subtitleSize(sub, "title-hero", slide),
+      color: hex(theme.muted), fontFace: fontFor(theme, slide),
     });
   }
   if (slide.notes) s.addNotes(slide.notes);

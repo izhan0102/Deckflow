@@ -122,7 +122,7 @@ export default function SlideCanvas({
         selectedImageId={selectedImageId}
         onSelectImage={onSelectImage}
       />
-      <AnnotationLayer slide={slide} theme={effective} />
+      <AnnotationLayer slide={slide} theme={effective} interactive={interactive} onUpdate={onUpdate} />
     </div>
   );
 }
@@ -237,12 +237,24 @@ function Movable({
   const showControls = interactive && (hover || menuOpen);
   const currentSize = explicitFontSize(slide, id);
 
+  const onContextMenu = (e: React.MouseEvent) => {
+    if (!interactive || !onUpdate) return;
+    // Don't hijack the browser context menu while the user is editing text —
+    // they may want copy/paste/spellcheck.
+    const target = e.target as HTMLElement;
+    if (target.isContentEditable) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setMenuOpen(true);
+  };
+
   return (
     <div
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
+      onContextMenu={onContextMenu}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
@@ -364,13 +376,36 @@ function Movable({
 
 /* --------------------------------- Layouts -------------------------------- */
 
-function TitleHero({ slide, theme, deckTitle, interactive, onUpdate, canvasRef }: any) {
+function TitleHero(props: any) {
+  const { slide } = props;
+  const variant = slide.titleVariant || "centered";
+  if (variant === "asymmetric")  return <TitleHeroAsymmetric {...props} />;
+  if (variant === "big-initial") return <TitleHeroBigInitial {...props} />;
+  if (variant === "numbered")    return <TitleHeroNumbered {...props} />;
+  if (variant === "underlined")  return <TitleHeroUnderlined {...props} />;
+  return <TitleHeroCentered {...props} />;
+}
+
+function TitleHeroCentered({ slide, theme, deckTitle, interactive, onUpdate, canvasRef }: any) {
   const title = slide.title || deckTitle;
   const sub = slide.subtitle || "";
   return (
     <>
+      {slide.kicker && (
+        <Movable id="subtitle" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+          baseStyle={{ position: "absolute", left: "8%", right: "8%", top: "30%", textAlign: "center" }}
+        >
+          <div style={{ fontSize: pt(11), letterSpacing: "0.18em", color: theme.accent, fontWeight: 600 }}>
+            <EditableText
+              value={slide.kicker}
+              interactive={interactive}
+              onCommit={(v) => onUpdate?.({ kicker: v })}
+            />
+          </div>
+        </Movable>
+      )}
       <Movable id="title" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
-        baseStyle={{ position: "absolute", left: "8%", right: "8%", top: "38%", textAlign: "center" }}
+        baseStyle={{ position: "absolute", left: "8%", right: "8%", top: "40%", textAlign: "center" }}
       >
         <div style={{
           fontSize: pt(titleSize(title, "title-hero", slide)),
@@ -385,12 +420,244 @@ function TitleHero({ slide, theme, deckTitle, interactive, onUpdate, canvasRef }
       </Movable>
       {sub && (
         <Movable id="subtitle" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
-          baseStyle={{ position: "absolute", left: "12%", right: "12%", top: "58%", textAlign: "center" }}
+          baseStyle={{ position: "absolute", left: "12%", right: "12%", top: "60%", textAlign: "center" }}
         >
           <div style={{
             fontSize: pt(subtitleSize(sub, "title-hero", slide)),
             color: theme.muted,
           }}>
+            <EditableText
+              value={sub}
+              interactive={interactive}
+              onCommit={(v) => onUpdate?.({ subtitle: v })}
+            />
+          </div>
+        </Movable>
+      )}
+    </>
+  );
+}
+
+function TitleHeroAsymmetric({ slide, theme, deckTitle, interactive, onUpdate, canvasRef }: any) {
+  const title = slide.title || deckTitle;
+  const sub = slide.subtitle || "";
+  return (
+    <>
+      {/* Half-bleed accent panel */}
+      <div style={{
+        position: "absolute", left: 0, top: 0, height: "100%", width: "42%",
+        background: theme.accent,
+      }} />
+      {/* Kicker top-right */}
+      {slide.kicker && (
+        <div style={{
+          position: "absolute", left: "46%", top: inches(0.6),
+          fontSize: pt(10), letterSpacing: "0.2em", color: theme.muted, fontWeight: 600,
+        }}>
+          <EditableText
+            value={slide.kicker}
+            interactive={interactive}
+            onCommit={(v) => onUpdate?.({ kicker: v })}
+          />
+        </div>
+      )}
+      <Movable id="title" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{ position: "absolute", left: "46%", right: "6%", top: "30%" }}
+      >
+        <div style={{
+          fontSize: pt(titleSize(title, "title-hero", slide)),
+          fontWeight: 800, lineHeight: 1.05, color: theme.fg,
+        }}>
+          <EditableText
+            value={title}
+            interactive={interactive}
+            onCommit={(v) => onUpdate?.({ title: v })}
+          />
+        </div>
+      </Movable>
+      {sub && (
+        <Movable id="subtitle" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+          baseStyle={{ position: "absolute", left: "46%", right: "6%", top: "62%" }}
+        >
+          <div style={{ fontSize: pt(subtitleSize(sub, "title-hero", slide)), color: theme.muted, lineHeight: 1.4 }}>
+            <EditableText
+              value={sub}
+              interactive={interactive}
+              onCommit={(v) => onUpdate?.({ subtitle: v })}
+            />
+          </div>
+        </Movable>
+      )}
+      {/* Decorative chip on the accent panel */}
+      <div style={{
+        position: "absolute", left: inches(0.6), bottom: inches(0.6),
+        fontSize: pt(10), color: theme.bg, opacity: 0.85, letterSpacing: "0.18em", fontWeight: 600,
+      }}>
+        DECKFLOW
+      </div>
+    </>
+  );
+}
+
+function TitleHeroBigInitial({ slide, theme, deckTitle, interactive, onUpdate, canvasRef }: any) {
+  const title = slide.title || deckTitle;
+  const sub = slide.subtitle || "";
+  const initial = (title || "D").trim().charAt(0).toUpperCase();
+  return (
+    <>
+      {/* Massive initial cap, centered behind the text */}
+      <div style={{
+        position: "absolute", left: "4%", top: "-6%",
+        fontSize: pt(360), fontWeight: 900, lineHeight: 1,
+        color: theme.accent, opacity: 0.18,
+      }}>
+        {initial}
+      </div>
+      {slide.kicker && (
+        <div style={{
+          position: "absolute", left: "10%", top: "32%",
+          fontSize: pt(10), letterSpacing: "0.22em", color: theme.accent, fontWeight: 700,
+        }}>
+          <EditableText
+            value={slide.kicker}
+            interactive={interactive}
+            onCommit={(v) => onUpdate?.({ kicker: v })}
+          />
+        </div>
+      )}
+      <Movable id="title" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{ position: "absolute", left: "10%", right: "10%", top: "42%" }}
+      >
+        <div style={{
+          fontSize: pt(titleSize(title, "title-hero", slide)),
+          fontWeight: 800, lineHeight: 1.05, color: theme.fg,
+        }}>
+          <EditableText
+            value={title}
+            interactive={interactive}
+            onCommit={(v) => onUpdate?.({ title: v })}
+          />
+        </div>
+      </Movable>
+      {sub && (
+        <Movable id="subtitle" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+          baseStyle={{ position: "absolute", left: "10%", right: "10%", top: "70%" }}
+        >
+          <div style={{ fontSize: pt(subtitleSize(sub, "title-hero", slide)), color: theme.muted }}>
+            <EditableText
+              value={sub}
+              interactive={interactive}
+              onCommit={(v) => onUpdate?.({ subtitle: v })}
+            />
+          </div>
+        </Movable>
+      )}
+    </>
+  );
+}
+
+function TitleHeroNumbered({ slide, theme, deckTitle, interactive, onUpdate, canvasRef }: any) {
+  const title = slide.title || deckTitle;
+  const sub = slide.subtitle || "";
+  // If kicker contains a year/number we show it big; otherwise show "01".
+  const numMatch = (slide.kicker || "").match(/\b(20\d{2}|Q[1-4]|\d{2,4})\b/);
+  const big = numMatch?.[0] || "01";
+  const restKicker = (slide.kicker || "").replace(big, "").trim();
+  return (
+    <>
+      <div style={{
+        position: "absolute", left: "8%", top: "20%",
+        fontSize: pt(120), fontWeight: 900, lineHeight: 1,
+        color: theme.accent, letterSpacing: "-0.02em",
+      }}>
+        {big}
+      </div>
+      {(restKicker || interactive) && (
+        <div style={{
+          position: "absolute", left: "8%", top: "48%",
+          fontSize: pt(11), letterSpacing: "0.2em", color: theme.muted, fontWeight: 600,
+          textTransform: "uppercase",
+        }}>
+          <EditableText
+            value={slide.kicker || ""}
+            interactive={interactive}
+            onCommit={(v) => onUpdate?.({ kicker: v })}
+          />
+        </div>
+      )}
+      <Movable id="title" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{ position: "absolute", left: "8%", right: "8%", top: "56%" }}
+      >
+        <div style={{
+          fontSize: pt(titleSize(title, "title-hero", slide)),
+          fontWeight: 800, lineHeight: 1.05, color: theme.fg,
+        }}>
+          <EditableText
+            value={title}
+            interactive={interactive}
+            onCommit={(v) => onUpdate?.({ title: v })}
+          />
+        </div>
+      </Movable>
+      {sub && (
+        <Movable id="subtitle" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+          baseStyle={{ position: "absolute", left: "8%", right: "8%", top: "82%" }}
+        >
+          <div style={{ fontSize: pt(subtitleSize(sub, "title-hero", slide)), color: theme.muted }}>
+            <EditableText
+              value={sub}
+              interactive={interactive}
+              onCommit={(v) => onUpdate?.({ subtitle: v })}
+            />
+          </div>
+        </Movable>
+      )}
+    </>
+  );
+}
+
+function TitleHeroUnderlined({ slide, theme, deckTitle, interactive, onUpdate, canvasRef }: any) {
+  const title = slide.title || deckTitle;
+  const sub = slide.subtitle || "";
+  return (
+    <>
+      {slide.kicker && (
+        <div style={{
+          position: "absolute", left: "8%", top: "26%",
+          fontSize: pt(11), letterSpacing: "0.22em", color: theme.accent, fontWeight: 700,
+        }}>
+          <EditableText
+            value={slide.kicker}
+            interactive={interactive}
+            onCommit={(v) => onUpdate?.({ kicker: v })}
+          />
+        </div>
+      )}
+      <Movable id="title" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{ position: "absolute", left: "8%", right: "8%", top: "34%" }}
+      >
+        <div style={{
+          fontSize: pt(titleSize(title, "title-hero", slide)),
+          fontWeight: 800, lineHeight: 1.05, color: theme.fg,
+        }}>
+          <EditableText
+            value={title}
+            interactive={interactive}
+            onCommit={(v) => onUpdate?.({ title: v })}
+          />
+        </div>
+      </Movable>
+      {/* Heavy accent rule under the title */}
+      <div style={{
+        position: "absolute", left: "8%",
+        top: "62%", width: inches(2.5), height: pt(8),
+        background: theme.accent,
+      }} />
+      {sub && (
+        <Movable id="subtitle" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+          baseStyle={{ position: "absolute", left: "8%", right: "8%", top: "70%" }}
+        >
+          <div style={{ fontSize: pt(subtitleSize(sub, "title-hero", slide)), color: theme.muted, maxWidth: "80%" }}>
             <EditableText
               value={sub}
               interactive={interactive}
@@ -446,8 +713,17 @@ function ContentTitle({ slide, theme, interactive, onUpdate, canvasRef }: any) {
 }
 
 function Bullets(props: any) {
+  const { slide } = props;
+  const variant = slide.bulletsVariant || "standard";
+  if (variant === "numbered")  return <BulletsNumbered {...props} />;
+  if (variant === "cards")     return <BulletsCards {...props} />;
+  if (variant === "icon-check") return <BulletsIconCheck {...props} />;
+  if (variant === "dashed")    return <BulletsDashed {...props} />;
+  return <BulletsStandard {...props} />;
+}
+
+function BulletsStandard(props: any) {
   const { slide, theme, idx, total, deckTitle, interactive, onUpdate, canvasRef } = props;
-  const bulletText = (slide.bullets || []).join("\n");
   return (
     <>
       <AccentBar theme={theme} />
@@ -465,6 +741,165 @@ function Bullets(props: any) {
             const next = text.split("\n").map((b) => b.trim()).filter(Boolean);
             onUpdate?.({ bullets: next });
           }}
+          renderMarker={(_b, i) => (
+            <span style={{ color: theme.accent, fontWeight: 700 }}>•</span>
+          )}
+        />
+      </Movable>
+      <Footer theme={theme} deckTitle={deckTitle} idx={idx} total={total} />
+    </>
+  );
+}
+
+function BulletsNumbered(props: any) {
+  const { slide, theme, idx, total, deckTitle, interactive, onUpdate, canvasRef } = props;
+  return (
+    <>
+      <AccentBar theme={theme} />
+      <ContentTitle {...props} />
+      <Movable id="bullets" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{ position: "absolute", left: inches(0.6), top: inches(2.6), right: inches(0.6) }}
+      >
+        <BulletList
+          interactive={interactive}
+          theme={theme}
+          slide={slide}
+          fontSize={pt(bulletSize(slide.bullets?.length || 0, slide))}
+          bullets={slide.bullets || []}
+          onCommit={(text) => {
+            const next = text.split("\n").map((b) => b.trim()).filter(Boolean);
+            onUpdate?.({ bullets: next });
+          }}
+          renderMarker={(_b, i) => (
+            <span style={{
+              color: theme.bg, background: theme.accent,
+              fontWeight: 800,
+              minWidth: pt(22), height: pt(22),
+              display: "inline-grid", placeItems: "center",
+              borderRadius: pt(11), fontSize: pt(11),
+            }}>{String(i + 1).padStart(2, "0")}</span>
+          )}
+        />
+      </Movable>
+      <Footer theme={theme} deckTitle={deckTitle} idx={idx} total={total} />
+    </>
+  );
+}
+
+function BulletsCards(props: any) {
+  const { slide, theme, idx, total, deckTitle, interactive, onUpdate, canvasRef } = props;
+  const bullets: string[] = slide.bullets || [];
+  const cols = bullets.length <= 4 ? 2 : 3;
+  const editBullet = (i: number, value: string) => {
+    const next = [...bullets];
+    next[i] = value;
+    onUpdate?.({ bullets: next });
+  };
+  return (
+    <>
+      <AccentBar theme={theme} />
+      <ContentTitle {...props} />
+      <Movable id="bullets" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{ position: "absolute", left: inches(0.6), top: inches(2.6), right: inches(0.6) }}
+      >
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: `repeat(${cols}, 1fr)`,
+          gap: pt(12),
+          fontSize: pt(bulletSize(bullets.length, slide)),
+          color: theme.fg,
+        }}>
+          {bullets.map((b, i) => (
+            <div key={i} style={{
+              padding: pt(14),
+              borderRadius: pt(8),
+              border: `1px solid ${theme.muted}33`,
+              background: `${theme.accent}0d`,
+              borderLeft: `3px solid ${theme.accent}`,
+              lineHeight: 1.4,
+            }}>
+              <div style={{ color: theme.accent, fontSize: pt(10), letterSpacing: "0.18em", fontWeight: 700, marginBottom: pt(6) }}>
+                {String(i + 1).padStart(2, "0")}
+              </div>
+              <EditableText
+                value={b}
+                interactive={interactive}
+                onCommit={(v) => editBullet(i, v)}
+              />
+            </div>
+          ))}
+        </div>
+      </Movable>
+      <Footer theme={theme} deckTitle={deckTitle} idx={idx} total={total} />
+    </>
+  );
+}
+
+function BulletsIconCheck(props: any) {
+  const { slide, theme, idx, total, deckTitle, interactive, onUpdate, canvasRef } = props;
+  return (
+    <>
+      <AccentBar theme={theme} />
+      <ContentTitle {...props} />
+      <Movable id="bullets" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{ position: "absolute", left: inches(0.6), top: inches(2.6), right: inches(0.6) }}
+      >
+        <BulletList
+          interactive={interactive}
+          theme={theme}
+          slide={slide}
+          fontSize={pt(bulletSize(slide.bullets?.length || 0, slide))}
+          bullets={slide.bullets || []}
+          onCommit={(text) => {
+            const next = text.split("\n").map((b) => b.trim()).filter(Boolean);
+            onUpdate?.({ bullets: next });
+          }}
+          renderMarker={() => (
+            <span style={{
+              minWidth: pt(18), height: pt(18),
+              display: "inline-grid", placeItems: "center",
+              borderRadius: "50%",
+              border: `1.5px solid ${theme.accent}`,
+              color: theme.accent,
+              fontSize: pt(11), fontWeight: 800,
+              lineHeight: 1,
+            }}>✓</span>
+          )}
+        />
+      </Movable>
+      <Footer theme={theme} deckTitle={deckTitle} idx={idx} total={total} />
+    </>
+  );
+}
+
+function BulletsDashed(props: any) {
+  const { slide, theme, idx, total, deckTitle, interactive, onUpdate, canvasRef } = props;
+  return (
+    <>
+      <AccentBar theme={theme} />
+      <ContentTitle {...props} />
+      <Movable id="bullets" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{ position: "absolute", left: inches(0.6), top: inches(2.6), right: inches(0.6) }}
+      >
+        <BulletList
+          interactive={interactive}
+          theme={theme}
+          slide={slide}
+          fontSize={pt(bulletSize(slide.bullets?.length || 0, slide))}
+          bullets={slide.bullets || []}
+          onCommit={(text) => {
+            const next = text.split("\n").map((b) => b.trim()).filter(Boolean);
+            onUpdate?.({ bullets: next });
+          }}
+          renderMarker={() => (
+            <span style={{
+              display: "inline-block",
+              width: pt(14), height: pt(2),
+              background: theme.accent,
+              marginTop: pt(10),
+              borderRadius: pt(1),
+            }}/>
+          )}
         />
       </Movable>
       <Footer theme={theme} deckTitle={deckTitle} idx={idx} total={total} />
@@ -473,19 +908,23 @@ function Bullets(props: any) {
 }
 
 function BulletList({
-  interactive, theme, slide, fontSize, bullets, onCommit,
+  interactive, theme, slide, fontSize, bullets, onCommit, renderMarker,
 }: {
   interactive: boolean; theme: Theme; slide: Slide; fontSize: string;
   bullets: string[]; onCommit: (text: string) => void;
+  renderMarker?: (b: string, i: number) => React.ReactNode;
 }) {
+  const marker = renderMarker || ((_b: string, _i: number) => (
+    <span style={{ color: theme.accent, fontWeight: 700 }}>•</span>
+  ));
   return (
     <ul style={{
       margin: 0, padding: 0, listStyle: "none",
       fontSize, color: theme.fg, lineHeight: 1.5,
     }}>
       {bullets.map((b: string, i: number) => (
-        <li key={i} style={{ marginBottom: pt(12), display: "flex", gap: pt(10) }}>
-          <span style={{ color: theme.accent, fontWeight: 700 }}>•</span>
+        <li key={i} style={{ marginBottom: pt(12), display: "flex", gap: pt(10), alignItems: "flex-start" }}>
+          {marker(b, i)}
           <EditableText
             value={b}
             interactive={interactive}
@@ -503,6 +942,16 @@ function BulletList({
 }
 
 function TwoColumn(props: any) {
+  const { slide } = props;
+  const variant = slide.twoColumnVariant || "classic";
+  if (variant === "divider")  return <TwoColumnDivider {...props} />;
+  if (variant === "cards")    return <TwoColumnCards {...props} />;
+  if (variant === "numbered") return <TwoColumnNumbered {...props} />;
+  if (variant === "compare")  return <TwoColumnCompare {...props} />;
+  return <TwoColumnClassic {...props} />;
+}
+
+function TwoColumnClassic(props: any) {
   const { slide, theme, idx, total, deckTitle, interactive, onUpdate, canvasRef } = props;
   const all: string[] = slide.bullets || [];
   const half = Math.ceil(all.length / 2);
@@ -555,9 +1004,216 @@ function TwoColumn(props: any) {
   );
 }
 
+function TwoColumnDivider(props: any) {
+  const { slide, theme, idx, total, deckTitle, interactive, onUpdate, canvasRef } = props;
+  const all: string[] = slide.bullets || [];
+  const half = Math.ceil(all.length / 2);
+  const editBullet = (i: number, value: string) => {
+    const next = [...all]; next[i] = value; onUpdate?.({ bullets: next });
+  };
+  return (
+    <>
+      <AccentBar theme={theme} />
+      <ContentTitle {...props} />
+      {/* Vertical divider rule */}
+      <div style={{
+        position: "absolute", left: "50%", top: inches(2.7), bottom: inches(0.8),
+        width: pt(2), background: `${theme.accent}`,
+        opacity: 0.35,
+      }}/>
+      <Movable id="bullets" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{
+          position: "absolute", left: inches(0.6), top: inches(2.6), right: inches(0.6),
+          display: "grid", gridTemplateColumns: "1fr 1fr", gap: inches(0.7),
+          fontSize: pt(bulletSize(all.length, slide)), color: theme.fg, lineHeight: 1.5,
+        }}
+      >
+        <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
+          {all.slice(0, half).map((b, i) => (
+            <li key={i} style={{ marginBottom: pt(10), display: "flex", gap: pt(10) }}>
+              <span style={{ color: theme.accent }}>›</span>
+              <EditableText value={b} interactive={interactive} onCommit={(v) => editBullet(i, v)} style={{ flex: 1 }}/>
+            </li>
+          ))}
+        </ul>
+        <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
+          {all.slice(half).map((b, i) => (
+            <li key={i} style={{ marginBottom: pt(10), display: "flex", gap: pt(10) }}>
+              <span style={{ color: theme.accent }}>›</span>
+              <EditableText value={b} interactive={interactive} onCommit={(v) => editBullet(half + i, v)} style={{ flex: 1 }}/>
+            </li>
+          ))}
+        </ul>
+      </Movable>
+      <Footer theme={theme} deckTitle={deckTitle} idx={idx} total={total} />
+    </>
+  );
+}
+
+function TwoColumnCards(props: any) {
+  const { slide, theme, idx, total, deckTitle, interactive, onUpdate, canvasRef } = props;
+  const all: string[] = slide.bullets || [];
+  const half = Math.ceil(all.length / 2);
+  const editBullet = (i: number, value: string) => {
+    const next = [...all]; next[i] = value; onUpdate?.({ bullets: next });
+  };
+  const Col = ({ items, offset }: { items: string[]; offset: number }) => (
+    <div style={{
+      padding: pt(16), borderRadius: pt(10),
+      border: `1px solid ${theme.muted}33`,
+      background: `${theme.accent}08`,
+      lineHeight: 1.5,
+    }}>
+      {items.map((b, i) => (
+        <div key={i} style={{ marginBottom: pt(8), display: "flex", gap: pt(10) }}>
+          <span style={{ color: theme.accent, fontWeight: 700 }}>•</span>
+          <EditableText value={b} interactive={interactive} onCommit={(v) => editBullet(offset + i, v)} style={{ flex: 1 }}/>
+        </div>
+      ))}
+    </div>
+  );
+  return (
+    <>
+      <AccentBar theme={theme} />
+      <ContentTitle {...props} />
+      <Movable id="bullets" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{
+          position: "absolute", left: inches(0.6), top: inches(2.6), right: inches(0.6),
+          display: "grid", gridTemplateColumns: "1fr 1fr", gap: pt(14),
+          fontSize: pt(bulletSize(all.length, slide)), color: theme.fg,
+        }}
+      >
+        <Col items={all.slice(0, half)} offset={0} />
+        <Col items={all.slice(half)} offset={half} />
+      </Movable>
+      <Footer theme={theme} deckTitle={deckTitle} idx={idx} total={total} />
+    </>
+  );
+}
+
+function TwoColumnNumbered(props: any) {
+  const { slide, theme, idx, total, deckTitle, interactive, onUpdate, canvasRef } = props;
+  const all: string[] = slide.bullets || [];
+  const half = Math.ceil(all.length / 2);
+  const editBullet = (i: number, value: string) => {
+    const next = [...all]; next[i] = value; onUpdate?.({ bullets: next });
+  };
+  const numberMarker = (n: number) => (
+    <span style={{
+      color: theme.bg, background: theme.accent,
+      minWidth: pt(20), height: pt(20),
+      display: "inline-grid", placeItems: "center",
+      borderRadius: pt(10), fontSize: pt(10), fontWeight: 800,
+    }}>{n}</span>
+  );
+  return (
+    <>
+      <AccentBar theme={theme} />
+      <ContentTitle {...props} />
+      <Movable id="bullets" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{
+          position: "absolute", left: inches(0.6), top: inches(2.6), right: inches(0.6),
+          display: "grid", gridTemplateColumns: "1fr 1fr", gap: inches(0.6),
+          fontSize: pt(bulletSize(all.length, slide)), color: theme.fg, lineHeight: 1.5,
+        }}
+      >
+        <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
+          {all.slice(0, half).map((b, i) => (
+            <li key={i} style={{ marginBottom: pt(10), display: "flex", gap: pt(10), alignItems: "flex-start" }}>
+              {numberMarker(i + 1)}
+              <EditableText value={b} interactive={interactive} onCommit={(v) => editBullet(i, v)} style={{ flex: 1 }}/>
+            </li>
+          ))}
+        </ul>
+        <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
+          {all.slice(half).map((b, i) => (
+            <li key={i} style={{ marginBottom: pt(10), display: "flex", gap: pt(10), alignItems: "flex-start" }}>
+              {numberMarker(half + i + 1)}
+              <EditableText value={b} interactive={interactive} onCommit={(v) => editBullet(half + i, v)} style={{ flex: 1 }}/>
+            </li>
+          ))}
+        </ul>
+      </Movable>
+      <Footer theme={theme} deckTitle={deckTitle} idx={idx} total={total} />
+    </>
+  );
+}
+
+function TwoColumnCompare(props: any) {
+  const { slide, theme, idx, total, deckTitle, interactive, onUpdate, canvasRef } = props;
+  const all: string[] = slide.bullets || [];
+  const half = Math.ceil(all.length / 2);
+  const editBullet = (i: number, value: string) => {
+    const next = [...all]; next[i] = value; onUpdate?.({ bullets: next });
+  };
+  const Side = ({ items, offset, kind }: { items: string[]; offset: number; kind: "pro" | "con" }) => (
+    <div>
+      <div style={{
+        marginBottom: pt(10),
+        padding: `${pt(6)} ${pt(12)}`,
+        borderRadius: pt(6),
+        background: kind === "pro" ? `${theme.accent}22` : `${theme.muted}22`,
+        color: kind === "pro" ? theme.accent : theme.muted,
+        fontSize: pt(11), letterSpacing: "0.18em", fontWeight: 700,
+        textAlign: "center", textTransform: "uppercase",
+      }}>{kind === "pro" ? "Pros" : "Cons"}</div>
+      <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
+        {items.map((b, i) => (
+          <li key={i} style={{ marginBottom: pt(8), display: "flex", gap: pt(10), alignItems: "flex-start" }}>
+            <span style={{
+              color: kind === "pro" ? theme.accent : theme.muted,
+              fontWeight: 800, minWidth: pt(14),
+            }}>{kind === "pro" ? "✓" : "✕"}</span>
+            <EditableText value={b} interactive={interactive} onCommit={(v) => editBullet(offset + i, v)} style={{ flex: 1 }}/>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+  return (
+    <>
+      <AccentBar theme={theme} />
+      <ContentTitle {...props} />
+      <Movable id="bullets" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{
+          position: "absolute", left: inches(0.6), top: inches(2.6), right: inches(0.6),
+          display: "grid", gridTemplateColumns: "1fr 1fr", gap: inches(0.5),
+          fontSize: pt(bulletSize(all.length, slide)), color: theme.fg, lineHeight: 1.5,
+        }}
+      >
+        <Side items={all.slice(0, half)} offset={0} kind="pro" />
+        <Side items={all.slice(half)} offset={half} kind="con" />
+      </Movable>
+      <Footer theme={theme} deckTitle={deckTitle} idx={idx} total={total} />
+    </>
+  );
+}
+
 function TableLayout(props: any) {
   const { slide, theme, idx, total, deckTitle, interactive, onUpdate, canvasRef } = props;
   const t: TableData | undefined = slide.table;
+  const variant = slide.tableVariant || "zebra";
+  const updateHeader = (i: number, value: string) => {
+    if (!t || !onUpdate) return;
+    const headers = [...t.headers];
+    headers[i] = value;
+    onUpdate({ table: { ...t, headers } });
+  };
+  const updateCell = (ri: number, ci: number, value: string) => {
+    if (!t || !onUpdate) return;
+    const rows = t.rows.map((r, r2) =>
+      r2 === ri ? r.map((c, c2) => (c2 === ci ? value : c)) : r,
+    );
+    onUpdate({ table: { ...t, rows } });
+  };
+  const updateSource = (value: string) => {
+    if (!t || !onUpdate) return;
+    onUpdate({ table: { ...t, source: value } });
+  };
+
+  // Per-variant style toggles
+  const styles = tableStylesFor(variant, theme);
+
   return (
     <>
       <AccentBar theme={theme} />
@@ -571,37 +1227,56 @@ function TableLayout(props: any) {
               width: "100%", borderCollapse: "collapse",
               fontSize: pt(tableFontSize(t.rows.length, t.headers.length, slide)),
               color: theme.fg,
+              ...styles.table,
             }}>
               <thead>
-                <tr>
+                <tr style={styles.headRow}>
                   {t.headers.map((h, i) => (
                     <th key={i} style={{
                       textAlign: "left",
-                      padding: `${pt(8)} ${pt(10)}`,
-                      borderBottom: `1px solid ${theme.accent}`,
-                      color: theme.accent, fontWeight: 700, whiteSpace: "nowrap",
-                    }}>{h}</th>
+                      padding: styles.headPad,
+                      ...styles.headCell,
+                    }}>
+                      <EditableText
+                        value={h}
+                        interactive={interactive}
+                        onCommit={(v) => updateHeader(i, v)}
+                      />
+                    </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {t.rows.map((r, ri) => (
-                  <tr key={ri} style={{ background: ri % 2 === 1 ? `${theme.accent}0d` : "transparent" }}>
+                  <tr key={ri} style={styles.bodyRow(ri)}>
                     {r.map((c, ci) => (
                       <td key={ci} style={{
-                        padding: `${pt(7)} ${pt(10)}`,
-                        borderBottom: `1px solid ${theme.muted}33`,
-                      }}>{c}</td>
+                        padding: styles.bodyPad,
+                        ...styles.bodyCell,
+                      }}>
+                        <EditableText
+                          value={c}
+                          interactive={interactive}
+                          onCommit={(v) => updateCell(ri, ci, v)}
+                        />
+                      </td>
                     ))}
                   </tr>
                 ))}
               </tbody>
             </table>
-            {t.source && (
+            {(t.source || interactive) && (
               <div style={{
                 marginTop: pt(8), fontSize: pt(10),
                 color: theme.muted, fontStyle: "italic",
-              }}>Source: {t.source}</div>
+              }}>
+                Source:{" "}
+                <EditableText
+                  value={t.source || ""}
+                  interactive={interactive}
+                  onCommit={updateSource}
+                />
+              </div>
             )}
           </>
         ) : (
@@ -615,7 +1290,97 @@ function TableLayout(props: any) {
   );
 }
 
+function tableStylesFor(variant: string, theme: Theme) {
+  if (variant === "bordered") {
+    return {
+      table: { border: `1px solid ${theme.muted}55` },
+      headRow: { background: `${theme.accent}14` },
+      headCell: {
+        color: theme.accent, fontWeight: 700,
+        border: `1px solid ${theme.muted}55`,
+        whiteSpace: "nowrap" as const,
+      },
+      headPad: `${pt(8)} ${pt(10)}`,
+      bodyRow: () => ({}),
+      bodyCell: { border: `1px solid ${theme.muted}55` },
+      bodyPad: `${pt(7)} ${pt(10)}`,
+    };
+  }
+  if (variant === "minimal") {
+    return {
+      table: {},
+      headRow: {},
+      headCell: {
+        color: theme.muted, fontWeight: 700,
+        textTransform: "uppercase" as const, letterSpacing: "0.12em",
+        fontSize: "0.85em", whiteSpace: "nowrap" as const,
+      },
+      headPad: `${pt(6)} ${pt(8)}`,
+      bodyRow: () => ({}),
+      bodyCell: { borderBottom: `1px solid ${theme.muted}26` },
+      bodyPad: `${pt(8)} ${pt(8)}`,
+    };
+  }
+  if (variant === "accent-header") {
+    return {
+      table: {},
+      headRow: { background: theme.accent },
+      headCell: {
+        color: theme.bg, fontWeight: 800,
+        whiteSpace: "nowrap" as const,
+      },
+      headPad: `${pt(9)} ${pt(12)}`,
+      bodyRow: (i: number) => ({
+        background: i % 2 === 1 ? `${theme.accent}0d` : "transparent",
+      }),
+      bodyCell: { borderBottom: `1px solid ${theme.muted}33` },
+      bodyPad: `${pt(7)} ${pt(12)}`,
+    };
+  }
+  if (variant === "compact") {
+    return {
+      table: {},
+      headRow: {},
+      headCell: {
+        color: theme.accent, fontWeight: 700,
+        borderBottom: `1px solid ${theme.accent}`,
+        whiteSpace: "nowrap" as const,
+      },
+      headPad: `${pt(5)} ${pt(8)}`,
+      bodyRow: () => ({}),
+      bodyCell: { borderBottom: `1px solid ${theme.muted}1f` },
+      bodyPad: `${pt(4)} ${pt(8)}`,
+    };
+  }
+  // zebra (default)
+  return {
+    table: {},
+    headRow: {},
+    headCell: {
+      color: theme.accent, fontWeight: 700,
+      borderBottom: `1px solid ${theme.accent}`,
+      whiteSpace: "nowrap" as const,
+    },
+    headPad: `${pt(8)} ${pt(10)}`,
+    bodyRow: (i: number) => ({
+      background: i % 2 === 1 ? `${theme.accent}0d` : "transparent",
+    }),
+    bodyCell: { borderBottom: `1px solid ${theme.muted}33` },
+    bodyPad: `${pt(7)} ${pt(10)}`,
+  };
+}
+
 function Quote(props: any) {
+  const { slide } = props;
+  const variant = slide.quoteVariant || "giant-mark";
+  if (variant === "centered")  return <QuoteCentered {...props} />;
+  if (variant === "card")      return <QuoteCard {...props} />;
+  if (variant === "editorial") return <QuoteEditorial {...props} />;
+  if (variant === "stacked")   return <QuoteStacked {...props} />;
+  return <QuoteGiantMark {...props} />;
+}
+
+function QuoteGiantMark(props: any) {
   const { slide, theme, idx, total, deckTitle, interactive, onUpdate, canvasRef } = props;
   const quote = slide.body || slide.title;
   return (
@@ -631,20 +1396,11 @@ function Quote(props: any) {
           fontSize: pt(quoteSize(quote, slide)),
           fontWeight: 700, fontStyle: "italic", color: theme.fg, lineHeight: 1.2,
         }}>
-          <EditableText
-            value={quote}
-            multiline
-            interactive={interactive}
-            onCommit={(v) => onUpdate?.({ body: v })}
-          />
+          <EditableText value={quote} multiline interactive={interactive} onCommit={(v) => onUpdate?.({ body: v })}/>
         </div>
         {slide.subtitle && (
           <div style={{ marginTop: pt(14), fontSize: pt(16), color: theme.muted }}>
-            — <EditableText
-              value={slide.subtitle}
-              interactive={interactive}
-              onCommit={(v) => onUpdate?.({ subtitle: v })}
-            />
+            — <EditableText value={slide.subtitle} interactive={interactive} onCommit={(v) => onUpdate?.({ subtitle: v })}/>
           </div>
         )}
       </Movable>
@@ -653,7 +1409,156 @@ function Quote(props: any) {
   );
 }
 
-function Section({ slide, theme, interactive, onUpdate, canvasRef }: any) {
+function QuoteCentered(props: any) {
+  const { slide, theme, idx, total, deckTitle, interactive, onUpdate, canvasRef } = props;
+  const quote = slide.body || slide.title;
+  return (
+    <>
+      <Movable id="quote" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{ position: "absolute", left: "10%", right: "10%", top: "30%", textAlign: "center" }}
+      >
+        <div style={{
+          fontSize: pt(quoteSize(quote, slide)),
+          fontWeight: 600, fontStyle: "italic", color: theme.fg, lineHeight: 1.25,
+        }}>
+          <EditableText value={quote} multiline interactive={interactive} onCommit={(v) => onUpdate?.({ body: v })}/>
+        </div>
+        <div style={{
+          margin: `${pt(20)} auto 0`, width: pt(40), height: pt(2),
+          background: theme.accent,
+        }}/>
+        {slide.subtitle && (
+          <div style={{ marginTop: pt(14), fontSize: pt(13), color: theme.muted, letterSpacing: "0.18em", textTransform: "uppercase" }}>
+            <EditableText value={slide.subtitle} interactive={interactive} onCommit={(v) => onUpdate?.({ subtitle: v })}/>
+          </div>
+        )}
+      </Movable>
+      <Footer theme={theme} deckTitle={deckTitle} idx={idx} total={total} />
+    </>
+  );
+}
+
+function QuoteCard(props: any) {
+  const { slide, theme, idx, total, deckTitle, interactive, onUpdate, canvasRef } = props;
+  const quote = slide.body || slide.title;
+  return (
+    <>
+      <Movable id="quote" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{ position: "absolute", left: "12%", right: "12%", top: "22%" }}
+      >
+        <div style={{
+          padding: pt(28),
+          borderRadius: pt(14),
+          border: `1px solid ${theme.muted}33`,
+          background: `${theme.accent}10`,
+          borderLeft: `4px solid ${theme.accent}`,
+        }}>
+          <div style={{
+            fontSize: pt(quoteSize(quote, slide)),
+            fontWeight: 600, fontStyle: "italic", color: theme.fg, lineHeight: 1.25,
+          }}>
+            <EditableText value={quote} multiline interactive={interactive} onCommit={(v) => onUpdate?.({ body: v })}/>
+          </div>
+          {slide.subtitle && (
+            <div style={{ marginTop: pt(16), fontSize: pt(13), color: theme.accent, fontWeight: 700 }}>
+              — <EditableText value={slide.subtitle} interactive={interactive} onCommit={(v) => onUpdate?.({ subtitle: v })}/>
+            </div>
+          )}
+        </div>
+      </Movable>
+      <Footer theme={theme} deckTitle={deckTitle} idx={idx} total={total} />
+    </>
+  );
+}
+
+function QuoteEditorial(props: any) {
+  const { slide, theme, idx, total, deckTitle, interactive, onUpdate, canvasRef } = props;
+  const quote = slide.body || slide.title;
+  return (
+    <>
+      {/* Left rule */}
+      <div style={{
+        position: "absolute", left: inches(0.6), top: inches(1.4), bottom: inches(1.4),
+        width: pt(4), background: theme.accent,
+      }}/>
+      <Movable id="quote" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{ position: "absolute", left: inches(1.0), top: inches(1.6), right: inches(0.8) }}
+      >
+        <div style={{ color: theme.muted, fontSize: pt(11), letterSpacing: "0.22em", fontWeight: 700, marginBottom: pt(14) }}>
+          PULL QUOTE
+        </div>
+        <div style={{
+          fontSize: pt(quoteSize(quote, slide) * 1.05),
+          fontWeight: 700, color: theme.fg, lineHeight: 1.15,
+        }}>
+          <EditableText value={quote} multiline interactive={interactive} onCommit={(v) => onUpdate?.({ body: v })}/>
+        </div>
+        {slide.subtitle && (
+          <div style={{ marginTop: pt(18), fontSize: pt(13), color: theme.muted, fontStyle: "italic" }}>
+            — <EditableText value={slide.subtitle} interactive={interactive} onCommit={(v) => onUpdate?.({ subtitle: v })}/>
+          </div>
+        )}
+      </Movable>
+      <Footer theme={theme} deckTitle={deckTitle} idx={idx} total={total} />
+    </>
+  );
+}
+
+function QuoteStacked(props: any) {
+  const { slide, theme, idx, total, deckTitle, interactive, onUpdate, canvasRef } = props;
+  const quote = slide.body || slide.title;
+  // Split on hard line breaks for visual emphasis lines
+  const lines = (quote || "").split(/\n+/).filter(Boolean);
+  return (
+    <>
+      <Movable id="quote" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{ position: "absolute", left: "8%", right: "8%", top: "20%" }}
+      >
+        {lines.length > 1 ? (
+          <div>
+            {lines.map((ln: string, i: number) => (
+              <div key={i} style={{
+                fontSize: pt(quoteSize(quote, slide) * (i === 0 ? 1.15 : 0.85)),
+                fontWeight: i === 0 ? 800 : 600,
+                color: i === 0 ? theme.accent : theme.fg,
+                lineHeight: 1.05, marginBottom: pt(10),
+              }}>{ln}</div>
+            ))}
+            {/* Single editable surface for the whole quote so users can re-edit */}
+            <div style={{ marginTop: pt(14), fontSize: pt(11), color: theme.muted, fontStyle: "italic" }}>
+              <EditableText value={quote} multiline interactive={interactive} onCommit={(v) => onUpdate?.({ body: v })}/>
+            </div>
+          </div>
+        ) : (
+          <div style={{
+            fontSize: pt(quoteSize(quote, slide) * 1.05),
+            fontWeight: 800, color: theme.fg, lineHeight: 1.05,
+          }}>
+            <EditableText value={quote} multiline interactive={interactive} onCommit={(v) => onUpdate?.({ body: v })}/>
+          </div>
+        )}
+        {slide.subtitle && (
+          <div style={{ marginTop: pt(20), fontSize: pt(13), color: theme.accent, letterSpacing: "0.18em", textTransform: "uppercase", fontWeight: 700 }}>
+            — <EditableText value={slide.subtitle} interactive={interactive} onCommit={(v) => onUpdate?.({ subtitle: v })}/>
+          </div>
+        )}
+      </Movable>
+      <Footer theme={theme} deckTitle={deckTitle} idx={idx} total={total} />
+    </>
+  );
+}
+
+function Section(props: any) {
+  const { slide } = props;
+  const variant = slide.sectionVariant || "panel";
+  if (variant === "split")        return <SectionSplit {...props} />;
+  if (variant === "minimal")      return <SectionMinimal {...props} />;
+  if (variant === "chapter")      return <SectionChapter {...props} />;
+  if (variant === "kicker-hero")  return <SectionKickerHero {...props} />;
+  return <SectionPanel {...props} />;
+}
+
+function SectionPanel({ slide, theme, interactive, onUpdate, canvasRef }: any) {
   const overridden = !!slide.backgroundColorOverride;
   const panel = overridden ? theme.bg : theme.accent;
   const textCol = overridden ? theme.fg : theme.bg;
@@ -666,11 +1571,7 @@ function Section({ slide, theme, interactive, onUpdate, canvasRef }: any) {
           fontSize: pt(titleSize(slide.title, "section", slide)), fontWeight: 800,
           color: textCol, lineHeight: 1.1,
         }}>
-          <EditableText
-            value={slide.title}
-            interactive={interactive}
-            onCommit={(v) => onUpdate?.({ title: v })}
-          />
+          <EditableText value={slide.title} interactive={interactive} onCommit={(v) => onUpdate?.({ title: v })}/>
         </div>
       </Movable>
       {slide.body && (
@@ -678,12 +1579,7 @@ function Section({ slide, theme, interactive, onUpdate, canvasRef }: any) {
           baseStyle={{ position: "absolute", left: "12%", right: "12%", top: "60%", textAlign: "center" }}
         >
           <div style={{ fontSize: pt(bodySize(slide)), color: textCol, opacity: 0.9 }}>
-            <EditableText
-              value={slide.body}
-              multiline
-              interactive={interactive}
-              onCommit={(v) => onUpdate?.({ body: v })}
-            />
+            <EditableText value={slide.body} multiline interactive={interactive} onCommit={(v) => onUpdate?.({ body: v })}/>
           </div>
         </Movable>
       )}
@@ -691,9 +1587,157 @@ function Section({ slide, theme, interactive, onUpdate, canvasRef }: any) {
   );
 }
 
+function SectionSplit({ slide, theme, interactive, onUpdate, canvasRef }: any) {
+  return (
+    <>
+      <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "42%", background: theme.accent }} />
+      <Movable id="title" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{ position: "absolute", left: "46%", right: "8%", top: "32%" }}
+      >
+        <div style={{
+          fontSize: pt(titleSize(slide.title, "section", slide)),
+          fontWeight: 800, color: theme.fg, lineHeight: 1.05,
+        }}>
+          <EditableText value={slide.title} interactive={interactive} onCommit={(v) => onUpdate?.({ title: v })}/>
+        </div>
+      </Movable>
+      {slide.body && (
+        <Movable id="body" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+          baseStyle={{ position: "absolute", left: "46%", right: "8%", top: "62%" }}
+        >
+          <div style={{ fontSize: pt(bodySize(slide)), color: theme.muted, lineHeight: 1.4 }}>
+            <EditableText value={slide.body} multiline interactive={interactive} onCommit={(v) => onUpdate?.({ body: v })}/>
+          </div>
+        </Movable>
+      )}
+      {slide.kicker && (
+        <div style={{
+          position: "absolute", left: inches(0.6), bottom: inches(0.6),
+          fontSize: pt(11), color: theme.bg, opacity: 0.9, letterSpacing: "0.2em", fontWeight: 700,
+        }}>
+          <EditableText value={slide.kicker} interactive={interactive} onCommit={(v) => onUpdate?.({ kicker: v })}/>
+        </div>
+      )}
+    </>
+  );
+}
+
+function SectionMinimal({ slide, theme, interactive, onUpdate, canvasRef }: any) {
+  return (
+    <>
+      <Movable id="title" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{ position: "absolute", left: "10%", right: "10%", top: "44%" }}
+      >
+        <div style={{
+          fontSize: pt(titleSize(slide.title, "section", slide)),
+          fontWeight: 700, color: theme.fg, lineHeight: 1.1,
+        }}>
+          <EditableText value={slide.title} interactive={interactive} onCommit={(v) => onUpdate?.({ title: v })}/>
+        </div>
+      </Movable>
+      <div style={{
+        position: "absolute", left: "10%", top: "60%", width: pt(36), height: pt(3),
+        background: theme.accent,
+      }}/>
+      {slide.body && (
+        <Movable id="body" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+          baseStyle={{ position: "absolute", left: "10%", right: "10%", top: "66%" }}
+        >
+          <div style={{ fontSize: pt(bodySize(slide)), color: theme.muted, lineHeight: 1.4 }}>
+            <EditableText value={slide.body} multiline interactive={interactive} onCommit={(v) => onUpdate?.({ body: v })}/>
+          </div>
+        </Movable>
+      )}
+    </>
+  );
+}
+
+function SectionChapter({ slide, theme, interactive, onUpdate, canvasRef }: any) {
+  // Picks a chapter number from kicker when the kicker is numeric; otherwise "01".
+  const num = (slide.kicker || "").match(/\b(20\d{2}|Q[1-4]|\d{1,3})\b/)?.[0] || "01";
+  return (
+    <>
+      <div style={{
+        position: "absolute", left: "8%", top: "20%",
+        fontSize: pt(140), fontWeight: 900, lineHeight: 1,
+        color: theme.accent, letterSpacing: "-0.03em",
+      }}>{num}</div>
+      <div style={{
+        position: "absolute", left: "8%", top: "50%",
+        fontSize: pt(11), letterSpacing: "0.22em", color: theme.muted, fontWeight: 700,
+      }}>
+        CHAPTER
+      </div>
+      <Movable id="title" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{ position: "absolute", left: "8%", right: "8%", top: "58%" }}
+      >
+        <div style={{
+          fontSize: pt(titleSize(slide.title, "section", slide)),
+          fontWeight: 800, color: theme.fg, lineHeight: 1.1,
+        }}>
+          <EditableText value={slide.title} interactive={interactive} onCommit={(v) => onUpdate?.({ title: v })}/>
+        </div>
+      </Movable>
+      {slide.body && (
+        <Movable id="body" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+          baseStyle={{ position: "absolute", left: "8%", right: "8%", top: "78%" }}
+        >
+          <div style={{ fontSize: pt(bodySize(slide)), color: theme.muted, lineHeight: 1.4 }}>
+            <EditableText value={slide.body} multiline interactive={interactive} onCommit={(v) => onUpdate?.({ body: v })}/>
+          </div>
+        </Movable>
+      )}
+    </>
+  );
+}
+
+function SectionKickerHero({ slide, theme, interactive, onUpdate, canvasRef }: any) {
+  return (
+    <>
+      {(slide.kicker || interactive) && (
+        <div style={{
+          position: "absolute", left: "8%", top: "30%",
+          fontSize: pt(13), letterSpacing: "0.24em", color: theme.accent, fontWeight: 700,
+        }}>
+          <EditableText value={slide.kicker || ""} interactive={interactive} onCommit={(v) => onUpdate?.({ kicker: v })}/>
+        </div>
+      )}
+      <Movable id="title" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{ position: "absolute", left: "8%", right: "8%", top: "40%" }}
+      >
+        <div style={{
+          fontSize: pt(titleSize(slide.title, "section", slide) * 1.05),
+          fontWeight: 900, color: theme.fg, lineHeight: 1.0,
+          letterSpacing: "-0.02em",
+        }}>
+          <EditableText value={slide.title} interactive={interactive} onCommit={(v) => onUpdate?.({ title: v })}/>
+        </div>
+      </Movable>
+      <div style={{
+        position: "absolute", left: "8%", top: "70%", width: inches(2.2), height: pt(8),
+        background: theme.accent,
+      }}/>
+      {slide.body && (
+        <Movable id="body" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+          baseStyle={{ position: "absolute", left: "8%", right: "8%", top: "78%" }}
+        >
+          <div style={{ fontSize: pt(bodySize(slide)), color: theme.muted, lineHeight: 1.4 }}>
+            <EditableText value={slide.body} multiline interactive={interactive} onCommit={(v) => onUpdate?.({ body: v })}/>
+          </div>
+        </Movable>
+      )}
+    </>
+  );
+}
+
 function ReferencesLayout(props: any) {
   const { slide, theme, idx, total, deckTitle, interactive, onUpdate, canvasRef } = props;
   const refs: Reference[] = (slide.references as Reference[]) || [];
+  const updateRef = (i: number, patch: Partial<Reference>) => {
+    if (!onUpdate) return;
+    const next = refs.map((r, ix) => (ix === i ? { ...r, ...patch } : r));
+    onUpdate({ references: next });
+  };
   return (
     <>
       <AccentBar theme={theme} />
@@ -709,9 +1753,22 @@ function ReferencesLayout(props: any) {
           {refs.map((r, i) => (
             <li key={i} style={{ marginBottom: pt(8), display: "flex", gap: pt(8) }}>
               <span style={{ color: theme.accent, fontWeight: 700, minWidth: pt(20) }}>{i + 1}.</span>
-              <span>
-                {r.text}
-                {r.url && <span style={{ color: theme.muted }}> — {r.url}</span>}
+              <span style={{ flex: 1 }}>
+                <EditableText
+                  value={r.text}
+                  interactive={interactive}
+                  onCommit={(v) => updateRef(i, { text: v })}
+                />
+                {(r.url || interactive) && (
+                  <span style={{ color: theme.muted }}>
+                    {" — "}
+                    <EditableText
+                      value={r.url || ""}
+                      interactive={interactive}
+                      onCommit={(v) => updateRef(i, { url: v })}
+                    />
+                  </span>
+                )}
               </span>
             </li>
           ))}
@@ -727,7 +1784,17 @@ function ReferencesLayout(props: any) {
   );
 }
 
-function Closing({ slide, theme, interactive, onUpdate, canvasRef }: any) {
+function Closing(props: any) {
+  const { slide } = props;
+  const variant = slide.closingVariant || "centered";
+  if (variant === "qa")        return <ClosingQA {...props} />;
+  if (variant === "contact")   return <ClosingContact {...props} />;
+  if (variant === "cta")       return <ClosingCta {...props} />;
+  if (variant === "signature") return <ClosingSignature {...props} />;
+  return <ClosingCentered {...props} />;
+}
+
+function ClosingCentered({ slide, theme, interactive, onUpdate, canvasRef }: any) {
   return (
     <>
       <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: pt(13), background: theme.accent }} />
@@ -738,11 +1805,7 @@ function Closing({ slide, theme, interactive, onUpdate, canvasRef }: any) {
           fontSize: pt(titleSize(slide.title || "Thank you", "closing", slide)),
           fontWeight: 800, lineHeight: 1.1, color: theme.accent,
         }}>
-          <EditableText
-            value={slide.title || "Thank you"}
-            interactive={interactive}
-            onCommit={(v) => onUpdate?.({ title: v })}
-          />
+          <EditableText value={slide.title || "Thank you"} interactive={interactive} onCommit={(v) => onUpdate?.({ title: v })}/>
         </div>
       </Movable>
       {slide.subtitle && (
@@ -750,11 +1813,141 @@ function Closing({ slide, theme, interactive, onUpdate, canvasRef }: any) {
           baseStyle={{ position: "absolute", left: "12%", right: "12%", top: "60%", textAlign: "center" }}
         >
           <div style={{ fontSize: pt(18), color: theme.muted }}>
-            <EditableText
-              value={slide.subtitle}
-              interactive={interactive}
-              onCommit={(v) => onUpdate?.({ subtitle: v })}
-            />
+            <EditableText value={slide.subtitle} interactive={interactive} onCommit={(v) => onUpdate?.({ subtitle: v })}/>
+          </div>
+        </Movable>
+      )}
+    </>
+  );
+}
+
+function ClosingQA({ slide, theme, interactive, onUpdate, canvasRef }: any) {
+  return (
+    <>
+      <div style={{
+        position: "absolute", left: "8%", top: "26%",
+        fontSize: pt(220), fontWeight: 900, color: theme.accent, lineHeight: 1,
+        letterSpacing: "-0.02em",
+      }}>?</div>
+      <Movable id="title" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{ position: "absolute", left: "30%", right: "8%", top: "38%" }}
+      >
+        <div style={{
+          fontSize: pt(titleSize(slide.title || "Questions", "closing", slide)),
+          fontWeight: 800, color: theme.fg, lineHeight: 1.1,
+        }}>
+          <EditableText value={slide.title || "Questions"} interactive={interactive} onCommit={(v) => onUpdate?.({ title: v })}/>
+        </div>
+      </Movable>
+      {(slide.subtitle || interactive) && (
+        <Movable id="subtitle" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+          baseStyle={{ position: "absolute", left: "30%", right: "8%", top: "60%" }}
+        >
+          <div style={{ fontSize: pt(15), color: theme.muted, lineHeight: 1.4 }}>
+            <EditableText value={slide.subtitle || "Open the floor for discussion."} interactive={interactive} onCommit={(v) => onUpdate?.({ subtitle: v })}/>
+          </div>
+        </Movable>
+      )}
+    </>
+  );
+}
+
+function ClosingContact({ slide, theme, interactive, onUpdate, canvasRef }: any) {
+  const subtitle = slide.subtitle || (interactive ? "name@example.com\n@yourhandle\nwww.example.com" : "");
+  return (
+    <>
+      <Movable id="title" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{ position: "absolute", left: "10%", right: "10%", top: "26%" }}
+      >
+        <div style={{
+          fontSize: pt(titleSize(slide.title || "Stay in touch", "closing", slide) * 0.95),
+          fontWeight: 800, color: theme.fg, lineHeight: 1.05,
+        }}>
+          <EditableText value={slide.title || "Stay in touch"} interactive={interactive} onCommit={(v) => onUpdate?.({ title: v })}/>
+        </div>
+      </Movable>
+      <div style={{
+        position: "absolute", left: "10%", top: "48%", width: pt(40), height: pt(3),
+        background: theme.accent,
+      }}/>
+      <Movable id="subtitle" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{ position: "absolute", left: "10%", right: "10%", top: "55%" }}
+      >
+        <div style={{ fontSize: pt(15), color: theme.fg, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
+          <EditableText
+            value={subtitle}
+            multiline
+            interactive={interactive}
+            onCommit={(v) => onUpdate?.({ subtitle: v })}
+          />
+        </div>
+      </Movable>
+    </>
+  );
+}
+
+function ClosingCta({ slide, theme, interactive, onUpdate, canvasRef }: any) {
+  return (
+    <div style={{ position: "absolute", inset: 0, background: theme.accent }}>
+      <Movable id="title" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{ position: "absolute", left: "10%", right: "10%", top: "30%", textAlign: "center" }}
+      >
+        <div style={{
+          fontSize: pt(titleSize(slide.title || "Let's go", "closing", slide)),
+          fontWeight: 900, color: theme.bg, lineHeight: 1.05,
+          letterSpacing: "-0.02em",
+        }}>
+          <EditableText value={slide.title || "Let's go"} interactive={interactive} onCommit={(v) => onUpdate?.({ title: v })}/>
+        </div>
+      </Movable>
+      {(slide.subtitle || interactive) && (
+        <Movable id="subtitle" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+          baseStyle={{ position: "absolute", left: "12%", right: "12%", top: "55%", textAlign: "center" }}
+        >
+          <div style={{ fontSize: pt(15), color: theme.bg, opacity: 0.85, lineHeight: 1.4 }}>
+            <EditableText value={slide.subtitle || "Take the next step."} interactive={interactive} onCommit={(v) => onUpdate?.({ subtitle: v })}/>
+          </div>
+        </Movable>
+      )}
+      {(slide.kicker || interactive) && (
+        <div style={{
+          position: "absolute", left: "50%", transform: "translateX(-50%)", top: "70%",
+          padding: `${pt(10)} ${pt(20)}`,
+          background: theme.bg, color: theme.accent,
+          fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase",
+          borderRadius: pt(6), fontSize: pt(12),
+        }}>
+          <EditableText value={slide.kicker || "Get in touch →"} interactive={interactive} onCommit={(v) => onUpdate?.({ kicker: v })}/>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ClosingSignature({ slide, theme, interactive, onUpdate, canvasRef }: any) {
+  return (
+    <>
+      <Movable id="title" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{ position: "absolute", left: "10%", right: "10%", top: "30%" }}
+      >
+        <div style={{
+          fontSize: pt(titleSize(slide.title || "Thank you", "closing", slide) * 1.1),
+          fontWeight: 800, color: theme.fg, lineHeight: 1.0,
+          fontStyle: "italic",
+        }}>
+          <EditableText value={slide.title || "Thank you"} interactive={interactive} onCommit={(v) => onUpdate?.({ title: v })}/>
+        </div>
+      </Movable>
+      <div style={{
+        position: "absolute", left: "10%", top: "55%", width: inches(3.5), height: pt(3),
+        background: theme.accent,
+      }}/>
+      {(slide.subtitle || interactive) && (
+        <Movable id="subtitle" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+          baseStyle={{ position: "absolute", left: "10%", right: "10%", top: "62%" }}
+        >
+          <div style={{ fontSize: pt(13), color: theme.muted, lineHeight: 1.5, letterSpacing: "0.02em" }}>
+            <EditableText value={slide.subtitle || "Presented by"} multiline interactive={interactive} onCommit={(v) => onUpdate?.({ subtitle: v })}/>
           </div>
         </Movable>
       )}
@@ -855,6 +2048,13 @@ function ImageBox({
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
+      onContextMenu={(e) => {
+        if (!interactive || !onUpdate) return;
+        e.preventDefault();
+        e.stopPropagation();
+        onSelect?.(img.id);
+        if (window.confirm("Delete this graphic from the slide?")) removeImg();
+      }}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{
@@ -924,13 +2124,27 @@ function ImageBox({
 
 /* ----------------------------- Annotation layer ---------------------------- */
 
-function AnnotationLayer({ slide, theme }: { slide: Slide; theme: Theme }) {
+function AnnotationLayer({
+  slide, theme, interactive, onUpdate,
+}: {
+  slide: Slide; theme: Theme;
+  interactive?: boolean; onUpdate?: SlideUpdater;
+}) {
   const anns = slide.annotations || [];
   if (anns.length === 0) return null;
 
   const PADDING_IN = 0.5;
   const groups: Record<string, Annotation[]> = {};
   for (const a of anns) (groups[a.anchor] ||= []).push(a);
+
+  const updateAnnotation = (id: string, value: string) => {
+    if (!onUpdate) return;
+    onUpdate({
+      annotations: (slide.annotations || []).map((a) =>
+        a.id === id ? { ...a, text: value } : a,
+      ),
+    });
+  };
 
   return (
     <>
@@ -945,8 +2159,13 @@ function AnnotationLayer({ slide, theme }: { slide: Slide; theme: Theme }) {
               textAlign: a.align || alignFor(anchor as Anchor),
               lineHeight: 1.3, whiteSpace: "pre-wrap",
               marginBottom: pt(2),
+              pointerEvents: interactive ? "auto" : "none",
             }}>
-              {a.text}
+              <EditableText
+                value={a.text}
+                interactive={!!interactive}
+                onCommit={(v) => updateAnnotation(a.id, v)}
+              />
             </div>
           ))}
         </div>
@@ -959,6 +2178,9 @@ function positionFor(anchor: Anchor, pad: number): React.CSSProperties {
   const base: React.CSSProperties = {
     position: "absolute",
     maxWidth: inches(SLIDE_W_IN - pad * 2),
+    // Children opt back into pointer events when interactive (each annotation
+    // text element sets its own pointerEvents). Keep the wrapper transparent
+    // so dragging the slide canvas behind annotations still works.
     pointerEvents: "none",
   };
   const [v, h] = anchor.split("-") as [string, string];

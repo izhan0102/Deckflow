@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useMemo, useRef } from "react";
-import { Sparkles, FileText, SlidersHorizontal } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Sparkles, FileText, SlidersHorizontal, LayoutGrid, Check } from "lucide-react";
 import type { ContentDensity } from "@/lib/types";
 
 type Props = {
@@ -17,6 +17,14 @@ type Props = {
   includeReferences: boolean;
   setIncludeReferences: (v: boolean) => void;
   onNext: () => void;
+  /** Optional: open the deck-style template gallery. */
+  onUseTemplate?: () => void;
+  /** When set, shows a small "Using ___" indicator next to the templates button. */
+  activeTemplateName?: string;
+  /** Optional: when a template is applied this lets users jump straight to generation. */
+  onGenerateDirect?: () => void;
+  /** Whether the deck is currently being generated (for the direct button). */
+  generateLoading?: boolean;
 };
 
 const EXAMPLES = [
@@ -37,6 +45,7 @@ const DENSITY_OPTIONS: { id: ContentDensity; label: string; hint: string }[] = [
 
 export default function PromptStep(p: Props) {
   const taRef = useRef<HTMLTextAreaElement>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Autofocus on mount so the first thing you do is type.
   useEffect(() => {
@@ -48,12 +57,15 @@ export default function PromptStep(p: Props) {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && p.prompt.trim().length >= 5) {
         e.preventDefault();
-        p.onNext();
+        // If a template is active, use the template fast path; otherwise
+        // walk the regular wizard.
+        if (p.activeTemplateName && p.onGenerateDirect) p.onGenerateDirect();
+        else p.onNext();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [p.prompt, p.onNext, p]);
+  }, [p.prompt, p.onNext, p.activeTemplateName, p.onGenerateDirect, p]);
 
   const charCount = p.prompt.length;
   const ready = p.prompt.trim().length >= 5;
@@ -78,6 +90,34 @@ export default function PromptStep(p: Props) {
           A sentence or two about the topic. Audience and tone are optional but improve the result.
         </p>
       </div>
+
+      {/* Templates entry */}
+      {p.onUseTemplate && (
+        <button
+          onClick={p.onUseTemplate}
+          className="mb-5 flex w-full items-center gap-4 rounded-2xl border border-white/10 bg-gradient-to-r from-white/5 to-white/[0.02] p-4 text-left transition hover:border-white/30 hover:from-white/10"
+        >
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/15 bg-white/5">
+            <LayoutGrid size={16} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 text-sm font-medium text-white">
+              Use a template
+              {p.activeTemplateName && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-0.5 text-[10px] text-emerald-200">
+                  <Check size={10} /> {p.activeTemplateName}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-white/55">
+              Skip theme, font, graphic — pick a designed style and just edit the brief.
+            </p>
+          </div>
+          <span className="rounded-full border border-white/15 bg-black/30 px-2.5 py-1 text-[11px] text-white/70">
+            Browse →
+          </span>
+        </button>
+      )}
 
       {/* Section: The brief */}
       <Section icon={<FileText size={12} />} title="The brief">
@@ -183,18 +223,66 @@ export default function PromptStep(p: Props) {
       </Section>
 
       {/* Continue */}
-      <div className="mt-10 flex items-center justify-end gap-4">
+      <div className="mt-10 flex flex-wrap items-center justify-end gap-3">
         <span className="hidden text-[11px] text-white/35 sm:block">
           {ready ? "Press ⌘ + Enter to continue" : "Type at least a few words"}
         </span>
+        {p.activeTemplateName && p.onGenerateDirect && (
+          <button
+            disabled={!ready || p.generateLoading}
+            onClick={p.onGenerateDirect}
+            className="rounded-xl border border-emerald-400/40 bg-emerald-400/15 px-5 py-2.5 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/25 disabled:cursor-not-allowed disabled:opacity-40"
+            title="Use the picked template's theme, font, and graphic — skip the next steps."
+          >
+            {p.generateLoading ? "Generating…" : "Generate with template →"}
+          </button>
+        )}
         <button
           disabled={!ready}
-          onClick={p.onNext}
+          onClick={() => {
+            if (p.activeTemplateName) setConfirmOpen(true);
+            else p.onNext();
+          }}
           className="rounded-xl bg-white px-5 py-2.5 text-sm font-medium text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          Choose theme →
+          {p.activeTemplateName ? "Customize theme →" : "Choose theme →"}
         </button>
       </div>
+
+      {/* Confirm dialog: warn user that customizing theme overrides the
+          template they already picked. */}
+      {confirmOpen && p.activeTemplateName && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="m-4 w-full max-w-md rounded-2xl border border-white/10 bg-zinc-950 p-6 shadow-2xl">
+            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-[11px] text-amber-200">
+              <LayoutGrid size={11} /> Template active
+            </div>
+            <h3 className="text-lg font-semibold text-white">
+              You've already chosen a template
+            </h3>
+            <p className="mt-2 text-sm text-white/65">
+              <span className="font-medium text-white/85">{p.activeTemplateName}</span> is selected.
+              Customizing the theme, font, and graphic will let you tweak everything
+              the template set up. Or you can generate right now using the template as-is.
+            </p>
+            <div className="mt-5 flex flex-col-reverse items-stretch gap-2 sm:flex-row sm:justify-end">
+              <button
+                onClick={() => { setConfirmOpen(false); p.onNext(); }}
+                className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/85 hover:bg-white/10"
+              >
+                Yes, customize theme
+              </button>
+              <button
+                onClick={() => { setConfirmOpen(false); p.onGenerateDirect?.(); }}
+                disabled={p.generateLoading}
+                className="rounded-xl bg-emerald-400/90 px-4 py-2 text-sm font-medium text-black transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {p.generateLoading ? "Generating…" : "Generate with template"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -8,8 +8,10 @@ import FontStep from "@/components/FontStep";
 import GraphicStep from "@/components/GraphicStep";
 import DeckPreview from "@/components/DeckPreview";
 import GenerateOverlay from "@/components/GenerateOverlay";
-import { PRESET_THEMES, type Theme } from "@/lib/themes";
+import TemplateGallery from "@/components/TemplateGallery";
+import { PRESET_THEMES, getTheme, type Theme } from "@/lib/themes";
 import type { Deck, ContentDensity } from "@/lib/types";
+import { applyTemplateToSlide, type TemplateVariantDefaults } from "@/lib/templates";
 import { getCurrentUser, isLoggedIn, logout, onAuthStateChange, type AppUser } from "@/lib/auth";
 import { trackEvent } from "@/lib/stats";
 import { LogOut } from "lucide-react";
@@ -53,6 +55,11 @@ export default function Page() {
   const [deck, setDeck] = useState<Deck | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  // When a template is picked, we keep its variant defaults so we can apply
+  // them to every slide once generation finishes.
+  const [templateVariants, setTemplateVariants] = useState<TemplateVariantDefaults | null>(null);
+  const [templateName, setTemplateName] = useState<string | null>(null);
 
   const generate = async () => {
     setLoading(true);
@@ -71,7 +78,10 @@ export default function Page() {
       });
 
       const [data] = await Promise.all([fetchPromise, minDelay]);
-      const deckWithExtras: Deck = { ...data.deck, graphic: graphicId, graphicAccent, fontId };
+      const slides = (templateVariants
+        ? data.deck.slides.map((s: any) => applyTemplateToSlide(s, templateVariants))
+        : data.deck.slides);
+      const deckWithExtras: Deck = { ...data.deck, slides, graphic: graphicId, graphicAccent, fontId };
       setDeck(deckWithExtras);
       setStep("deck");
       if (user) {
@@ -105,30 +115,38 @@ export default function Page() {
     );
   }
 
+  const isDeckStep = step === "deck";
+
   return (
-    <main className="min-h-screen bg-gradient-to-b from-black via-zinc-950 to-black px-4 py-10 sm:px-8">
-      <header className="mx-auto mb-12 flex max-w-6xl items-center justify-between">
-        <Link href="/" className="flex items-center">
-          <span className="border-b-2 border-white pb-0.5 font-semibold tracking-tight">
-            DeckFlow
-          </span>
-        </Link>
-        <div className="flex items-center gap-4">
-          <Stepper step={step} />
-          {user && (
-            <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs">
-              <span className="text-white/70">{user.name || user.email}</span>
-              <button
-                onClick={async () => { await logout(); router.replace("/"); }}
-                title="Sign out"
-                className="text-white/50 hover:text-white/90"
-              >
-                <LogOut size={12} />
-              </button>
-            </div>
-          )}
-        </div>
-      </header>
+    <main
+      className={`min-h-screen bg-gradient-to-b from-black via-zinc-950 to-black ${
+        isDeckStep ? "px-4 py-6 sm:px-8" : "px-4 py-10 sm:px-8"
+      }`}
+    >
+      {!isDeckStep && (
+        <header className="mx-auto mb-12 flex max-w-6xl items-center justify-between">
+          <Link href="/" className="flex items-center">
+            <span className="border-b-2 border-white pb-0.5 font-semibold tracking-tight">
+              DeckFlow
+            </span>
+          </Link>
+          <div className="flex items-center gap-4">
+            <Stepper step={step} />
+            {user && (
+              <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs">
+                <span className="text-white/70">{user.name || user.email}</span>
+                <button
+                  onClick={async () => { await logout(); router.replace("/"); }}
+                  title="Sign out"
+                  className="text-white/50 hover:text-white/90"
+                >
+                  <LogOut size={12} />
+                </button>
+              </div>
+            )}
+          </div>
+        </header>
+      )}
 
       {error && (
         <div className="mx-auto mb-6 max-w-3xl rounded-xl border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200">
@@ -151,6 +169,10 @@ export default function Page() {
           includeReferences={includeReferences}
           setIncludeReferences={setIncludeReferences}
           onNext={() => setStep("theme")}
+          onUseTemplate={() => setGalleryOpen(true)}
+          activeTemplateName={templateName || undefined}
+          onGenerateDirect={generate}
+          generateLoading={loading}
         />
       )}
 
@@ -196,6 +218,25 @@ export default function Page() {
           GraphicStep) and unmounts after both the API call and a 10s
           minimum animation finish. */}
       <GenerateOverlay open={loading} />
+
+      <TemplateGallery
+        open={galleryOpen}
+        onClose={() => setGalleryOpen(false)}
+        onPick={(t) => {
+          const picked = getTheme(t.themeId);
+          if (picked) setTheme(picked);
+          setFontId(t.fontId);
+          setGraphicId(t.graphicId);
+          setGraphicAccent(t.graphicAccent);
+          if (t.density) setDensity(t.density);
+          if (typeof t.includeReferences === "boolean") setIncludeReferences(t.includeReferences);
+          // Seed the prompt only when empty so we don't trample what the user
+          // has already typed.
+          if (!prompt.trim()) setPrompt(t.samplePrompt);
+          setTemplateVariants(t.variants);
+          setTemplateName(t.name);
+        }}
+      />
     </main>
   );
 }

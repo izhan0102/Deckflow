@@ -68,6 +68,22 @@ export type Slide = {
   notes?: string;
   table?: TableData;
   references?: Reference[];
+  /** Optional variant for the title-hero layout: "centered" | "asymmetric" | "big-initial" | "numbered" | "underlined". */
+  titleVariant?: "centered" | "asymmetric" | "big-initial" | "numbered" | "underlined";
+  /** Bullets layout style. */
+  bulletsVariant?: "standard" | "numbered" | "cards" | "icon-check" | "dashed";
+  /** Two-column layout style. */
+  twoColumnVariant?: "classic" | "divider" | "cards" | "numbered" | "compare";
+  /** Table layout style. */
+  tableVariant?: "zebra" | "bordered" | "minimal" | "accent-header" | "compact";
+  /** Quote layout style. */
+  quoteVariant?: "giant-mark" | "centered" | "card" | "editorial" | "stacked";
+  /** Section divider style. */
+  sectionVariant?: "panel" | "split" | "minimal" | "chapter" | "kicker-hero";
+  /** Closing slide style. */
+  closingVariant?: "centered" | "qa" | "contact" | "cta" | "signature";
+  /** Small uppercase line shown above the title (e.g. "Q3 INVESTOR UPDATE"). */
+  kicker?: string;
 
   // Per-slide style overrides set via the chat box.
   titleScale?: number;

@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ArrowRight, Download, Github, LayoutGrid, Palette, Pencil,
+  ArrowRight, Download, Github, LayoutGrid, LogOut, Palette, Pencil,
   Presentation, Search, Type, Wand2, Shapes,
 } from "lucide-react";
 import HeroBackdrop from "@/components/landing/HeroBackdrop";
@@ -11,16 +11,21 @@ import { MockSlide } from "@/components/landing/MockSlide";
 import DeveloperNote from "@/components/landing/DeveloperNote";
 import Counter from "@/components/Counter";
 import { dailyActiveUsers, totalDecksGenerated, decksToday, trackEvent } from "@/lib/stats";
-import { isLoggedIn } from "@/lib/auth";
+import { isLoggedIn, logout, onAuthStateChange, type AppUser } from "@/lib/auth";
 
 export default function LandingPage() {
   const router = useRouter();
   const [today, setToday] = useState(() => new Date());
+  const [user, setUser] = useState<AppUser | null>(null);
 
   useEffect(() => {
     trackEvent({ kind: "page_view", path: "/", ts: Date.now() });
     const t = window.setInterval(() => setToday(new Date()), 60_000);
-    return () => window.clearInterval(t);
+    const unsub = onAuthStateChange((u) => setUser(u));
+    return () => {
+      window.clearInterval(t);
+      unsub();
+    };
   }, []);
 
   const stats = useMemo(() => ({
@@ -32,6 +37,11 @@ export default function LandingPage() {
   const onGetStarted = () => {
     if (isLoggedIn()) router.push("/app");
     else router.push("/auth?redirect=/app");
+  };
+
+  const onSignOut = async () => {
+    await logout();
+    setUser(null);
   };
 
   return (
@@ -51,12 +61,36 @@ export default function LandingPage() {
             <DeveloperNote />
           </nav>
           <div className="flex items-center gap-2">
-            <Link href="/auth" className="text-sm text-white/70 hover:text-white">Sign in</Link>
+            {user ? (
+              <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-2 py-1 pr-3 text-sm">
+                <span
+                  aria-hidden
+                  className="grid h-6 w-6 place-items-center rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 text-[10px] font-semibold text-white"
+                >
+                  {(user.name || user.email).charAt(0).toUpperCase()}
+                </span>
+                <span className="hidden max-w-[140px] truncate text-white/85 sm:inline">
+                  {user.name || user.email}
+                </span>
+                <button
+                  onClick={onSignOut}
+                  title="Sign out"
+                  aria-label="Sign out"
+                  className="grid h-5 w-5 place-items-center rounded-full text-white/45 transition hover:bg-white/10 hover:text-white"
+                >
+                  <LogOut size={11} />
+                </button>
+              </div>
+            ) : (
+              <Link href="/auth" className="text-sm text-white/70 hover:text-white">
+                Sign in
+              </Link>
+            )}
             <button
               onClick={onGetStarted}
               className="inline-flex items-center gap-1 rounded-full bg-white px-4 py-1.5 text-sm font-medium text-black hover:bg-white/90"
             >
-              Get started <ArrowRight size={14} />
+              {user ? "Open app" : "Get started"} <ArrowRight size={14} />
             </button>
           </div>
         </div>
