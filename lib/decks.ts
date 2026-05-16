@@ -133,6 +133,18 @@ export async function loadDeck(uid: string, deckId: string): Promise<StoredDeck 
   return snap.val() as StoredDeck;
 }
 
+/**
+ * Mark a deck as paid. Called after the Razorpay redirect lands on
+ * /payment-success — the redirect itself is the proof. Idempotent.
+ */
+export async function markDeckPaid(uid: string, deckId: string): Promise<void> {
+  const db = getFirebaseDb();
+  if (!db) throw new Error("Cloud sync unavailable.");
+  await update(ref(db, `decks/${uid}/${deckId}/deck`), {
+    paid: { paidAt: Date.now(), method: "razorpay-redirect" },
+  });
+}
+
 export async function deleteDeck(uid: string, deckId: string): Promise<void> {
   const db = getFirebaseDb();
   if (!db) return;

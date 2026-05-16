@@ -119,6 +119,12 @@ export type Deck = {
   graphicAccent?: string;
   /** Selected font preset id (see lib/fonts.ts). Falls back to theme.font. */
   fontId?: string;
+  /** Set when the user has completed a successful Razorpay payment for
+   *  PPTX export of this deck. Confirms the redirect flow ran. */
+  paid?: {
+    paidAt: number;
+    method: "razorpay-redirect";
+  };
 };
 
 export type GenerateRequest = {

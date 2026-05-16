@@ -14,6 +14,7 @@ import SlideRail from "./SlideRail";
 import HiddenSlidesRenderer, { type HiddenSlidesHandle } from "./HiddenSlidesRenderer";
 import ExportButton from "./ExportButton";
 import DecorationDrawer from "./DecorationDrawer";
+import PaymentDialog from "./PaymentDialog";
 import { exportSlidesToPdf } from "@/lib/pdfExport";
 import { trackEvent } from "@/lib/stats";
 import type { ExportFormat } from "./ExportFormatPicker";
@@ -43,6 +44,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
   const [themeTransferOpen, setThemeTransferOpen] = useState(false);
+  const [paymentOpen, setPaymentOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const hiddenRef = useRef<HiddenSlidesHandle>(null);
 
@@ -192,6 +194,12 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
   };
 
   const onExport = async (format: ExportFormat) => {
+    // PPTX is a paid export. Gate behind the payment dialog if the deck
+    // hasn't been unlocked. PDF stays free.
+    if (format === "pptx" && !deck.paid) {
+      setPaymentOpen(true);
+      return;
+    }
     setDownloading(true);
     try {
       if (format === "pptx") await downloadPptx();
@@ -417,6 +425,14 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
           onPick={applyTheme}
         />
       )}
+
+      {/* Razorpay payment dialog (only shown for unpaid PPTX exports) */}
+      <PaymentDialog
+        open={paymentOpen}
+        deck={deck}
+        deckId={deckId || null}
+        onClose={() => setPaymentOpen(false)}
+      />
     </div>
   );
 }
