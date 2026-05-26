@@ -6,7 +6,6 @@ import {
   ArrowRight, ChevronDown, Download, Github,
   LogOut, Shapes, Sparkles, Wand2,
 } from "lucide-react";
-import DeveloperNote from "@/components/landing/DeveloperNote";
 import Logo from "@/components/Logo";
 import {
   dailyActiveUsers, totalDecksGenerated, decksToday, trackEvent,
@@ -104,6 +103,7 @@ export default function LandingPage() {
             <a href="#how" className="transition hover:text-white">How it works</a>
             <a href="#examples" className="transition hover:text-white">Examples</a>
             <a href="#pricing" className="transition hover:text-white">Pricing</a>
+            <Link href="/about" className="transition hover:text-white">Dev&rsquo;s note</Link>
           </div>
           <div className="flex items-center gap-2">
             {user ? (
@@ -147,10 +147,15 @@ export default function LandingPage() {
 
         {/* Headline — tight, centered, two-tone */}
         <h1
-          className="mx-auto max-w-[20ch] font-semibold tracking-[-0.03em] text-white"
+          className="mx-auto max-w-[20ch] font-semibold text-white"
           style={{
+            // Bricolage Grotesque — warm, slightly quirky, playful without
+            // feeling clown. Already preloaded in layout.tsx.
+            // Swap to "Fraunces" or "Syne" if you want even more character.
+            fontFamily: '"Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif',
             fontSize: "clamp(34px, 5.6vw, 60px)",
             lineHeight: 1.0,
+            letterSpacing: "-0.02em",
           }}
         >
           Beautiful presentations
@@ -271,12 +276,6 @@ export default function LandingPage() {
           When you're ready, pay a one-time ₹15 to unlock the .pptx and
           .pdf for that deck. No subscriptions, no slide-count tax.
         </p>
-        <button
-          onClick={onGetStarted}
-          className="mt-7 inline-flex items-center gap-1.5 rounded-full bg-white px-6 py-2.5 text-[13px] font-semibold text-[#03070F] hover:bg-white/90"
-        >
-          Start a deck <ArrowRight size={12} />
-        </button>
       </section>
 
       {/* ================== Final CTA ================== */}
@@ -701,7 +700,12 @@ function Footer({ dauToday }: { dauToday: number }) {
               >
                 <Github size={11} /> Source
               </a>
-              <DeveloperNote />
+              <Link
+                href="/about"
+                className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-white/75 transition hover:bg-white/10"
+              >
+                <Sparkles size={11} className="text-cyan-300" /> Developer&rsquo;s note
+              </Link>
             </div>
           </div>
 
@@ -717,6 +721,7 @@ function Footer({ dauToday }: { dauToday: number }) {
           <FooterCol
             title="Company"
             items={[
+              { label: "About / Dev's note", href: "/about" },
               { label: "Contact", href: "/contact" },
               { label: "Sign in", href: "/auth" },
             ]}

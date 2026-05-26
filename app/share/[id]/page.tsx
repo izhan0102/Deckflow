@@ -1,17 +1,43 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Check, ChevronLeft, ChevronRight, Copy, Link as LinkIcon, Maximize2, Play,
+  StickyNote, Sparkles,
+} from "lucide-react";
 import SlideCanvas from "@/components/SlideCanvas";
+import Presenter from "@/components/Presenter";
 import Logo from "@/components/Logo";
 import type { Deck } from "@/lib/types";
 import type { Theme } from "@/lib/themes";
 import { loadSharedDeck } from "@/lib/decks";
 
+/**
+ * Shared deck viewer.
+ *
+ * Reading experience:
+ *   - Slide rail on the left so you can jump anywhere in the deck
+ *     (same vibe as the editor, but read-only).
+ *   - Big slide canvas in the middle that resizes to the available
+ *     space.
+ *   - Top bar with the deck title, share-link copy, speaker-notes
+ *     toggle, fullscreen, and a Present button that launches the same
+ *     Presenter component used in the editor.
+ *   - Keyboard nav (← / → / Space) and number jumps when not in
+ *     present mode.
+ *   - Footer cap with a "Make your own" CTA so the link doubles as a
+ *     soft funnel.
+ */
 export default function ShareViewer({ params }: { params: { id: string } }) {
   const [data, setData] = useState<{ deck: Deck; theme: Theme; title: string } | null>(null);
   const [missing, setMissing] = useState(false);
   const [active, setActive] = useState(0);
+  const [presenting, setPresenting] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const stageRef = useRef<HTMLDivElement>(null);
+
+  /* ----------------------------- data ----------------------------- */
 
   useEffect(() => {
     let cancelled = false;
@@ -28,29 +54,50 @@ export default function ShareViewer({ params }: { params: { id: string } }) {
     return () => { cancelled = true; };
   }, [params.id]);
 
-  // Keyboard nav
+  /* ------------------------- keyboard nav ------------------------- */
+
   useEffect(() => {
+    if (!data || presenting) return;
     const onKey = (e: KeyboardEvent) => {
-      if (!data) return;
-      if (e.key === "ArrowRight" || e.key === " ") {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+
+      if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") {
+        e.preventDefault();
         setActive((a) => Math.min(data.deck.slides.length - 1, a + 1));
-      } else if (e.key === "ArrowLeft") {
+      } else if (e.key === "ArrowLeft" || e.key === "PageUp") {
+        e.preventDefault();
         setActive((a) => Math.max(0, a - 1));
+      } else if (e.key === "Home") {
+        setActive(0);
+      } else if (e.key === "End") {
+        setActive(data.deck.slides.length - 1);
+      } else if (e.key.toLowerCase() === "p") {
+        // Quick "press P to present" shortcut — same as the editor.
+        setPresenting(true);
+      } else if (e.key.toLowerCase() === "n") {
+        setShowNotes((s) => !s);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [data]);
+  }, [data, presenting]);
+
+  /* ------------------------- early returns ------------------------- */
 
   if (missing) {
     return (
-      <main className="grid min-h-screen place-items-center bg-black px-6 text-center text-white">
-        <div>
-          <h1 className="text-2xl font-semibold">Deck not found</h1>
+      <main className="grid min-h-screen place-items-center px-6 text-center text-white"
+            style={{ background: "#050B17" }}>
+        <div className="max-w-md">
+          <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full border border-white/10 bg-white/5">
+            <LinkIcon size={18} className="text-white/55" />
+          </div>
+          <h1 className="text-2xl font-semibold tracking-tight">Deck not found</h1>
           <p className="mt-2 text-sm text-white/55">
-            This link may have been removed or never existed.
+            This link may have been taken down by the owner, or it never existed.
           </p>
-          <Link href="/" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-medium text-black hover:bg-white/90">
+          <Link href="/" className="mt-6 inline-flex items-center gap-2 rounded-full bg-white px-5 py-2 text-sm font-semibold text-[#03070F] hover:bg-white/90">
             Go to EZdeck
           </Link>
         </div>
@@ -60,70 +107,326 @@ export default function ShareViewer({ params }: { params: { id: string } }) {
 
   if (!data) {
     return (
-      <main className="grid min-h-screen place-items-center bg-black text-sm text-white/60">
+      <main className="grid min-h-screen place-items-center text-sm text-white/60"
+            style={{ background: "#050B17" }}>
         Loading…
       </main>
     );
   }
 
   const { deck, theme, title } = data;
-  const enriched = deck.slides[active].layout === "references"
-    ? { ...deck.slides[active], references: deck.references || [] }
-    : deck.slides[active];
+  const total = deck.slides.length;
+  const slide = deck.slides[active];
+  const enriched = slide.layout === "references"
+    ? { ...slide, references: deck.references || [] }
+    : slide;
+
+  const onCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1600);
+    } catch { /* clipboard might be blocked */ }
+  };
+
+  const onFullscreen = () => {
+    const el = stageRef.current;
+    if (!el) return;
+    const req = (el as any).requestFullscreen
+      || (el as any).webkitRequestFullscreen
+      || (el as any).msRequestFullscreen;
+    if (req) {
+      try {
+        const p = req.call(el);
+        if (p && typeof p.then === "function") p.catch(() => {});
+      } catch { /* user gesture missing */ }
+    }
+  };
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-[#03070F] via-[#050B17] to-[#03070F] px-4 py-6 sm:px-8">
-      <header className="mx-auto mb-6 flex max-w-6xl items-center justify-between">
-        <Logo size="sm" />
-        <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] text-white/65">
-          Shared deck · read only
+    <main
+      className="min-h-screen text-white"
+      style={{ background: "#050B17" }}
+    >
+      {/* Full-screen presenter overlay */}
+      {presenting && (
+        <Presenter
+          deck={deck}
+          theme={theme}
+          startIndex={active}
+          onClose={() => setPresenting(false)}
+        />
+      )}
+
+      {/* ===================== Top bar ===================== */}
+      <header className="sticky top-0 z-30 border-b border-white/10 bg-[#050B17]/90 backdrop-blur">
+        <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-3 px-4 py-3 sm:px-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <Logo size="sm" />
+            <span className="hidden text-white/15 sm:inline">|</span>
+            <div className="hidden min-w-0 sm:block">
+              <div className="truncate text-[13px] font-semibold leading-tight text-white">
+                {title}
+              </div>
+              <div className="text-[10.5px] uppercase tracking-[0.22em] text-white/40">
+                Shared · read-only · {total} slide{total === 1 ? "" : "s"}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <ToolbarButton
+              icon={showNotes ? <Check size={12} /> : <StickyNote size={12} />}
+              label={showNotes ? "Notes on" : "Notes"}
+              active={showNotes}
+              onClick={() => setShowNotes((s) => !s)}
+              hint="Press N"
+            />
+            <ToolbarButton
+              icon={copied ? <Check size={12} className="text-emerald-300" /> : <Copy size={12} />}
+              label={copied ? "Copied" : "Copy link"}
+              onClick={onCopyLink}
+            />
+            <ToolbarButton
+              icon={<Maximize2 size={12} />}
+              label="Fullscreen"
+              onClick={onFullscreen}
+              className="hidden sm:inline-flex"
+            />
+            <button
+              onClick={() => setPresenting(true)}
+              title="Press P"
+              className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-[12px] font-semibold text-emerald-200 transition hover:bg-emerald-400/20"
+            >
+              <Play size={12} /> Present
+            </button>
+          </div>
         </div>
       </header>
 
-      <div className="mx-auto w-full max-w-6xl">
-        <h1 className="mb-4 text-center text-2xl font-semibold tracking-tight text-white">{title}</h1>
+      {/* ===================== Body ===================== */}
+      <div className="mx-auto grid max-w-[1400px] grid-cols-1 gap-4 px-4 py-4 sm:px-6 sm:py-6 lg:grid-cols-[180px_minmax(0,1fr)]">
+        {/* Slide rail (read-only) */}
+        <SlideRailReadOnly
+          deck={deck}
+          theme={theme}
+          active={active}
+          setActive={setActive}
+        />
 
-        <div className="overflow-hidden rounded-2xl border border-white/10 shadow-2xl">
-          <SlideCanvas
-            slide={enriched}
-            theme={theme}
-            idx={active}
-            total={deck.slides.length}
-            deckTitle={deck.title}
-            graphicId={deck.graphic}
-            graphicAccent={deck.graphicAccent}
-            fontId={deck.fontId}
-          />
-        </div>
-
-        <div className="mt-4 flex items-center justify-center gap-3">
-          <button
-            onClick={() => setActive((a) => Math.max(0, a - 1))}
-            disabled={active === 0}
-            className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white/85 disabled:opacity-40"
+        {/* Stage */}
+        <div className="min-w-0">
+          <div
+            ref={stageRef}
+            className="overflow-hidden rounded-2xl border border-white/10 bg-black shadow-[0_30px_80px_-20px_rgba(8,145,178,0.35)]"
           >
-            <ChevronLeft size={14} /> Prev
-          </button>
-          <span className="text-xs text-white/55">
-            Slide {active + 1} / {deck.slides.length}
-          </span>
-          <button
-            onClick={() => setActive((a) => Math.min(deck.slides.length - 1, a + 1))}
-            disabled={active === deck.slides.length - 1}
-            className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-white/85 disabled:opacity-40"
-          >
-            Next <ChevronRight size={14} />
-          </button>
-        </div>
+            <SlideCanvas
+              slide={enriched}
+              theme={theme}
+              idx={active}
+              total={total}
+              deckTitle={deck.title}
+              graphicId={deck.graphic}
+              graphicAccent={deck.graphicAccent}
+              fontId={deck.fontId}
+            />
+          </div>
 
-        <p className="mt-8 text-center text-xs text-white/45">
-          Made with{" "}
-          <Link href="/" className="text-white/85 underline-offset-2 hover:underline">
-            EZdeck
-          </Link>
-          {" "}— AI deck builder. Free to try.
-        </p>
+          {/* Slide nav */}
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <button
+              onClick={() => setActive((a) => Math.max(0, a - 1))}
+              disabled={active === 0}
+              className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[12px] text-white/85 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <ChevronLeft size={13} /> Prev
+            </button>
+
+            {/* Compact progress + slide indicator */}
+            <div className="flex flex-1 items-center gap-3 text-[11px] text-white/55">
+              <div className="relative h-[3px] flex-1 overflow-hidden rounded-full bg-white/10">
+                <div
+                  className="absolute inset-y-0 left-0 rounded-full bg-cyan-300/80 transition-[width] duration-300"
+                  style={{ width: `${((active + 1) / total) * 100}%` }}
+                />
+              </div>
+              <span className="tabular-nums text-white/65">
+                {String(active + 1).padStart(2, "0")} / {String(total).padStart(2, "0")}
+              </span>
+            </div>
+
+            <button
+              onClick={() => setActive((a) => Math.min(total - 1, a + 1))}
+              disabled={active === total - 1}
+              className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[12px] text-white/85 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Next <ChevronRight size={13} />
+            </button>
+          </div>
+
+          {/* Speaker notes (toggleable) */}
+          {showNotes && (
+            <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.025] p-4">
+              <div className="mb-1.5 flex items-center justify-between">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-cyan-300">
+                  Speaker notes
+                </span>
+                <span className="text-[10px] text-white/35">Press N to toggle</span>
+              </div>
+              {slide.notes ? (
+                <p className="text-[13px] leading-relaxed text-white/75 whitespace-pre-line">
+                  {slide.notes}
+                </p>
+              ) : (
+                <p className="text-[12px] italic text-white/40">
+                  No speaker notes for this slide.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Keyboard hints */}
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[10.5px] text-white/35">
+            <KeyHint label="Prev" keys={["←"]} />
+            <KeyHint label="Next" keys={["→"]} />
+            <KeyHint label="Present" keys={["P"]} />
+            <KeyHint label="Notes" keys={["N"]} />
+            <KeyHint label="First / Last" keys={["Home", "End"]} />
+          </div>
+        </div>
       </div>
+
+      {/* ===================== CTA cap ===================== */}
+      <section className="border-t border-white/10">
+        <div className="mx-auto flex max-w-[1400px] flex-col items-center justify-between gap-4 px-6 py-6 text-center sm:flex-row sm:text-left">
+          <div className="flex items-center gap-3">
+            <Sparkles size={14} className="text-cyan-300" />
+            <span className="text-[12.5px] text-white/65">
+              This deck was made with{" "}
+              <Link href="/" className="font-semibold text-white underline-offset-4 hover:underline">
+                EZdeck
+              </Link>
+              {" "}— AI deck builder. Free to try.
+            </span>
+          </div>
+          <Link
+            href="/auth?redirect=/app"
+            className="inline-flex items-center gap-1.5 rounded-full bg-white px-5 py-2 text-[12.5px] font-semibold text-[#03070F] transition hover:bg-white/90"
+          >
+            Make your own deck
+          </Link>
+        </div>
+      </section>
     </main>
+  );
+}
+
+/* ----------------------- subcomponents ----------------------- */
+
+function ToolbarButton({
+  icon, label, onClick, active, className = "", hint,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  active?: boolean;
+  className?: string;
+  hint?: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={hint}
+      className={[
+        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] transition",
+        active
+          ? "border-cyan-300/40 bg-cyan-300/10 text-cyan-100"
+          : "border-white/10 bg-white/5 text-white/75 hover:bg-white/10",
+        className,
+      ].join(" ")}
+    >
+      {icon}
+      <span className="hidden sm:inline">{label}</span>
+    </button>
+  );
+}
+
+function KeyHint({ label, keys }: { label: string; keys: string[] }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      {keys.map((k) => (
+        <kbd
+          key={k}
+          className="rounded border border-white/10 bg-white/5 px-1.5 py-0.5 font-mono text-[10px] text-white/65"
+        >
+          {k}
+        </kbd>
+      ))}
+      <span>{label}</span>
+    </span>
+  );
+}
+
+/**
+ * Read-only slide rail. Renders a SlideCanvas thumb for each slide
+ * with a cyan accent on the active one. Click to jump.
+ */
+function SlideRailReadOnly({
+  deck, theme, active, setActive,
+}: {
+  deck: Deck;
+  theme: Theme;
+  active: number;
+  setActive: (i: number) => void;
+}) {
+  // Pre-enriched references slides so the rail thumbs render fully.
+  const slides = useMemo(() => {
+    return deck.slides.map((s) =>
+      s.layout === "references" ? { ...s, references: deck.references || [] } : s,
+    );
+  }, [deck]);
+
+  return (
+    <aside className="lg:max-h-[calc(100vh-130px)] lg:overflow-y-auto lg:pr-1">
+      <div className="mb-2 flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40 lg:mb-3">
+        <span>Slides</span>
+        <span className="tabular-nums">{slides.length}</span>
+      </div>
+      <ol className="flex gap-2 overflow-x-auto pb-2 lg:flex-col lg:gap-2 lg:overflow-x-visible lg:pb-0">
+        {slides.map((s, i) => {
+          const isActive = i === active;
+          return (
+            <li key={i} className="shrink-0 lg:shrink">
+              <button
+                onClick={() => setActive(i)}
+                className={`group block w-[160px] overflow-hidden rounded-lg border text-left transition lg:w-full ${
+                  isActive
+                    ? "border-cyan-300/60 ring-2 ring-cyan-300/20"
+                    : "border-white/10 hover:border-white/35"
+                }`}
+              >
+                <div className="pointer-events-none">
+                  <SlideCanvas
+                    slide={s}
+                    theme={theme}
+                    idx={i}
+                    total={slides.length}
+                    deckTitle={deck.title}
+                    graphicId={deck.graphic}
+                    graphicAccent={deck.graphicAccent}
+                    fontId={deck.fontId}
+                  />
+                </div>
+                <div className="flex items-center justify-between bg-black/40 px-2 py-1 text-[10px] text-white/60">
+                  <span className="truncate">
+                    {String(i + 1).padStart(2, "0")} · {s.title || (s.layout === "references" ? "References" : "Untitled")}
+                  </span>
+                </div>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+    </aside>
   );
 }
