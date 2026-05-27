@@ -199,6 +199,13 @@ export function watchTodayGenerations(
   };
 }
 
+export function syncLocalGenerationCount(uid: string, value: number) {
+  const current = readLocal(uid);
+  if (value > current) {
+    writeLocal(uid, value);
+  }
+}
+
 /** UTC midnight of the next day — used to render "refills in X" copy. */
 export function nextRefillAt(now = new Date()): Date {
   const d = new Date(Date.UTC(

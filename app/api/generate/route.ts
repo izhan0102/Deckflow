@@ -21,6 +21,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
     }
 
+    // Quota check
+    const today = new Date().toISOString().slice(0, 10);
+    const dbUrl = process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL?.replace(/\/$/, "");
+    const authHeader = req.headers.get("authorization");
+    const idToken = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : "";
+    
+    if (process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID && !uid.startsWith("local_") && idToken) {
+      const qRes = await fetch(`${dbUrl}/usage/${uid}/${today}/generations.json?auth=${idToken}`);
+      if (qRes.ok) {
+        const count = await qRes.json();
+        if (typeof count === "number" && count >= 3) {
+          return NextResponse.json(
+            { error: "You've used all 3 of today's free generations. Resets at UTC midnight." },
+            { status: 429 }
+          );
+        }
+      }
+    }
+
     const body = await req.json();
     const { prompt, slideCount, audience, tone, theme, density, includeReferences } = body || {};
 
@@ -44,7 +63,30 @@ export async function POST(req: NextRequest) {
     deck.tone = tone;
     deck.density = density;
 
-    return NextResponse.json({ deck, theme });
+    let nextCount = undefined;
+    if (process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID && !uid.startsWith("local_") && idToken) {
+      try {
+        const qRes = await fetch(`${dbUrl}/usage/${uid}/${today}/generations.json?auth=${idToken}`);
+        let currentCount = 0;
+        if (qRes.ok) {
+          const val = await qRes.json();
+          currentCount = typeof val === "number" ? val : 0;
+        }
+        nextCount = currentCount + 1;
+        await fetch(`${dbUrl}/usage/${uid}/${today}.json?auth=${idToken}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            generations: nextCount,
+            lastAt: Date.now(),
+          }),
+        });
+      } catch (quotaErr) {
+        console.error("Failed to increment quota:", quotaErr);
+      }
+    }
+
+    return NextResponse.json({ deck, theme, generations: nextCount });
   } catch (err: any) {
     console.error("[/api/generate] error:", err);
     const status = Number(err?.status || err?.statusCode || 0);

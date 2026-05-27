@@ -20,7 +20,7 @@ import { logout, onAuthStateChange, getIdToken, type AppUser } from "@/lib/auth"
 import { trackEvent } from "@/lib/stats";
 import {
   DAILY_GENERATION_LIMIT, formatRefillIn,
-  getTodayGenerations, incrementTodayGenerations,
+  getTodayGenerations, syncLocalGenerationCount,
 } from "@/lib/usage";
 import { LogOut } from "lucide-react";
 
@@ -178,11 +178,9 @@ function PageInner() {
       // from continuing to work on the deck — but we want to know loudly so
       // we can react with a visible error.
       if (user) {
-        // Quota: bump today's count atomically. Done after the deck is
-        // generated, not before, so failed generations don't burn quota.
-        // Fire-and-forget — the dashboard's onValue listener will pick up
-        // the new value live.
-        incrementTodayGenerations(user.uid).catch(() => {});
+        if (typeof data.generations === "number") {
+          syncLocalGenerationCount(user.uid, data.generations);
+        }
 
         try {
           const id = await createDeck(user.uid, deckWithExtras, theme);
