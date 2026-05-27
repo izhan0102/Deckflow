@@ -4,6 +4,7 @@ import { withGroqClient } from "@/lib/groqClient";
 import { getDecoration, DECORATIONS } from "@/lib/decorations";
 import { searchIconify } from "@/lib/iconify";
 import { verifyToken } from "@/lib/firebaseAdmin";
+import { isRateLimited } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -607,6 +608,13 @@ async function applyPatch(slide: Slide, patch: any): Promise<Slide> {
 
 export async function POST(req: NextRequest) {
   try {
+    if (isRateLimited(req, 15, 60000)) {
+      return NextResponse.json(
+        { error: "Too many requests. Please try again later.", code: "rate_limit" },
+        { status: 429 }
+      );
+    }
+
     const uid = await verifyToken(req);
     if (!uid) {
       return NextResponse.json({ error: "Unauthorized." }, { status: 401 });

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "@/lib/firebaseAdmin";
+import { isRateLimited } from "@/lib/rateLimit";
 import PptxGenJS from "pptxgenjs";
 import type { Deck, Slide, Annotation, Anchor, ElementId, ElementOffset, TableData, Reference } from "@/lib/types";
 import type { Theme } from "@/lib/themes";
@@ -641,6 +642,13 @@ function parseHex(s: string) {
 
 export async function POST(req: NextRequest) {
   try {
+    if (isRateLimited(req, 10, 60000)) {
+      return NextResponse.json(
+        { error: "Too many requests. Please try again later.", code: "rate_limit" },
+        { status: 429 }
+      );
+    }
+
     const uid = await verifyToken(req);
     if (!uid) {
       return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
