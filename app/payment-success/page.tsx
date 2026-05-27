@@ -1,10 +1,9 @@
 "use client";
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { CheckCircle2, Loader2 } from "lucide-react";
-import { onAuthStateChange, type AppUser } from "@/lib/auth";
-import { markDeckPaid } from "@/lib/decks";
+import { onAuthStateChange, getIdToken, type AppUser } from "@/lib/auth";
 
 /**
  * Razorpay redirects here after a successful Payment Page checkout.
@@ -37,6 +36,7 @@ export default function Page() {
 
 function Inner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [user, setUser] = useState<AppUser | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [status, setStatus] = useState<"verifying" | "success" | "missing-deck" | "error">("verifying");
@@ -65,9 +65,25 @@ function Inner() {
       return;
     }
     setDeckId(id);
+
+    const paymentId = searchParams?.get("razorpay_payment_id") || "";
+
     (async () => {
       try {
-        await markDeckPaid(user.uid, id!);
+        const token = await getIdToken();
+        const verifyRes = await fetch("/api/verify-payment", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ paymentId, deckId: id }),
+        });
+        const verifyData = await verifyRes.json();
+        if (!verifyRes.ok) {
+          throw new Error(verifyData?.error || "Payment verification failed.");
+        }
+
         try { window.localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
         setStatus("success");
         // Brief delay so the user sees the confirmation before bouncing.
@@ -76,12 +92,12 @@ function Inner() {
         }, 1400);
       } catch (e: any) {
         // eslint-disable-next-line no-console
-        console.error("[payment-success] markDeckPaid failed:", e);
-        setErrMsg(e?.message || "We couldn't unlock the deck. Please contact support.");
+        console.error("[payment-success] verification failed:", e);
+        setErrMsg(e?.message || "We couldn't verify the payment. Please contact support.");
         setStatus("error");
       }
     })();
-  }, [authReady, user, router]);
+  }, [authReady, user, router, searchParams]);
 
   return (
     <main
