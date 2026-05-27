@@ -3,6 +3,7 @@ import type { Deck, Slide, Annotation, Anchor, ElementId, TableData, Reference, 
 import { withGroqClient } from "@/lib/groqClient";
 import { getDecoration, DECORATIONS } from "@/lib/decorations";
 import { searchIconify } from "@/lib/iconify";
+import { verifyToken } from "@/lib/firebaseAdmin";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -606,6 +607,11 @@ async function applyPatch(slide: Slide, patch: any): Promise<Slide> {
 
 export async function POST(req: NextRequest) {
   try {
+    const uid = await verifyToken(req);
+    if (!uid) {
+      return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+    }
+
     const { deck, theme, slideIndex, instruction } = (await req.json()) as {
       deck: Deck;
       theme?: { bg?: string; fg?: string; accent?: string };

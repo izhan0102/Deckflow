@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Deck, Slide } from "@/lib/types";
 import type { Theme } from "@/lib/themes";
 import { Send, Sparkles } from "lucide-react";
+import { getIdToken } from "@/lib/auth";
 
 /**
  * Minimal AI editor for the active slide. No chat history, no quick-action
@@ -73,9 +74,13 @@ export default function SlideChat({
     setLoading(true);
     setFeedback(null);
     try {
+      const token = await getIdToken();
       const res = await fetch("/api/edit-slide", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ deck, theme, slideIndex, instruction: trimmed }),
       });
       const data = await res.json();

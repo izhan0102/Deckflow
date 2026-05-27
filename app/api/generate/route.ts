@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateDeck } from "@/lib/groq";
 
+import { verifyToken } from "@/lib/firebaseAdmin";
+
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
+    const uid = await verifyToken(req);
+    if (!uid) {
+      return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+    }
+
     const body = await req.json();
     const { prompt, slideCount, audience, tone, theme, density, includeReferences } = body || {};
 
