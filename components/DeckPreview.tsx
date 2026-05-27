@@ -21,6 +21,7 @@ import type { ExportFormat } from "./ExportFormatPicker";
 import { getDecoration } from "@/lib/decorations";
 import { saveDeck, publishDeck, unpublishDeck, loadDeckPaid } from "@/lib/decks";
 import type { AppUser } from "@/lib/auth";
+import { getIdToken } from "@/lib/auth";
 
 type Props = {
   deck: Deck;
@@ -239,10 +240,14 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
   /* ------------------------------- Export -------------------------------- */
 
   const downloadPptx = async () => {
+    const token = await getIdToken();
     const res = await fetch("/api/export", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ deck, theme }),
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ deck, theme, deckId }),
     });
     if (!res.ok) throw new Error(await res.text());
     const blob = await res.blob();

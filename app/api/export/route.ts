@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { verifyToken } from "@/lib/firebaseAdmin";
 import PptxGenJS from "pptxgenjs";
 import type { Deck, Slide, Annotation, Anchor, ElementId, ElementOffset, TableData, Reference } from "@/lib/types";
 import type { Theme } from "@/lib/themes";
@@ -640,9 +641,34 @@ function parseHex(s: string) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { deck, theme } = (await req.json()) as { deck: Deck; theme: Theme };
+    const uid = await verifyToken(req);
+    if (!uid) {
+      return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+    }
+
+    const reqBody = await req.json();
+    const { deck, theme, deckId } = reqBody as { deck: Deck; theme: Theme; deckId?: string };
     if (!deck || !theme) {
       return NextResponse.json({ error: "Missing deck or theme." }, { status: 400 });
+    }
+
+    // Server-side payment check
+    if (process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID && deckId) {
+      const authHeader = req.headers.get("authorization");
+      const idToken = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : "";
+      if (idToken && !idToken.startsWith("local_")) {
+        const dbUrl = process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL?.replace(/\/$/, "");
+        const dbRes = await fetch(`${dbUrl}/decks/${uid}/${deckId}/paid.json?auth=${idToken}`);
+        if (dbRes.ok) {
+          const paidData = await dbRes.json();
+          if (!paidData || typeof paidData.paidAt !== "number") {
+            return NextResponse.json({ error: "Payment required to export this deck." }, { status: 402 });
+          }
+        } else {
+          console.error("Database query failed:", await dbRes.text());
+          return NextResponse.json({ error: "Failed to verify payment status." }, { status: 500 });
+        }
+      }
     }
 
     const pptx = new PptxGenJS();
