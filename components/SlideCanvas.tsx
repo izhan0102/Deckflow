@@ -2147,7 +2147,13 @@ function ImageBox({
         alt=""
         draggable={false}
         crossOrigin="anonymous"
-        style={{ width: "100%", height: "100%", objectFit: "contain", pointerEvents: "none" }}
+        style={{
+          width: "100%",
+          height: "100%",
+          objectFit: "contain",
+          pointerEvents: "none",
+          opacity: typeof img.opacity === "number" ? Math.max(0, Math.min(1, img.opacity)) : undefined,
+        }}
       />
       {interactive && hover && onUpdate && (
         <>

@@ -38,14 +38,19 @@ function todayKey(d = new Date()): string {
  * Fire an event. If Firebase is configured, write it to the Realtime DB
  * under /events plus update an aggregate counter under /stats.
  * Always also append to a local queue for offline / debugging visibility.
+ *
+ * Once any remote write fails (typically because the database rules
+ * don't permit /events or /stats writes for the current user), we flip
+ * a session-local switch and stop trying. Saves Firebase from logging
+ * "permission_denied" warnings on every interaction.
  */
+let remoteDisabled = false;
+
 export function trackEvent(ev: StatEvent) {
   localQueue(ev);
-  // eslint-disable-next-line no-console
-  console.debug("[stats]", ev);
 
   const app = getFirebaseApp();
-  if (!app) return;
+  if (!app || remoteDisabled) return;
 
   try {
     const db = getDatabase(app);
@@ -53,7 +58,7 @@ export function trackEvent(ev: StatEvent) {
     push(ref(db, `events/${ev.kind}`), {
       ...ev,
       _serverTs: serverTimestamp(),
-    }).catch(() => { /* swallow; rules may block anonymous writes */ });
+    }).catch(() => { remoteDisabled = true; });
 
     // Maintain aggregate counters: total + per-day.
     const day = todayKey(new Date(ev.ts));
@@ -64,7 +69,7 @@ export function trackEvent(ev: StatEvent) {
     if (ev.kind === "deck_generated") {
       updates["stats/deck_generated/totalSlides"] = increment(ev.slides || 0);
     }
-    update(ref(db), updates).catch(() => { /* swallow */ });
+    update(ref(db), updates).catch(() => { remoteDisabled = true; });
   } catch {
     /* never let analytics break the UI */
   }

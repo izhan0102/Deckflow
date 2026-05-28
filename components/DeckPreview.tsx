@@ -4,12 +4,12 @@ import type { Deck, Slide, UploadedImage } from "@/lib/types";
 import type { Theme } from "@/lib/themes";
 import { PRESET_THEMES } from "@/lib/themes";
 import {
-  Check, ChevronLeft, ChevronRight, Image as ImageIcon, Link as LinkIcon, Play, RotateCcw, Shapes, Undo2,
+  ChevronLeft, ChevronRight, Image as ImageIcon, Link as LinkIcon, Play, RotateCcw, Shapes, Undo2,
 } from "lucide-react";
 import SlideCanvas from "./SlideCanvas";
 import DesignerPanel from "./DesignerPanel";
-import SlideChat from "./SlideChat";
 import Presenter from "./Presenter";
+import DeckChat from "./DeckChat";
 import SlideRail from "./SlideRail";
 import HiddenSlidesRenderer, { type HiddenSlidesHandle } from "./HiddenSlidesRenderer";
 import ExportButton from "./ExportButton";
@@ -126,9 +126,9 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
     saveTimerRef.current = window.setTimeout(async () => {
       try {
         await saveDeck(user.uid, deckId, deck, theme);
-        setSaveState("saved");
-        // Drop the "Saved" pill after a couple of seconds.
-        window.setTimeout(() => setSaveState((s) => (s === "saved" ? "idle" : s)), 1800);
+        // Quietly drop back to idle. The "Saved" pill was distracting and
+        // hovered over the title row whenever the AI applied an edit.
+        setSaveState("idle");
       } catch (e) {
         // eslint-disable-next-line no-console
         console.warn("[deck] save failed:", e);
@@ -448,13 +448,13 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
             </button>
           </div>
 
-          <div className="mt-4 rounded-xl border border-white/10 bg-zinc-950/70 p-3">
-            <SlideChat
+          <div className="mt-4">
+            <DeckChat
               deck={deck}
               theme={theme}
               slideIndex={active}
-              slideKey={`slide-${active}`}
-              onApply={replaceActive}
+              onApplySlide={replaceActive}
+              onApplyDeck={setDeck}
             />
           </div>
 
@@ -516,18 +516,13 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
 /* ---------------------------- subcomponents ---------------------------- */
 
 function SaveBadge({ state }: { state: "idle" | "saving" | "saved" | "error" }) {
-  if (state === "idle") return null;
-  const styles =
-    state === "saving" ? "border-white/15 bg-white/5 text-white/65"
-    : state === "saved" ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
-    : "border-red-500/40 bg-red-500/10 text-red-200";
-  const label =
-    state === "saving" ? "Saving…"
-    : state === "saved" ? "Saved" : "Save failed";
+  // Only surface the badge on actual failures. "Saving" + "Saved" used
+  // to flash on every keystroke and on every AI edit, sliding into the
+  // header layout. The autosave still runs silently.
+  if (state !== "error") return null;
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-medium ${styles}`}>
-      {state === "saved" && <Check size={10} />}
-      {label}
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-red-500/40 bg-red-500/10 px-2.5 py-0.5 text-[10px] font-medium text-red-200">
+      Save failed
     </span>
   );
 }

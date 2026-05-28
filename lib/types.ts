@@ -53,6 +53,8 @@ export type UploadedImage = {
   iconId?: string;
   /** Per-element color overrides applied on top of the slide theme. */
   colorOverrides?: { accent?: string; muted?: string; fg?: string };
+  /** Optional opacity, 0..1. When undefined the element is fully opaque. */
+  opacity?: number;
   x: number;
   y: number;
   w: number;

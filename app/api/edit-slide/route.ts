@@ -58,6 +58,22 @@ Patch schema (all fields OPTIONAL):
   ],
   "removeAnnotations": number[],
   "clearAnnotations": boolean,
+  // Edit annotations that already exist (e.g. resize a team-name label, recolor it,
+  // move it to another corner). Either pass "index" (from context) or a "match.text"
+  // that fuzzy-matches the existing annotation's text. Any field in "patch" is optional.
+  "updateAnnotations": [
+    {
+      "index": number,
+      "match": { "text": string },
+      "patch": {
+        "text": string, "anchor": "top-left"|"...",
+        "fontSize": number,                          // 8..96
+        "fontSizeDelta": number,                     // +6 / -4 to nudge from current
+        "color": string, "bold": boolean, "italic": boolean,
+        "align": "left"|"center"|"right"
+      }
+    }
+  ],
 
   // ===== GRAPHICS & ICONS (the new powers) =====
   "addElements": [
@@ -68,7 +84,8 @@ Patch schema (all fields OPTIONAL):
       "position":    "top-left" | "top-right" | "bottom-left" | "bottom-right" |
                      "center"   | "left"      | "right"       | "top"          | "bottom",
       "size":        "small" | "medium" | "large",
-      "color":       string      // hex like "#DC2626"; omit to use theme accent
+      "color":       string,     // hex like "#DC2626"; omit to use theme accent
+      "opacity":     number      // 0..1; omit for fully opaque
     }
   ],
   "removeElements": [string],    // image ids to remove. Use "*" to clear all elements on the slide.
@@ -83,7 +100,9 @@ Patch schema (all fields OPTIONAL):
       "patch": {
         "position": "...",       // same vocabulary as addElements
         "size":     "small"|"medium"|"large",
+        "sizeDelta": number,     // +1 to bump up one step, -1 to shrink one step
         "color":    string,      // hex
+        "opacity":  number,      // 0..1
         "x": number, "y": number, "w": number, "h": number   // raw inches if needed
       }
     }
@@ -121,8 +140,21 @@ Graphics & icons:
 - Icons are single-color symbols from a global library. Use kind="icon" with a short iconQuery like "rocket", "calendar", "trending up", "linkedin", "shield". The server will resolve it.
 - For "remove the icon" / "remove the chart" use removeElements with an id from context, or use "*" to clear all.
 - For "make the chart red" / "move the icon to the bottom right" use updateElements.
+- For "make it bigger" / "make it smaller" / "scale it up" on an existing graphic, use updateElements with sizeDelta (+1 / -1) or set "size" to small | medium | large directly.
+- For "make it 50% transparent" / "fade the icon" / "more subtle background", use updateElements with opacity (0..1). 0.5 = half transparent.
 - DEFAULT POSITION when unspecified: "right" for charts/infographics, "top-right" for icons.
 - DEFAULT SIZE when unspecified: "medium".
+- ALWAYS pick the most relevant icon for the topic. If user says "use icons for the bullets", emit one addElements icon per bullet, lined up along the left edge or in a row.
+
+Editing things you already added (memory + follow-ups):
+- The user often asks follow-up edits like "make the team name bigger", "now move it to the top", "make it red". You can SEE the current slide's annotations and elements in the context with their indices and ids. Find the most likely target by text content (annotations) or by kind/icon name (elements) and edit it.
+- "increase size of <text>" / "make <text> bigger" / "<text> bigger by 4pt" -> use updateAnnotations matching by text. Use fontSizeDelta to bump (+6 typical) or fontSize for an absolute value.
+- "make <text> red" / "color the team name blue" -> updateAnnotations match by text, set color hex.
+- "move <text> to the bottom" -> updateAnnotations match by text, set anchor.
+- If the current slide has NO annotation/element matching what the user is talking about (e.g. "team name is not on this slide"), check whether the slide ALSO contains that text in subtitle / title / body — if so, edit those fields instead. Do not silently skip.
+
+Recent history (memory):
+- The "Recent edits" section below shows the last few instructions the user has issued and what changed. Use it to interpret pronouns ("it", "that", "the icon I added") and to avoid duplicating recent work.
 
 Positioning (annotations - text labels at corners):
 - "bottom left" -> anchor "bottom-left"
@@ -283,6 +315,56 @@ Return ONLY the JSON patch.`,
       ],
       notes: "Cover the four most common signals first; demo a real example next.",
       explanation: "Filled the empty slide with four phishing-spot signals tailored to the deck topic.",
+    }),
+  },
+
+  /* example 8: resize an existing annotation by matching text */
+  {
+    role: "user" as const,
+    content: `Deck context: { themeAccent: "#1E3A8A" }
+Current slide: {
+  layout: "title-hero",
+  title: "Project Apollo",
+  annotations: [
+    { index: 0, text: "Hilfmunters", anchor: "bottom-right", fontSize: 12, color: "#1E3A8A" }
+  ]
+}
+Recent edits:
+  1. "add a team name: hilfmunters" -> added 'Hilfmunters' as a corner annotation (bottom-right).
+Instruction: "increase size of team name"
+Return ONLY the JSON patch.`,
+  },
+  {
+    role: "assistant" as const,
+    content: JSON.stringify({
+      updateAnnotations: [
+        { match: { text: "Hilfmunters" }, patch: { fontSizeDelta: 8 } },
+      ],
+      explanation: "Bumped the team name annotation up by 8pt.",
+    }),
+  },
+
+  /* example 9: opacity / transparency on an icon */
+  {
+    role: "user" as const,
+    content: `Deck context: { themeAccent: "#0E7490" }
+Current slide: {
+  layout: "bullets",
+  title: "Q3",
+  elements: [
+    { id: "icon_xyz", kind: "icon", iconId: "tabler:rocket" }
+  ]
+}
+Instruction: "make the rocket 40% transparent"
+Return ONLY the JSON patch.`,
+  },
+  {
+    role: "assistant" as const,
+    content: JSON.stringify({
+      updateElements: [
+        { id: "icon_xyz", patch: { opacity: 0.6 } },
+      ],
+      explanation: "Set the rocket icon to 60% opacity.",
     }),
   },
 ];
@@ -486,6 +568,40 @@ async function applyPatch(slide: Slide, patch: any): Promise<Slide> {
     const drop = new Set<number>(patch.removeAnnotations.filter((n: any) => typeof n === "number"));
     annotations = annotations.filter((_, i) => !drop.has(i));
   }
+  if (Array.isArray(patch.updateAnnotations)) {
+    for (const u of patch.updateAnnotations) {
+      if (!u || typeof u !== "object") continue;
+      // Resolve target by index, or by fuzzy text match.
+      let idx = -1;
+      if (typeof u.index === "number" && u.index >= 0 && u.index < annotations.length) {
+        idx = u.index;
+      } else if (u.match && typeof u.match.text === "string") {
+        const needle = u.match.text.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+        if (needle) {
+          idx = annotations.findIndex((a) =>
+            a.text.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().includes(needle),
+          );
+        }
+      }
+      if (idx < 0) continue;
+      const cur = { ...annotations[idx] };
+      const p = u.patch || {};
+      if (typeof p.text === "string" && p.text.trim()) cur.text = cleanText(p.text);
+      if (VALID_ANCHORS.includes(p.anchor)) cur.anchor = p.anchor;
+      if (typeof p.fontSize === "number" && isFinite(p.fontSize)) {
+        cur.fontSize = Math.max(8, Math.min(96, p.fontSize));
+      }
+      if (typeof p.fontSizeDelta === "number" && isFinite(p.fontSizeDelta)) {
+        const base = typeof cur.fontSize === "number" ? cur.fontSize : 14;
+        cur.fontSize = Math.max(8, Math.min(96, base + p.fontSizeDelta));
+      }
+      if (isHex(p.color)) cur.color = p.color;
+      if (typeof p.bold === "boolean") cur.bold = p.bold;
+      if (typeof p.italic === "boolean") cur.italic = p.italic;
+      if (p.align === "left" || p.align === "center" || p.align === "right") cur.align = p.align;
+      annotations[idx] = cur;
+    }
+  }
   if (Array.isArray(patch.addAnnotations)) {
     for (const a of patch.addAnnotations) {
       if (!a || typeof a !== "object") continue;
@@ -536,11 +652,21 @@ async function applyPatch(slide: Slide, patch: any): Promise<Slide> {
       if (isHex(p.color)) {
         cur.colorOverrides = { ...(cur.colorOverrides || {}), accent: p.color };
       }
-      // Size
+      // Opacity (0..1)
+      if (typeof p.opacity === "number" && isFinite(p.opacity)) {
+        cur.opacity = Math.max(0, Math.min(1, p.opacity));
+      }
+      // Size keyword
       if (p.size === "small" || p.size === "medium" || p.size === "large") {
         const kind = (cur.kind === "icon" ? "icon" : "decoration") as "icon" | "decoration";
         const dim = sizeFromKeyword(kind, p.size, cur.decorationId);
         cur.w = dim.w; cur.h = dim.h;
+      }
+      // Size delta — bump up/down a step relative to current size.
+      if (typeof p.sizeDelta === "number" && isFinite(p.sizeDelta)) {
+        const factor = Math.pow(1.4, p.sizeDelta);
+        cur.w = clamp(cur.w * factor, 0.4, SLIDE_W);
+        cur.h = clamp(cur.h * factor, 0.4, SLIDE_H);
       }
       // Position
       if (isPosition(p.position)) {
@@ -593,6 +719,8 @@ async function applyPatch(slide: Slide, patch: any): Promise<Slide> {
         dataUrl: "",
         x: xy.x, y: xy.y, w: dim.w, h: dim.h,
         colorOverrides: isHex(a.color) ? { accent: a.color } : undefined,
+        opacity: typeof a.opacity === "number" && isFinite(a.opacity)
+          ? Math.max(0, Math.min(1, a.opacity)) : undefined,
       };
       images.push(newImage);
     }
@@ -606,11 +734,13 @@ async function applyPatch(slide: Slide, patch: any): Promise<Slide> {
 
 export async function POST(req: NextRequest) {
   try {
-    const { deck, theme, slideIndex, instruction } = (await req.json()) as {
+    const { deck, theme, slideIndex, instruction, history } = (await req.json()) as {
       deck: Deck;
       theme?: { bg?: string; fg?: string; accent?: string };
       slideIndex: number;
       instruction: string;
+      /** Compact recent edits, oldest -> newest. Used by the model as memory. */
+      history?: { user: string; explanation?: string; scope?: "slide" | "deck" }[];
     };
 
     if (!deck || typeof slideIndex !== "number" || !instruction) {
@@ -660,8 +790,16 @@ export async function POST(req: NextRequest) {
         iconId: img.iconId,
         position: { x: round(img.x), y: round(img.y), w: round(img.w), h: round(img.h) },
         color: img.colorOverrides?.accent,
+        opacity: img.opacity,
       })),
     };
+
+    const recentBlock = (Array.isArray(history) && history.length > 0)
+      ? `Recent edits (oldest -> newest, your memory of what just happened):\n${history
+          .slice(-6)
+          .map((h, i) => `  ${i + 1}. [${h.scope || "slide"}] "${(h.user || "").slice(0, 200)}" -> ${(h.explanation || "(applied)").slice(0, 200)}`)
+          .join("\n")}\n\n`
+      : "";
 
     const completion = await withGroqClient((client) =>
       client.chat.completions.create({
@@ -680,7 +818,7 @@ ${JSON.stringify(deckContext, null, 2)}
 Current slide (index ${slideIndex}):
 ${JSON.stringify(compactSlide, null, 2)}
 
-Instruction:
+${recentBlock}Instruction:
 "${instruction}"
 
 Return ONLY the JSON patch.`,
