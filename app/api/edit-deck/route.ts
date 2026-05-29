@@ -3,6 +3,7 @@ import { withGroqClient } from "@/lib/groqClient";
 import type { Deck } from "@/lib/types";
 import type { DeckOp } from "@/lib/deckOps";
 import { applyDeckOps } from "@/lib/deckOps";
+import { authenticateRequest, AuthError } from "@/lib/firebaseAdmin";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -206,6 +207,7 @@ function extractJson(raw: string): string {
 
 export async function POST(req: NextRequest) {
   try {
+    const uid = await authenticateRequest(req);
     const { deck, instruction, history } = (await req.json()) as {
       deck: Deck;
       instruction: string;
@@ -292,9 +294,10 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     // eslint-disable-next-line no-console
     console.error("[/api/edit-deck] error:", err);
+    const status = err instanceof AuthError ? err.status : 500;
     return NextResponse.json(
       { error: err?.message || "Deck edit failed." },
-      { status: 500 },
+      { status },
     );
   }
 }

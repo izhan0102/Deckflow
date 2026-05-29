@@ -281,4 +281,14 @@ export async function logout(): Promise<void> {
   writeLocal(null);
 }
 
+export async function getIdToken(): Promise<string | null> {
+  const auth = getFirebaseAuth();
+  if (!auth?.currentUser) return null;
+  try {
+    return await auth.currentUser.getIdToken();
+  } catch {
+    return null;
+  }
+}
+
 export const firebaseEnabled = isFirebaseConfigured;

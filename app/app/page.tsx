@@ -16,7 +16,7 @@ import { PRESET_THEMES, getTheme, type Theme } from "@/lib/themes";
 import type { Deck, ContentDensity } from "@/lib/types";
 import { applyTemplateToSlide, type TemplateVariantDefaults } from "@/lib/templates";
 import { createDeck, loadDeck } from "@/lib/decks";
-import { logout, onAuthStateChange, type AppUser } from "@/lib/auth";
+import { logout, onAuthStateChange, getIdToken, type AppUser } from "@/lib/auth";
 import { trackEvent } from "@/lib/stats";
 import {
   DAILY_GENERATION_LIMIT, formatRefillIn,
@@ -138,9 +138,13 @@ function PageInner() {
     // Minimum animation time of 10s so the overlay always feels intentional.
     const minDelay = new Promise<void>((r) => window.setTimeout(r, 10000));
     try {
+      const token = await getIdToken();
       const doFetch = () => fetch("/api/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ prompt, slideCount, audience, tone, theme, density, includeReferences }),
       }).then(async (res) => ({ res, data: await res.json() }));
 
