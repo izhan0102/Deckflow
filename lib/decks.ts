@@ -155,7 +155,7 @@ export async function markDeckPaid(uid: string, deckId: string): Promise<void> {
   const db = getFirebaseDb();
   if (!db) throw new Error("Cloud sync unavailable.");
   await update(ref(db, `decks/${uid}/${deckId}`), {
-    paid: { paidAt: Date.now(), method: "razorpay-redirect" },
+    paid: { paidAt: serverTimestamp(), method: "razorpay-redirect" },
   });
 }
 
