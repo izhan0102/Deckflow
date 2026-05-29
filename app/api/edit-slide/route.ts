@@ -3,6 +3,7 @@ import type { Deck, Slide, Annotation, Anchor, ElementId, TableData, Reference, 
 import { withGroqClient } from "@/lib/groqClient";
 import { getDecoration, DECORATIONS } from "@/lib/decorations";
 import { searchIconify } from "@/lib/iconify";
+import { authenticateRequest, AuthError } from "@/lib/firebaseAdmin";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -734,6 +735,7 @@ async function applyPatch(slide: Slide, patch: any): Promise<Slide> {
 
 export async function POST(req: NextRequest) {
   try {
+    const uid = await authenticateRequest(req);
     const { deck, theme, slideIndex, instruction, history } = (await req.json()) as {
       deck: Deck;
       theme?: { bg?: string; fg?: string; accent?: string };
@@ -837,7 +839,8 @@ Return ONLY the JSON patch.`,
     });
   } catch (err: any) {
     console.error("[/api/edit-slide] error:", err);
-    return NextResponse.json({ error: err?.message || "Edit failed." }, { status: 500 });
+    const status = err instanceof AuthError ? err.status : 500;
+    return NextResponse.json({ error: err?.message || "Edit failed." }, { status });
   }
 }
 

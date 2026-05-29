@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import type { Deck, Slide } from "@/lib/types";
 import type { Theme } from "@/lib/themes";
+import { getIdToken } from "@/lib/auth";
 
 /**
  * Unified AI editor for the deck.
@@ -185,6 +186,7 @@ export default function DeckChat({
     setShowSuggestions(false);
 
     try {
+      const token = await getIdToken();
       // Compact memory: last 5 successful turns. We send to both endpoints
       // so the model can resolve pronouns ("it", "that"), interpret
       // follow-ups ("now make it bigger"), and avoid duplicating recent
@@ -201,7 +203,10 @@ export default function DeckChat({
       if (useScope === "deck") {
         const res = await fetch("/api/edit-deck", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
           body: JSON.stringify({ deck, instruction: text, history }),
         });
         const data = await res.json().catch(() => ({}));
@@ -215,7 +220,10 @@ export default function DeckChat({
       } else {
         const res = await fetch("/api/edit-slide", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
           body: JSON.stringify({ deck, theme, slideIndex, instruction: text, history }),
         });
         const data = await res.json().catch(() => ({}));
