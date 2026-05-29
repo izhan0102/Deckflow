@@ -145,7 +145,7 @@ function PageInner() {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ prompt, slideCount, audience, tone, theme, density, includeReferences }),
+        body: JSON.stringify({ prompt, slideCount, audience, tone, density, includeReferences }),
       }).then(async (res) => ({ res, data: await res.json() }));
 
       const fetchPromise = (async () => {

@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
   try {
     const uid = await authenticateRequest(req);
     const body = await req.json();
-    const { prompt, slideCount, audience, tone, theme, density, includeReferences } = body || {};
+    const { prompt, slideCount, audience, tone, density, includeReferences } = body || {};
 
     if (!prompt || typeof prompt !== "string" || prompt.trim().length < 5) {
       return NextResponse.json({ error: "Prompt is required (min 5 chars)." }, { status: 400 });
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     deck.tone = tone;
     deck.density = density;
 
-    return NextResponse.json({ deck, theme });
+    return NextResponse.json({ deck });
   } catch (err: any) {
     console.error("[/api/generate] error:", err);
     const status = Number(err?.status || err?.statusCode || 0);
