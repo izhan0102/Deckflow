@@ -217,6 +217,11 @@ export async function POST(req: NextRequest) {
     if (!deck || !Array.isArray(deck.slides) || !instruction) {
       return NextResponse.json({ error: "deck + instruction required" }, { status: 400 });
     }
+    if (instruction.length > 2000) {
+      return NextResponse.json({ error: "Instruction too long (max 2000 characters)" }, { status: 400 });
+    }
+    // Prevent breaking out of the quoted prompt or confusing the LLM's JSON parsing
+    const safeInstruction = instruction.replace(/\\/g, "\\\\").replace(/"/g, "\\\"");
 
     // Build a compact deck snapshot for the model. Keeping each slide
     // short stops the prompt from blowing past the TPM budget.
@@ -258,7 +263,7 @@ export async function POST(req: NextRequest) {
                     .map((h, i) => `  ${i + 1}. [${h.scope || "slide"}] "${(h.user || "").slice(0, 200)}" -> ${(h.explanation || "(applied)").slice(0, 200)}`)
                     .join("\n")}\n\n`
                 : ""
-            }Instruction:\n"${instruction}"\n\nReturn ONLY the JSON ops object.`,
+            }Instruction:\n"${safeInstruction}"\n\nReturn ONLY the JSON ops object.`,
           },
         ],
       }),

@@ -805,6 +805,12 @@ export async function POST(req: NextRequest) {
     if (!deck || typeof slideIndex !== "number" || !instruction) {
       return NextResponse.json({ error: "deck + slideIndex + instruction required" }, { status: 400 });
     }
+    if (instruction.length > 2000) {
+      return NextResponse.json({ error: "Instruction too long (max 2000 characters)" }, { status: 400 });
+    }
+    // Prevent breaking out of the quoted prompt or confusing the LLM's JSON parsing
+    const safeInstruction = instruction.replace(/\\/g, "\\\\").replace(/"/g, "\\\"");
+
     const slide = deck.slides[slideIndex];
     if (!slide) return NextResponse.json({ error: "slide not found" }, { status: 400 });
 
@@ -879,7 +885,7 @@ Current slide (index ${slideIndex}):
 ${JSON.stringify(compactSlide, null, 2)}
 
 ${recentBlock}Instruction:
-"${instruction}"
+"${safeInstruction}"
 
 Return ONLY the JSON patch.`,
           },
