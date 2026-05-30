@@ -146,7 +146,14 @@ function PageInner() {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ prompt, slideCount, audience, tone, density, includeReferences }),
-      }).then(async (res) => ({ res, data: await res.json() }));
+      }).then(async (res) => {
+        if (res.status === 403) {
+          // Send unverified users back to the auth gate
+          window.location.href = `/verify-email?redirect=${encodeURIComponent("/app")}`;
+          throw new Error("Email not verified");
+        }
+        return { res, data: await res.json() };
+      });
 
       const fetchPromise = (async () => {
         let { res, data } = await doFetch();

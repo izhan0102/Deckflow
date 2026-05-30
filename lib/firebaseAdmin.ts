@@ -43,6 +43,10 @@ export async function authenticateRequest(req: NextRequest): Promise<string> {
   try {
     getAdminApp();
     const decoded = await getAuth().verifyIdToken(idToken);
+    // Hard block unverified emails so they can't bypass the UI gate
+    if (!decoded.email_verified) {
+      throw new AuthError("Email not verified", 403);
+    }
     return decoded.uid;
   } catch (err: any) {
     // Surface a useful message instead of "(unknown)". Common causes:

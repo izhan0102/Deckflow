@@ -210,6 +210,11 @@ export default function DeckChat({
           body: JSON.stringify({ deck, instruction: text, history }),
         });
         const data = await res.json().catch(() => ({}));
+        if (res.status === 403) {
+          // Bounce unverified accounts back to the email verification flow
+          window.location.href = `/verify-email?redirect=${encodeURIComponent("/app")}`;
+          throw new Error("Email not verified");
+        }
         if (!res.ok) throw new Error(data?.error || `Request failed (${res.status}).`);
         const explanation: string = data?.explanation || "Deck updated.";
         const ops: any[] = Array.isArray(data?.ops) ? data.ops : [];
@@ -227,6 +232,11 @@ export default function DeckChat({
           body: JSON.stringify({ deck, theme, slideIndex, instruction: text, history }),
         });
         const data = await res.json().catch(() => ({}));
+        if (res.status === 403) {
+          // Bounce unverified accounts back to the email verification flow
+          window.location.href = `/verify-email?redirect=${encodeURIComponent("/app")}`;
+          throw new Error("Email not verified");
+        }
         if (!res.ok) throw new Error(data?.error || "Edit failed");
         if (data?.slide) onApplySlide(data.slide);
         setTurns((t) => t.map((tn) => tn.id === id
