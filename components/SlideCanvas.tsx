@@ -457,7 +457,7 @@ function TitleHeroCentered({ slide, theme, deckTitle, interactive, onUpdate, can
   return (
     <>
       {slide.kicker && (
-        <Movable id="subtitle" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        <Movable id="kicker" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
           baseStyle={{ position: "absolute", left: "8%", right: "8%", top: "30%", textAlign: "center" }}
         >
           <div style={{ fontSize: pt(11), letterSpacing: "0.18em", color: theme.accent, fontWeight: 600 }}>

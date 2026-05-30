@@ -30,7 +30,7 @@ export type Annotation = {
 
 export type ContentDensity = "concise" | "balanced" | "detailed" | "comprehensive";
 
-export type ElementId = "title" | "subtitle" | "bullets" | "body" | "table" | "quote" | "chart";
+export type ElementId = "title" | "subtitle" | "bullets" | "body" | "table" | "quote" | "chart" | "kicker";
 export type ElementOffset = { dx: number; dy: number };
 
 export type TableData = {
