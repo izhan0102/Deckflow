@@ -1,7 +1,7 @@
 "use client";
 import type { Slide, UploadedImage, Deck } from "@/lib/types";
 import type { Theme } from "@/lib/themes";
-import { Eye, Palette, Shapes, Trash2 } from "lucide-react";
+import { Eye, Maximize2, Palette, Shapes, Trash2 } from "lucide-react";
 import { getDecoration } from "@/lib/decorations";
 import StyleVariants from "./StyleVariants";
 
@@ -68,6 +68,13 @@ export default function DesignerPanel({
           });
         }}
       />
+
+      {slide.layout === "chart" && slide.chart && (
+        <ChartSizeRow
+          value={typeof slide.chartScale === "number" ? slide.chartScale : 1}
+          onChange={(v) => onUpdate({ chartScale: v })}
+        />
+      )}
 
       <div>
         <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-wider text-white/50">
@@ -335,4 +342,50 @@ function ColorRow({
 function normalizeHex(v: string): string {
   if (/^#[0-9a-fA-F]{6}$/.test(v)) return v;
   return "#000000";
+}
+
+/** Size slider + quick presets for a chart slide's chart. */
+function ChartSizeRow({
+  value, onChange,
+}: { value: number; onChange: (v: number) => void }) {
+  const pct = Math.round(value * 100);
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="inline-flex items-center gap-2 text-xs uppercase tracking-wider text-white/50">
+          <Maximize2 size={12} /> Chart size
+        </span>
+        <span className="font-mono text-[11px] text-white/70">{pct}%</span>
+      </div>
+      <input
+        type="range"
+        min={60}
+        max={160}
+        step={5}
+        value={pct}
+        onChange={(e) => onChange(Number(e.target.value) / 100)}
+        className="w-full accent-cyan-400"
+      />
+      <div className="mt-2 flex gap-1.5">
+        {[
+          { label: "Small", v: 0.75 },
+          { label: "Default", v: 1 },
+          { label: "Large", v: 1.3 },
+          { label: "XL", v: 1.6 },
+        ].map((p) => (
+          <button
+            key={p.label}
+            onClick={() => onChange(p.v)}
+            className={`flex-1 rounded-md border px-2 py-1 text-[10px] transition ${
+              Math.abs(value - p.v) < 0.001
+                ? "border-cyan-300/50 bg-cyan-300/15 text-cyan-100"
+                : "border-white/10 bg-black/30 text-white/65 hover:bg-white/10"
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }

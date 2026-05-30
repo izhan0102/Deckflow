@@ -15,16 +15,29 @@ export type DrawerPick =
   | { kind: "icon"; iconId: string };
 
 export default function DecorationDrawer({
-  open, theme, onClose, onPick,
+  open, theme, onClose, onPick, initialMode = "graphics",
 }: {
   open: boolean;
   theme: Theme;
   onClose: () => void;
   onPick: (pick: DrawerPick) => void;
+  /** "graphics" opens the shape/chart library; "icons" jumps straight to Iconify search. */
+  initialMode?: "graphics" | "icons";
 }) {
   const [page, setPage] = useState(0);
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState<"All" | DecorationCategory>("All");
+  const [category, setCategory] = useState<"All" | DecorationCategory>(
+    initialMode === "icons" ? "Icons" : "All",
+  );
+
+  // When the drawer is (re)opened, snap to the requested mode.
+  useEffect(() => {
+    if (open) {
+      setCategory(initialMode === "icons" ? "Icons" : "All");
+      setQuery("");
+      setPage(0);
+    }
+  }, [open, initialMode]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -65,7 +78,9 @@ export default function DecorationDrawer({
         <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
           <div className="flex items-center gap-2">
             <Shapes size={14} className="text-cyan-300" />
-            <span className="text-sm font-semibold text-white">Graphic library</span>
+            <span className="text-sm font-semibold text-white">
+              {inIconMode ? "Icon library" : "Graphic library"}
+            </span>
             {!inIconMode && <span className="text-[10px] text-white/40">· {DECORATIONS.length}</span>}
           </div>
           <button onClick={onClose} className="grid h-7 w-7 place-items-center rounded-md text-white/70 hover:bg-white/10">
@@ -82,21 +97,25 @@ export default function DecorationDrawer({
               : "Search shapes, charts, frames…"}
             className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-xs text-white outline-none focus:border-white/30"
           />
-          <div className="mt-2 flex flex-wrap gap-1">
-            <CategoryChip
-              active={category === "All"}
-              onClick={() => setCategory("All")}
-              label="All"
-            />
-            {DECORATION_CATEGORIES.map((c) => (
+          {/* Category chips only matter in graphics mode. In icon mode the whole
+              drawer IS the icon search, so we don't show the shape categories. */}
+          {!inIconMode && (
+            <div className="mt-2 flex flex-wrap gap-1">
               <CategoryChip
-                key={c}
-                active={category === c}
-                onClick={() => setCategory(c)}
-                label={c}
+                active={category === "All"}
+                onClick={() => setCategory("All")}
+                label="All"
               />
-            ))}
-          </div>
+              {DECORATION_CATEGORIES.filter((c) => c !== "Icons").map((c) => (
+                <CategoryChip
+                  key={c}
+                  active={category === c}
+                  onClick={() => setCategory(c)}
+                  label={c}
+                />
+              ))}
+            </div>
+          )}
         </div>
 
         {inIconMode ? (

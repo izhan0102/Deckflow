@@ -43,7 +43,7 @@ flowchart TB
     end
 
     subgraph "External services"
-      GROQ["Groq · openai/gpt-oss-120b"]
+      GROQ["Groq · llama-4-scout-17b-16e"]
       ICONIFY["Iconify · 200k+ icons"]
       FB_DB["Firebase Realtime DB"]
     end
@@ -81,10 +81,26 @@ Three patterns hold the system together:
 2. **Pure-function rendering** — `SlideCanvas` is the same component used in the editor, the thumbnail rail, the present mode, and the off-screen PDF capture. One source of visual truth.
 3. **Server is a thin proxy** — the Next.js API routes only do what the browser cannot: hold the Groq key, hit Iconify for search, and run pptxgenjs for the binary `.pptx`. Everything else is client-side.
 
+## Showcase
+
+The generator now builds **real data visuals** — bar, line, area, pie, and donut charts — directly into the deck when the topic has numbers worth showing. Charts are rendered as crisp vectors that survive both PDF and PowerPoint export, colored from the selected theme, and resizable from the side panel.
+
+<p align="center">
+  <img src="previews/image.png" alt="Generated deck in the editor" width="100%" />
+</p>
+
+<p align="center">
+  <img src="previews/graph.png" alt="AI-generated data chart on a slide" width="100%" />
+</p>
+
+The AI decides on its own whether a chart belongs and which type fits the data — a time trend becomes a line chart, a budget split becomes a pie, category comparisons become bars. If a topic has no real numbers, it stays with text rather than inventing data.
+
 ## Features
 
 - Five-step generator: brief → theme → font → graphic → deck
-- Eight slide layouts: title hero, bullets, table, two-column, quote, section, references, closing
+- Nine slide layouts: title hero, bullets, table, **data chart**, two-column, quote, section, references, closing
+- **AI-generated data charts** — bar, line, area, pie, and donut, built from the topic's real figures, theme-colored, resizable, and exported as vectors to both PPTX and PDF
+- The model picks the layout per slide (chart, table, two-column, bullets) based on what the content actually is — no fixed template, so every deck looks different
 - 32 themes paginated across four pages, plus full custom colors
 - 18 hand-picked Google Fonts with live previews
 - 22 background graphic styles, recolorable per deck
@@ -108,7 +124,7 @@ Three patterns hold the system together:
 
 - Next.js 14 with the App Router
 - TypeScript and Tailwind
-- Groq SDK (model `openai/gpt-oss-120b`)
+- Groq SDK (model `meta-llama/llama-4-scout-17b-16e-instruct`)
 - Iconify for icon search
 - pptxgenjs for PowerPoint export
 - jsPDF and html2canvas for PDF export

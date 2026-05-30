@@ -29,6 +29,8 @@
  */
 
 import type { Deck, Slide, SlideLayout, TableData } from "./types";
+import type { ChartSpec } from "./charts";
+import { cleanChartSpec } from "./charts";
 
 /* ----------------------------- op types ----------------------------- */
 
@@ -90,6 +92,7 @@ export type NewSlideSpec = {
   bullets?: string[];
   body?: string;
   table?: TableData;
+  chart?: ChartSpec;
   notes?: string;
   kicker?: string;
 };
@@ -104,6 +107,7 @@ export type SlidePatch = {
   addBullets?: string[];
   removeBullets?: number[];
   table?: TableData;
+  chart?: ChartSpec;
   layout?: SlideLayout;
   kicker?: string;
 };
@@ -112,7 +116,7 @@ export type SlidePatch = {
 /* ----------------------------- helpers ----------------------------- */
 
 const VALID_LAYOUTS: SlideLayout[] = [
-  "title-hero", "bullets", "table", "two-column",
+  "title-hero", "bullets", "table", "chart", "two-column",
   "quote", "section", "references", "closing",
 ];
 
@@ -152,6 +156,7 @@ function specToSlide(spec: NewSlideSpec): Slide {
     bullets: cleanList(spec.bullets),
     body: spec.body ? clean(spec.body) : undefined,
     table: cleanTable(spec.table),
+    chart: cleanChartSpec(spec.chart),
     notes: spec.notes ? clean(spec.notes) : undefined,
     kicker: spec.kicker ? clean(spec.kicker).toUpperCase().slice(0, 60) : undefined,
     annotations: [],
@@ -186,6 +191,10 @@ function applyPatch(slide: Slide, patch: SlidePatch): Slide {
   if (patch.table !== undefined) {
     const t = cleanTable(patch.table);
     if (t) next.table = t;
+  }
+  if (patch.chart !== undefined) {
+    const c = cleanChartSpec(patch.chart);
+    if (c) { next.chart = c; if (next.layout !== "chart") next.layout = "chart"; }
   }
   return next;
 }

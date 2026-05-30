@@ -1,11 +1,13 @@
 import Groq from "groq-sdk";
 import type { Deck, Slide, SlideLayout, ContentDensity, Reference, TableData } from "./types";
 import { withGroqClient } from "./groqClient";
+import { cleanChartSpec } from "./charts";
 
 const VALID_LAYOUTS: SlideLayout[] = [
   "title-hero",
   "bullets",
   "table",
+  "chart",
   "two-column",
   "quote",
   "section",
@@ -32,78 +34,188 @@ Schema:
   ],
   "slides": [
     {
-      "layout": "title-hero" | "bullets" | "table" | "two-column" | "quote" | "section" | "closing",
+      "layout": "title-hero" | "bullets" | "table" | "chart" | "two-column" | "quote" | "section" | "closing",
       "title": string,
       "subtitle": string,
       "bullets": string[],
       "body": string,
       "table": { "headers": string[], "rows": [ string[] ], "source": string },
-      "kicker": string,         // OPTIONAL. ONLY for the first "title-hero" slide. Short uppercase context line shown above the title (e.g. "Q3 INVESTOR UPDATE", "INTRO LECTURE", "INTERNAL TRAINING"). 2-5 words, always uppercase. If you don't have a strong one, omit.
-      "titleVariant": "centered" | "asymmetric" | "big-initial" | "numbered" | "underlined",  // OPTIONAL. ONLY for "title-hero". Pick one based on tone:
-                                //   "centered"     - safe / academic / corporate (default)
-                                //   "asymmetric"   - editorial / pitch / brand-forward
-                                //   "big-initial"  - creative / story-driven
-                                //   "numbered"     - report / quarterly / chapter feel
-                                //   "underlined"   - confident / single-statement
+      "chart": {
+        "type": "bar" | "line" | "area" | "pie" | "donut",
+        "title": string,                 // short caption for the chart
+        "unit": string,                  // OPTIONAL suffix like "%", "M", "k"
+        "data": [ { "label": string, "value": number, "color": string } ]  // 2-7 points; "color" optional hex
+      },
+      "columnLabels": { "left": string, "right": string },  // ONLY for "two-column". The REAL heading for each side, e.g. {"left":"Challenges","right":"Opportunities"} or {"left":"Traditional","right":"Modern"}. Use {"left":"Pros","right":"Cons"} ONLY when it is genuinely a pros/cons trade-off.
+      "kicker": string,         // OPTIONAL. ONLY for the first "title-hero" slide. Short uppercase context line shown above the title (e.g. "Q3 INVESTOR UPDATE", "INTRO LECTURE"). 2-5 words, always uppercase.
+      "titleVariant": "centered" | "asymmetric" | "big-initial" | "numbered" | "underlined",  // OPTIONAL. ONLY for "title-hero".
+      "bulletsVariant": "standard" | "numbered" | "cards" | "icon-check" | "dashed",  // OPTIONAL. ONLY for "bullets". Choose by content: "cards" for distinct features/pillars, "icon-check" for benefits/advantages, "numbered" for ordered steps, "standard"/"dashed" for plain points.
+      "twoColumnVariant": "classic" | "divider" | "cards" | "numbered" | "compare",  // OPTIONAL. ONLY for "two-column". Use "compare" ONLY for genuine pros/cons.
       "notes": string
     }
   ]
 }
 
-Layout rules — pick the layout that fits the content:
-- "title-hero":  opening slide.
-  - ALWAYS set "kicker" (short uppercase context line, e.g. "Q3 INVESTOR UPDATE") and "titleVariant".
-  - Vary the variant based on tone: pick "asymmetric" for pitches/brand decks, "numbered" for reports/quarterly updates, "big-initial" for stories/keynotes, "underlined" for single-statement bold openings, "centered" only if the topic is academic or formal.
-  - DO NOT default to "centered" — most decks should use one of the other four.
-- "bullets":     3-6 bullets. Default content slide. NEVER leave bullets empty.
-- "table":       data, metrics, comparisons, numbers. Always include "source".
-- "two-column":  qualitative comparison without numbers.
-- "quote":       use ONLY when the user's prompt explicitly asks for a quote, testimonial, or famous saying. NEVER auto-insert a quote slide for "rhythm" or "variety". If you have no real quote relevant to the topic, do not output this layout.
-- "section":     chapter divider between major themes. Use sparingly (max 1 per deck) and only when the deck has clearly separable sections.
-- "closing":     thank you / Q&A.
+YOUR JOB: design a deck that fits THIS topic. Every deck must feel different.
+Do NOT fall back to a fixed template. Choose each slide's layout based on what
+the content on that slide actually is. Two decks on different topics should look
+visibly different in their layout sequence.
+
+TRUTH AND ACCURACY (non-negotiable):
+- Everything in the deck must be true or clearly framed as illustrative. NEVER
+  fabricate statistics, percentages, dates, data series, quotes, citations, or
+  URLs. Inventing a number to fill a chart, or a fake reference to look credible,
+  is the worst thing you can do here.
+- If you do not have real data, present the idea qualitatively in words. If you
+  do not have real sources, return an empty references array. A clean, honest
+  deck with no chart and no references beats one padded with fabrications.
+- This is what makes the output trustworthy and lets it stand out. Polished AND
+  accurate.
+
+Layout palette — pick the BEST fit for each slide's content:
+- "title-hero":  opening slide ONLY. This is the FIRST impression — make it fit
+  the SPECIFIC topic, never generic. ALWAYS set a "kicker" that names the real
+  context (e.g. "Q3 2024 INVESTOR UPDATE", "CS101 LECTURE 4", "SERIES A PITCH"),
+  and ALWAYS choose a "titleVariant" that suits the topic and tone. VARY IT —
+  do not default to "centered" every time:
+    * "asymmetric"  -> pitches, brand/product launches, marketing
+    * "numbered"    -> reports, quarterly updates, anything with a date/figure
+    * "big-initial" -> stories, keynotes, narrative or personal talks
+    * "underlined"  -> a single bold statement or manifesto
+    * "centered"    -> formal/academic/government only
+  Two decks on different topics must NOT have identical-looking title slides.
+- "bullets":     a list of points, ideas, steps, features. 3-6 bullets. The most
+  common content layout, but DO NOT make every slide this.
+- "chart":       USE THIS whenever a slide is fundamentally about NUMBERS that
+  compare or trend: market share, growth over time, revenue by segment, survey
+  results, budget split, before/after metrics, percentages. Put the data in
+  "chart" with 2-7 data points. Pick the chart type that fits:
+    * "bar"   - comparing categories (revenue by region, votes per option)
+    * "line"  - a trend over ordered time (MRR by month, users by year)
+    * "area"  - a trend where the filled volume matters (cumulative growth)
+    * "pie"   - parts of a whole, 2-5 slices (market share, budget split)
+    * "donut" - same as pie, more modern look
+  Choose the chart's colors yourself when it helps (e.g. red for a declining
+  segment), or omit "color" to use the theme palette. A chart slide usually
+  has a short title and little or no bullets.
+- "table":       precise tabular data with multiple columns (feature matrix,
+  pricing tiers, spec comparison). Use a chart instead if it's a single series
+  of numbers that would read better visually. Always include "source".
+- "two-column":  a side-by-side of TWO related sets of points. Examples:
+  Challenges vs Opportunities, Traditional vs Modern, Theory vs Practice,
+  Short-term vs Long-term, Team A vs Team B. ALWAYS set "columnLabels" to the
+  REAL headings for the two sides (e.g. {"left":"Challenges","right":"Opportunities"}).
+  Set "twoColumnVariant":"compare" ONLY when it is a genuine PROS vs CONS
+  trade-off, and in that case set columnLabels to {"left":"Pros","right":"Cons"}.
+  For every other two-sided slide use "classic", "divider", or "cards" with the
+  real labels — NOT the pros/cons styling.
+- "quote":       ONLY when the user's prompt explicitly asks for a quote,
+  testimonial, or famous saying, and you have a real one. Never insert a quote
+  for "variety".
+- "section":     a chapter divider with just a short title and an optional one
+  line lead-in. Use 0 or 1 per deck, ONLY when the deck has clearly separable
+  parts. NEVER put bullets, pros/cons, or lists on a section slide. A section
+  slide is a transition, not content.
+- "closing":     final slide. Thank-you / Q&A.
+
+HARD RULES on layout choice (this is what makes decks feel custom):
+- Vary the layouts. Do NOT use "bullets" for every middle slide. A good 8-slide
+  deck might be: hero, bullets, chart, two-column, bullets, table, section?,
+  closing — but YOU decide based on the actual content.
+- Pros and cons / advantages and disadvantages -> "two-column" with
+  twoColumnVariant "compare" and columnLabels {"left":"Pros","right":"Cons"}.
+  Use this ONLY when the slide is genuinely weighing upsides against downsides,
+  AND only when the user's brief or that slide's substance actually calls for a
+  trade-off. NEVER apply pros/cons styling to a slide that is just two related
+  groups (e.g. "Challenges and Opportunities" is NOT pros/cons — it's a
+  two-column with those exact labels). Do not invent a pros/cons slide for filler.
+- Numbers that compare or trend -> strongly prefer "chart". Don't bury real data
+  in prose bullets.
+- A "section" slide must contain ONLY a title (+ optional one-line body). If you
+  find yourself wanting to put points on it, it should be a "bullets" slide.
+
+Visual variety and meaning (NO random decoration):
+- Pick the "bulletsVariant" that matches the content, don't leave everything
+  "standard". Use "cards" for a set of distinct pillars/features, "icon-check"
+  for benefits or a checklist, "numbered" ONLY for genuinely ordered steps. The
+  "cards" and "icon-check" variants read as visual blocks with markers rather
+  than a plain numeric list — prefer them over a bare "1. 2. 3." when the points
+  aren't strictly sequential.
+- For "two-column", set "twoColumnVariant": use "compare" for pros/cons,
+  "cards" for two sets of grouped points, "numbered" for paired ordered items.
+- Every visual choice must be MEANINGFUL. Never add a chart, card grid, or
+  variant just for decoration. If plain bullets communicate best, use them.
+- Keep content aligned and tight: short parallel bullets, consistent
+  capitalization, no overflowing lines.
 
 Composition rules:
-- First slide MUST be "title-hero".
-- Last slide MUST be "closing".
-- DO NOT use "references" layout — added automatically.
-- For numeric/comparative content, use "table" — never invent stat cards.
-- Vary layouts among bullets / table / two-column. Don't repeat the same layout 3+ times in a row.
-- Do NOT add "rhythm" slides (quote, section dividers) unless the topic genuinely benefits. Most decks should have 0 quote slides and 0-1 section slides.
+- First slide MUST be "title-hero". Last slide MUST be "closing".
+- DO NOT use a "references" layout — it's added automatically.
+- Don't repeat the same layout 3+ times in a row.
+- Insert "chart"/"table"/"two-column" only where the content earns it. When in
+  doubt for generic prose points, use "bullets".
 
 CRITICAL completeness rules:
-- EVERY content slide MUST be filled in fully. If layout is "bullets" or "two-column", "bullets" must contain at least 3 items.
-- If layout is "table", "table.rows" must contain at least 2 rows and "table.headers" must not be empty.
-- If layout is "quote", "body" must contain a real, accurate quote relevant to the topic.
-- NEVER output empty arrays or empty bodies. If you cannot think of content, write fewer slides instead.
+- EVERY content slide MUST be filled in fully.
+- "bullets" / "two-column": "bullets" has at least 3 items.
+- "table": "table.rows" has at least 2 rows, "table.headers" not empty.
+- "chart": "chart.data" has at least 2 points with real numeric values. NEVER
+  emit a chart with made-up-looking placeholder numbers; if you don't have
+  plausible figures for the topic, use a different layout.
+- "quote": "body" has a real relevant quote.
+- NEVER output empty arrays or empty bodies. Write fewer slides instead.
+
+Charts — REAL DATA ONLY. This is critical:
+- A chart is a factual claim. Only create one when you actually KNOW real,
+  verifiable figures for the topic (well-known statistics, widely reported
+  market numbers, standard reference values). Examples of acceptable: "global
+  smartphone OS market share" (Android ~70%, iOS ~28%), "US GDP by year".
+- DO NOT fabricate numbers. Never invent a value, percentage, year-by-year
+  series, or "Glacier Mass Loss 2000-2020: 140%" type data. If you are not
+  confident the numbers are real and approximately correct, DO NOT make a chart.
+  Use bullets to describe the trend qualitatively instead.
+- A pie/donut whose slices conveniently sum to 100, or a smooth made-up trend
+  line, is almost always fabricated. Do not produce these unless the figures are
+  genuinely known.
+- When you do chart real data, keep 2-7 points, short labels (1-2 words), plain
+  numbers (use "unit" for "%", "M", "k"), and match the type to the data shape
+  (bar=categories, line/area=time trend, pie/donut=parts of a whole).
+- If a slide's concept is non-numeric (stages, types, principles, steps), it is
+  NOT a chart. Use bullets, cards, or two-column.
+- It is completely fine to produce a deck with ZERO charts. Most decks should.
 
 Tables:
+- Use a table only for real, structured information you are confident about.
 - Headers short (1-3 words). Cells short (1-4 words).
-- "source" is one line: "Author/Org, Year".
+- "source" must be a REAL, identifiable source ("World Bank, 2023", "company
+  filings"). If you can't name a real source, either leave it out or don't use a
+  table. Never write a fake citation.
 
-References:
-- Provide 4-8 references in top-level "references" array.
-- Format: "Author (Year). Title. Publisher/Outlet."
-- Include "url" only if highly confident it's real.
+References — REAL OR NONE:
+- Only include references you are genuinely confident are real publications.
+  Format: "Author (Year). Title. Publisher/Outlet."
+- Include a "url" ONLY if you are confident it is a real, correct link.
+  A fabricated or guessed URL is worse than no URL — omit it when unsure.
+- If you cannot produce real references for the topic, return an EMPTY
+  "references" array. Do NOT invent plausible-looking but fake citations,
+  authors, years, or DOIs. Empty is better than fake.
+- Quality over quantity: 3 real references beat 8 invented ones.
 
-Text — HARD LIMITS so content fits the slide canvas:
-- Slides render on a 16:9 canvas (13.33 × 7.5 inches). Padding ~0.6 in on all sides.
-- Title: <= 60 characters. Subtitle: <= 100 characters. NO exceptions — split into two slides if a topic needs more.
+Text — HARD LIMITS so nothing overflows the 16:9 canvas (13.33 x 7.5in, ~0.6in padding):
+- Title: <= 60 characters. Subtitle: <= 100 characters. Split into two slides if needed.
 - Body (quote / section lead-in): <= 240 characters.
-- Bullets: see density guide above. Strict caps. The model often goes over — DO NOT.
+- Bullets: see density guide. Strict caps. The model often overshoots — DO NOT.
 - Notes 2-4 sentences per slide.
-- No emojis unless topic invites them.
+- No emojis unless the topic invites them.
 
-Closing slide content — strict:
-- The closing slide is for the title only. Use "title": "Thank you", "Questions", or a short sign-off in the deck's voice.
-- "subtitle": optional, max 80 chars, only if the deck explicitly invited a takeaway.
-- DO NOT auto-include "Get in touch", "Contact us", emails, websites, phone numbers, social handles, or call-to-action language unless the user's prompt explicitly asks for a CTA. The default closing has zero contact info.
+Closing slide — strict:
+- Title only ("Thank you", "Questions", a short sign-off). Optional subtitle <= 80 chars.
+- DO NOT auto-add "Get in touch", emails, phone, social, or CTAs unless the prompt explicitly asks.
 
-Variety — make every deck feel custom to its topic:
-- Match tone to topic: a startup pitch should feel different from a college lecture from a wedding speech from an investor update. Pick layouts, language, and rhythm accordingly.
-- DO NOT use a fixed template across decks. Vary the layout sequence, the bullet rhythm, and which slides are "hero" vs "info-dense" based on what the topic actually needs.
-- Match formality to audience: a board meeting deck = restrained, no exclamation, no marketing voice. A creative kickoff = looser, more rhetorical.
-
-Read the user's prompt carefully and follow what they asked. If they specified a structure ("problem, solution, traction, ask"), use it exactly. If they asked for a particular slide ("include a slide on hiring"), include it. Do not paste in generic content because the topic is generic to you.`;
+Match tone to topic and audience: a startup pitch, a college lecture, a wedding
+speech, and an investor update should each feel distinct in layout, language, and
+rhythm. Read the user's brief in full. If they specified a structure or named
+slides, follow it exactly. Do not paste generic content.`;
 
 function buildUserMessage(opts: {
   prompt: string;
@@ -114,21 +226,26 @@ function buildUserMessage(opts: {
   includeReferences: boolean;
 }) {
   const refLine = opts.includeReferences
-    ? `Provide a "references" array with 4-8 plausible scholarly or industry sources for the topic.`
+    ? `For "references": include ONLY real, verifiable sources you are confident exist. If you are not confident, return an empty references array. Never fabricate citations or URLs.`
     : `Set "references" to an empty array — the user does not want a references slide.`;
 
   return `Create EXACTLY a ${opts.slideCount}-slide presentation. Output exactly ${opts.slideCount} entries in "slides". Not fewer. Not more. The user explicitly requested ${opts.slideCount} slides — honor that count.
 
-Slide structure expected:
+Slide structure:
 - Slide 1: title-hero
-- Slides 2 through ${opts.slideCount - 1}: a varied mix of bullets / two-column / table layouts that fit the topic. (If user prompt suggests structure like "Problem, Solution, Traction, Ask", follow that exact order.)
+- Slides 2 through ${opts.slideCount - 1}: choose the layout for EACH slide based on
+  what that slide's content actually is. Mix freely among bullets, chart, table,
+  two-column, and (rarely) section. Use a "chart" wherever the slide is about
+  comparable or trending numbers. Use "two-column" for any pros/cons or
+  comparison. Do NOT make every middle slide a bullets slide. (If the user's
+  brief implies an order like "Problem, Solution, Traction, Ask", follow it.)
 - Slide ${opts.slideCount}: closing
 
 ${DENSITY_GUIDE[opts.density]}
 
 ${refLine}
 
-Read the user's brief in full. Use every relevant detail they gave you — DO NOT drop or skip parts because the brief is long. If they listed sections / topics / numbers, honor each one explicitly. If they specified an order, preserve it.
+Read the user's brief in full. Use every relevant detail they gave you — DO NOT drop or skip parts because the brief is long. If they listed sections / topics / numbers, honor each one explicitly. If they specified an order, preserve it. If the brief contains real numbers or stats, put them in a chart rather than burying them in prose.
 
 User's brief:
 """
@@ -198,6 +315,7 @@ function isEmptySlide(s: Slide): boolean {
   if (s.layout === "section") return !s.title || !s.body;
   if (s.layout === "quote") return !s.body;
   if (s.layout === "table") return !s.table || s.table.rows.length === 0;
+  if (s.layout === "chart") return !s.chart || s.chart.data.length < 2;
   if (s.layout === "bullets" || s.layout === "two-column") {
     return !s.bullets || s.bullets.length < 2;
   }
@@ -244,7 +362,7 @@ Return ONLY the JSON.`;
 
   const completion = await withGroqClient((client) =>
     client.chat.completions.create({
-      model: "openai/gpt-oss-120b",
+      model: "meta-llama/llama-4-scout-17b-16e-instruct",
       temperature: 0.4,
       // Same TPM constraint applies; fill pass usually only patches a
       // handful of slides so 3000 is plenty.
@@ -289,14 +407,13 @@ export async function generateDeck(opts: {
 
   const completion = await withGroqClient((client) =>
     client.chat.completions.create({
-      model: "openai/gpt-oss-120b",
+      model: "meta-llama/llama-4-scout-17b-16e-instruct",
       temperature: 0.55,
-      // Groq free tier caps total tokens per request near the TPM limit
-      // (~8K for openai/gpt-oss-120b). System prompt + few-shots eat
-      // ~2.8K input, so keeping output around 5000 leaves headroom and
-      // avoids 413 Payload Too Large. Decks larger than this rely on the
-      // pad-and-fill-empty-slides safety net below.
-      max_tokens: 5000,
+      // Scout on the paid tier allows ~300k TPM / 1k RPM, so there's ample
+      // headroom. 8000 output tokens lets even a 20-slide deck return in one
+      // pass without truncation; the pad-and-fill-empty-slides net below
+      // stays only as a backstop.
+      max_tokens: 8000,
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
@@ -327,6 +444,7 @@ export async function generateDeck(opts: {
       bullets: Array.isArray(s.bullets) ? s.bullets.map(clean).filter(Boolean) : [],
       body: s.body ? clean(s.body) : undefined,
       table: cleanTable(s.table),
+      chart: cleanChartSpec(s.chart),
       notes: s.notes ? clean(s.notes) : undefined,
       kicker: s.kicker ? clean(s.kicker).toUpperCase().slice(0, 60) : undefined,
       titleVariant:
@@ -335,12 +453,32 @@ export async function generateDeck(opts: {
         s.titleVariant === "numbered"    ? "numbered"    :
         s.titleVariant === "underlined"  ? "underlined"  :
         s.titleVariant === "centered"    ? "centered"    : undefined,
+      bulletsVariant:
+        ["standard", "numbered", "cards", "icon-check", "dashed"].includes(s.bulletsVariant)
+          ? s.bulletsVariant : undefined,
+      twoColumnVariant:
+        ["classic", "divider", "cards", "numbered", "compare"].includes(s.twoColumnVariant)
+          ? s.twoColumnVariant : undefined,
+      columnLabels:
+        s.columnLabels && typeof s.columnLabels === "object"
+          && typeof s.columnLabels.left === "string" && typeof s.columnLabels.right === "string"
+          ? { left: clean(s.columnLabels.left).slice(0, 28), right: clean(s.columnLabels.right).slice(0, 28) }
+          : undefined,
       annotations: [],
     };
   });
 
   if (slides[0]) slides[0].layout = "title-hero";
   if (slides.length > 1) slides[slides.length - 1].layout = "closing";
+
+  // A "chart" slide with no usable chart data is useless — the fill pass
+  // can't author charts. Downgrade it to bullets so it still gets content.
+  for (let i = 1; i < slides.length - 1; i++) {
+    if (slides[i].layout === "chart" && (!slides[i].chart || slides[i].chart!.data.length < 2)) {
+      slides[i].layout = "bullets";
+      slides[i].chart = undefined;
+    }
+  }
 
   // PAD: if the model returned fewer slides than asked, insert empty bullet
   // slides in the middle and have the fill pass write content for them.

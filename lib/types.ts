@@ -1,9 +1,11 @@
 import type { Theme } from "./themes";
+import type { ChartSpec } from "./charts";
 
 export type SlideLayout =
   | "title-hero"
   | "bullets"
   | "table"
+  | "chart"
   | "two-column"
   | "quote"
   | "section"
@@ -28,7 +30,7 @@ export type Annotation = {
 
 export type ContentDensity = "concise" | "balanced" | "detailed" | "comprehensive";
 
-export type ElementId = "title" | "subtitle" | "bullets" | "body" | "table" | "quote";
+export type ElementId = "title" | "subtitle" | "bullets" | "body" | "table" | "quote" | "chart";
 export type ElementOffset = { dx: number; dy: number };
 
 export type TableData = {
@@ -69,6 +71,14 @@ export type Slide = {
   body?: string;
   notes?: string;
   table?: TableData;
+  /** Optional labels for the two columns of a two-column slide (e.g.
+   *  ["Challenges", "Opportunities"]). When absent, the "compare" variant
+   *  falls back to generic Pros/Cons, and other variants show no header. */
+  columnLabels?: { left: string; right: string };
+  /** Optional data chart rendered as the slide's main visual (bar/line/pie/donut/area).
+   *  Used by the "chart" layout. The AI emits this only when the content is
+   *  genuinely numeric/quantitative — never decoratively. */
+  chart?: ChartSpec;
   references?: Reference[];
   /** Optional variant for the title-hero layout: "centered" | "asymmetric" | "big-initial" | "numbered" | "underlined". */
   titleVariant?: "centered" | "asymmetric" | "big-initial" | "numbered" | "underlined";
@@ -90,6 +100,8 @@ export type Slide = {
   // Per-slide style overrides set via the chat box.
   titleScale?: number;
   bodyScale?: number;
+  /** Chart size multiplier (0.6 .. 1.6). Applied to the chart layout's plot area. */
+  chartScale?: number;
   fontOverride?: "sans" | "serif" | "mono";
   textColorOverride?: string;
   accentColorOverride?: string;

@@ -16,6 +16,7 @@ import { getGraphic, svgToDataUri } from "@/lib/graphics";
 import { decorationDataUri, applyDecorationOverrides } from "@/lib/decorations";
 import { resolveFontFamily } from "@/lib/fonts";
 import { iconifySvgUrl } from "@/lib/iconify";
+import { chartDataUri } from "@/lib/charts";
 
 const PT = 0.104;
 const IN = 7.5;
@@ -138,6 +139,7 @@ function Inner(props: any) {
   if (slide.layout === "title-hero") return <TitleHero {...props} />;
   if (slide.layout === "two-column") return <TwoColumn {...props} />;
   if (slide.layout === "table")      return <TableLayout {...props} />;
+  if (slide.layout === "chart")      return <ChartLayout {...props} />;
   if (slide.layout === "quote")      return <Quote {...props} />;
   if (slide.layout === "section")    return <Section {...props} />;
   if (slide.layout === "references") return <ReferencesLayout {...props} />;
@@ -1209,30 +1211,46 @@ function TwoColumnCompare(props: any) {
   const editBullet = (i: number, value: string) => {
     const next = [...all]; next[i] = value; onUpdate?.({ bullets: next });
   };
-  const Side = ({ items, offset, kind }: { items: string[]; offset: number; kind: "pro" | "con" }) => (
-    <div>
-      <div style={{
-        marginBottom: pt(10),
-        padding: `${pt(6)} ${pt(12)}`,
-        borderRadius: pt(6),
-        background: kind === "pro" ? `${theme.accent}22` : `${theme.muted}22`,
-        color: kind === "pro" ? theme.accent : theme.muted,
-        fontSize: pt(11), letterSpacing: "0.18em", fontWeight: 700,
-        textAlign: "center", textTransform: "uppercase",
-      }}>{kind === "pro" ? "Pros" : "Cons"}</div>
-      <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
-        {items.map((b, i) => (
-          <li key={i} style={{ marginBottom: pt(8), display: "flex", gap: pt(10), alignItems: "flex-start" }}>
-            <span style={{
-              color: kind === "pro" ? theme.accent : theme.muted,
-              fontWeight: 800, minWidth: pt(14),
-            }}>{kind === "pro" ? "✓" : "✕"}</span>
-            <EditableText value={b} interactive={interactive} onCommit={(v) => editBullet(offset + i, v)} style={{ flex: 1 }}/>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
+  // Use real column labels when provided. Only treat the slide as a true
+  // pros/cons comparison (with ✓/✕ marks and accent/muted coloring) when the
+  // labels actually read as positive vs negative. Otherwise it's a neutral
+  // two-sided comparison with both columns styled the same.
+  const left = slide.columnLabels?.left || "Pros";
+  const right = slide.columnLabels?.right || "Cons";
+  const isProsCons = /^(pros?|advantages?|benefits?|strengths?|upsides?)$/i.test(left.trim())
+    && /^(cons?|disadvantages?|drawbacks?|weaknesses?|risks?|downsides?)$/i.test(right.trim());
+
+  const Side = ({ items, offset, side }: { items: string[]; offset: number; side: "left" | "right" }) => {
+    const label = side === "left" ? left : right;
+    const positive = side === "left";
+    const headColor = isProsCons ? (positive ? theme.accent : theme.muted) : theme.accent;
+    const headBg = isProsCons
+      ? (positive ? `${theme.accent}22` : `${theme.muted}22`)
+      : `${theme.accent}1a`;
+    const marker = isProsCons ? (positive ? "✓" : "✕") : "•";
+    const markerColor = isProsCons ? (positive ? theme.accent : theme.muted) : theme.accent;
+    return (
+      <div>
+        <div style={{
+          marginBottom: pt(10),
+          padding: `${pt(6)} ${pt(12)}`,
+          borderRadius: pt(6),
+          background: headBg,
+          color: headColor,
+          fontSize: pt(11), letterSpacing: "0.12em", fontWeight: 700,
+          textAlign: "center", textTransform: "uppercase",
+        }}>{label}</div>
+        <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
+          {items.map((b, i) => (
+            <li key={i} style={{ marginBottom: pt(8), display: "flex", gap: pt(10), alignItems: "flex-start" }}>
+              <span style={{ color: markerColor, fontWeight: 800, minWidth: pt(14) }}>{marker}</span>
+              <EditableText value={b} interactive={interactive} onCommit={(v) => editBullet(offset + i, v)} style={{ flex: 1 }}/>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  };
   return (
     <>
       <AccentBar theme={theme} />
@@ -1244,8 +1262,8 @@ function TwoColumnCompare(props: any) {
           fontSize: pt(bulletSize(all.length, slide)), color: theme.fg, lineHeight: 1.5,
         }}
       >
-        <Side items={all.slice(0, half)} offset={0} kind="pro" />
-        <Side items={all.slice(half)} offset={half} kind="con" />
+        <Side items={all.slice(0, half)} offset={0} side="left" />
+        <Side items={all.slice(half)} offset={half} side="right" />
       </Movable>
       <Footer theme={theme} deckTitle={deckTitle} idx={idx} total={total} />
     </>
@@ -1345,6 +1363,46 @@ function TableLayout(props: any) {
         ) : (
           <div style={{ color: theme.muted, fontSize: pt(14) }}>
             No table data. Use the chat to add rows.
+          </div>
+        )}
+      </Movable>
+      <Footer theme={theme} deckTitle={deckTitle} idx={idx} total={total} />
+    </>
+  );
+}
+
+function ChartLayout(props: any) {
+  const { slide, theme, idx, total, deckTitle, interactive, onUpdate, canvasRef } = props;
+  const spec = slide.chart;
+  const src = spec ? chartDataUri(spec, theme) : "";
+  // chartScale lets the user grow/shrink the chart. 1 = fill the box.
+  const scale = typeof slide.chartScale === "number"
+    ? Math.max(0.6, Math.min(1.6, slide.chartScale)) : 1;
+  return (
+    <>
+      <AccentBar theme={theme} />
+      <ContentTitle {...props} />
+      <Movable id="chart" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{ position: "absolute", left: inches(0.6), top: inches(2.5), right: inches(0.6), bottom: inches(0.9) }}
+      >
+        {spec && src ? (
+          <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={src}
+              alt={spec.title || "chart"}
+              draggable={false}
+              style={{
+                width: `${Math.round(scale * 100)}%`,
+                height: `${Math.round(scale * 100)}%`,
+                objectFit: "contain",
+                pointerEvents: "none",
+              }}
+            />
+          </div>
+        ) : (
+          <div style={{ color: theme.muted, fontSize: pt(14) }}>
+            No chart data. Use the chat to add a chart.
           </div>
         )}
       </Movable>

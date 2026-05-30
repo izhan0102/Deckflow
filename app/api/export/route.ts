@@ -10,6 +10,7 @@ import { getGraphic, svgToDataUri } from "@/lib/graphics";
 import { decorationDataUri, applyDecorationOverrides } from "@/lib/decorations";
 import { iconifySvgUrl } from "@/lib/iconify";
 import { stripHtml } from "@/lib/richText";
+import { renderChartSvg } from "@/lib/charts";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -356,17 +357,35 @@ async function renderTwoColumn(
     const all = slide.bullets || [];
     const half = Math.ceil(all.length / 2);
     const colW = (W - 3 * PAD) / 2;
+    const labels = slide.columnLabels;
+    const headerH = labels ? 0.5 : 0;
+    const listY = 2.6 + headerH;
+
+    if (labels) {
+      s.addText(labels.left.toUpperCase(), {
+        x: PAD + o.dx, y: 2.55 + o.dy, w: colW, h: 0.4,
+        fontSize: 12, bold: true, color: hex(theme.accent),
+        charSpacing: 2, fontFace: fontFor(theme, slide), align: "center",
+        fill: { color: hex(mix(theme.accent, theme.bg, 0.12)) },
+      });
+      s.addText(labels.right.toUpperCase(), {
+        x: PAD + colW + PAD + o.dx, y: 2.55 + o.dy, w: colW, h: 0.4,
+        fontSize: 12, bold: true, color: hex(theme.accent),
+        charSpacing: 2, fontFace: fontFor(theme, slide), align: "center",
+        fill: { color: hex(mix(theme.accent, theme.bg, 0.12)) },
+      });
+    }
 
     const left = all.slice(0, half).map((b) => ({ text: b, options: { bullet: { code: "25CF" }, color: hex(theme.fg) } }));
     const right = all.slice(half).map((b) => ({ text: b, options: { bullet: { code: "25CF" }, color: hex(theme.fg) } }));
 
     s.addText(left as any, {
-      x: PAD + o.dx, y: 2.6 + o.dy, w: colW, h: H - 3.4,
+      x: PAD + o.dx, y: listY + o.dy, w: colW, h: H - 3.4 - headerH,
       fontSize: bulletSize(all.length, slide), color: hex(theme.fg),
       fontFace: fontFor(theme, slide), paraSpaceAfter: 10,
     });
     s.addText(right as any, {
-      x: PAD + colW + PAD + o.dx, y: 2.6 + o.dy, w: colW, h: H - 3.4,
+      x: PAD + colW + PAD + o.dx, y: listY + o.dy, w: colW, h: H - 3.4 - headerH,
       fontSize: bulletSize(all.length, slide), color: hex(theme.fg),
       fontFace: fontFor(theme, slide), paraSpaceAfter: 10,
     });
@@ -435,6 +454,36 @@ async function renderTable(
         color: hex(theme.muted), fontFace,
       });
     }
+  }
+
+  addFooter(s, theme, deck.title, idx, total);
+  if (slide.notes) s.addNotes(slide.notes);
+  return s;
+}
+
+async function renderChart(
+  pptx: PptxGenJS, deck: Deck, slide: Slide, theme: Theme, idx: number, total: number,
+): Promise<PptxGenJS.Slide> {
+  const s = pptx.addSlide();
+  s.background = { color: hex(theme.bg) };
+  applyGraphicBg(s, theme, deck);
+  addAccentBar(s, theme);
+  addContentTitle(s, slide, theme);
+
+  if (!isHidden(slide, "chart") && slide.chart) {
+    const o = offset(slide, "chart");
+    const svg = renderChartSvg(slide.chart, theme);
+    const data = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+    // Chart SVG is authored on a 480x300 (1.6:1) viewBox. Fit it inside the
+    // content area below the title, centered, scaled by chartScale.
+    const scale = typeof slide.chartScale === "number"
+      ? Math.max(0.6, Math.min(1.6, slide.chartScale)) : 1;
+    const maxW = 9.2, maxH = 4.4;
+    const cw = maxW * scale;
+    const ch = maxH * scale;
+    const cx = (W - cw) / 2;
+    const cy = 2.6 + (maxH - ch) / 2; // keep vertically centered in the band
+    s.addImage({ data, x: cx + o.dx, y: cy + o.dy, w: cw, h: ch });
   }
 
   addFooter(s, theme, deck.title, idx, total);
@@ -673,6 +722,7 @@ export async function POST(req: NextRequest) {
         case "title-hero": s = await renderTitleHero(pptx, deck, slide, eff); break;
         case "two-column": s = await renderTwoColumn(pptx, deck, slide, eff, i, total); break;
         case "table":      s = await renderTable(pptx, deck, slide, eff, i, total); break;
+        case "chart":      s = await renderChart(pptx, deck, slide, eff, i, total); break;
         case "quote":      s = await renderQuote(pptx, deck, slide, eff, i, total); break;
         case "section":    s = await renderSection(pptx, deck, slide, eff); break;
         case "references": s = await renderReferences(pptx, deck, slide, eff, i, total); break;

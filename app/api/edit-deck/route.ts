@@ -241,11 +241,9 @@ export async function POST(req: NextRequest) {
 
     const completion = await withGroqClient((client) =>
       client.chat.completions.create({
-        // Smaller, much faster model for ops emission. The deck-level
-        // chat is structured JSON output — no need for the bigger
-        // model's reasoning, and llama-3.3-70b consistently returns in
-        // 3-5s vs the 12-15s of gpt-oss-120b.
-        model: "llama-3.3-70b-versatile",
+        // Llama 4 Scout: ~2x faster than gpt-oss-120b and 100% accuracy
+        // on our structured-edit benchmark. See docs/MODEL_SELECTION.md.
+        model: "meta-llama/llama-4-scout-17b-16e-instruct",
         temperature: 0.15,
         max_tokens: 2500,
         response_format: { type: "json_object" },

@@ -4,6 +4,7 @@ import { withGroqClient } from "@/lib/groqClient";
 import { getDecoration, DECORATIONS } from "@/lib/decorations";
 import { searchIconify } from "@/lib/iconify";
 import { authenticateRequest, AuthError } from "@/lib/firebaseAdmin";
+import { cleanChartSpec } from "@/lib/charts";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -13,7 +14,7 @@ const VALID_ANCHORS: Anchor[] = [
   "middle-left","middle-center","middle-right",
   "bottom-left","bottom-center","bottom-right",
 ];
-const VALID_ELEMENTS: ElementId[] = ["title", "subtitle", "bullets", "body", "table", "quote"];
+const VALID_ELEMENTS: ElementId[] = ["title", "subtitle", "bullets", "body", "table", "quote", "chart"];
 
 const SLIDE_W = 13.333;
 const SLIDE_H = 7.5;
@@ -37,7 +38,23 @@ Patch schema (all fields OPTIONAL):
 
   "table": { "headers": string[], "rows": [string[]], "source": string },
 
-  "layout": "title-hero" | "bullets" | "table" | "two-column" | "quote" | "section" | "closing",
+  // Data chart. Set this to turn the slide into a chart, or to update an
+  // existing chart's data/type. Only use for genuinely numeric content.
+  "chart": {
+    "type": "bar" | "line" | "area" | "pie" | "donut",
+    "title": string,
+    "unit": string,                                  // OPTIONAL "%", "M", "k"
+    "data": [ { "label": string, "value": number, "color": string } ]
+  },
+  "removeChart": boolean,                            // true to strip the chart
+  "chartScale": number,                              // 0.6..1.6 — chart size on a chart slide
+
+  "layout": "title-hero" | "bullets" | "table" | "chart" | "two-column" | "quote" | "section" | "closing",
+
+  // Two-column headings. Set to the REAL labels for each side, e.g.
+  // { "left": "Challenges", "right": "Opportunities" }. Only use Pros/Cons when
+  // the slide is a genuine pros vs cons trade-off.
+  "columnLabels": { "left": string, "right": string },
 
   // Slide-wide style
   "titleScale": number,
@@ -119,6 +136,14 @@ CRITICAL — content authoring rules:
 - For "section": put lead-in in "body".
 - For numeric/comparative content, switch layout to "table" if not already.
 - If user says "actually write the X" / "fill in", use deck topic from context to write concrete content. No placeholders.
+
+CRITICAL — charts:
+- When the user asks for a chart / graph / "show this as a bar chart" / "pie chart of X" / "graph the numbers", set "layout" to "chart" AND provide the "chart" object with real numeric data (2-7 points). Pick the type: bar (compare categories), line/area (trend over time), pie/donut (parts of a whole).
+- "change it to a pie chart" / "make it a line graph" on an existing chart -> set chart.type, keep the data.
+- "make the X bar red" -> set that data point's "color" to a hex.
+- "make the chart bigger / smaller" -> set "chartScale" (1 = default, 1.3 = large, 0.75 = small).
+- "remove the chart" / "back to bullets" -> set "removeChart": true and optionally "layout": "bullets".
+- Only use charts for genuinely numeric content. If the user asks to chart something with no numbers, ask via the explanation instead of inventing data.
 
 CRITICAL — REMOVAL semantics. Read the user's instruction carefully:
 - "remove X" / "delete X" / "get rid of X" / "no X" / "without X" -> you MUST output a REMOVAL field, never an additive one. Specifically:
@@ -513,6 +538,13 @@ async function applyPatch(slide: Slide, patch: any): Promise<Slide> {
   if (typeof patch.body === "string") next.body = cleanText(patch.body);
   if (typeof patch.notes === "string") next.notes = cleanText(patch.notes);
   if (typeof patch.layout === "string") next.layout = patch.layout;
+  if (patch.columnLabels && typeof patch.columnLabels === "object"
+      && typeof patch.columnLabels.left === "string" && typeof patch.columnLabels.right === "string") {
+    next.columnLabels = {
+      left: cleanText(patch.columnLabels.left).slice(0, 28),
+      right: cleanText(patch.columnLabels.right).slice(0, 28),
+    };
+  }
   if (typeof patch.fontOverride === "string") next.fontOverride = patch.fontOverride;
   if (isHex(patch.textColorOverride)) next.textColorOverride = patch.textColorOverride;
   if (isHex(patch.accentColorOverride)) next.accentColorOverride = patch.accentColorOverride;
@@ -523,6 +555,9 @@ async function applyPatch(slide: Slide, patch: any): Promise<Slide> {
   }
   if (typeof patch.bodyScale === "number" && isFinite(patch.bodyScale)) {
     next.bodyScale = Math.max(0.5, Math.min(1.8, patch.bodyScale));
+  }
+  if (typeof patch.chartScale === "number" && isFinite(patch.chartScale)) {
+    next.chartScale = Math.max(0.6, Math.min(1.6, patch.chartScale));
   }
 
   // Bullets
@@ -545,6 +580,28 @@ async function applyPatch(slide: Slide, patch: any): Promise<Slide> {
   if (patch.table !== undefined) {
     const t = cleanTable(patch.table);
     if (t) next.table = t;
+  }
+
+  // Chart: set, update, or remove. Setting a chart usually means the slide
+  // becomes a chart slide, so flip the layout unless the model already did.
+  if (patch.removeChart === true) {
+    next.chart = undefined;
+    if (next.layout === "chart") next.layout = "bullets";
+  }
+  if (patch.chart !== undefined && patch.removeChart !== true) {
+    // Merge type onto an existing chart if only the type changed, otherwise
+    // take the full spec.
+    const incoming = cleanChartSpec(patch.chart);
+    if (incoming) {
+      next.chart = incoming;
+      if (next.layout !== "chart" && typeof patch.layout !== "string") next.layout = "chart";
+    } else if (next.chart && typeof patch.chart?.type === "string") {
+      // Type-only change with no new data: keep existing data, swap type.
+      const t = patch.chart.type;
+      if (["bar", "line", "area", "pie", "donut"].includes(t)) {
+        next.chart = { ...next.chart, type: t };
+      }
+    }
   }
 
   // Element visibility (text containers)
@@ -773,6 +830,7 @@ export async function POST(req: NextRequest) {
       bullets: slide.bullets,
       body: slide.body,
       table: slide.table,
+      chart: slide.chart,
       titleScale: slide.titleScale,
       bodyScale: slide.bodyScale,
       fontOverride: slide.fontOverride,
@@ -805,7 +863,7 @@ export async function POST(req: NextRequest) {
 
     const completion = await withGroqClient((client) =>
       client.chat.completions.create({
-        model: "openai/gpt-oss-120b",
+        model: "meta-llama/llama-4-scout-17b-16e-instruct",
         temperature: 0.15,
         max_tokens: 2000,
         response_format: { type: "json_object" },

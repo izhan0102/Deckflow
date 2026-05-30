@@ -4,7 +4,7 @@ import type { Deck, Slide, UploadedImage } from "@/lib/types";
 import type { Theme } from "@/lib/themes";
 import { PRESET_THEMES } from "@/lib/themes";
 import {
-  ChevronLeft, ChevronRight, Image as ImageIcon, Link as LinkIcon, Play, RotateCcw, Shapes, Undo2,
+  ChevronLeft, ChevronRight, Image as ImageIcon, Link as LinkIcon, Play, RotateCcw, Shapes, Smile, Undo2,
 } from "lucide-react";
 import SlideCanvas from "./SlideCanvas";
 import DesignerPanel from "./DesignerPanel";
@@ -37,6 +37,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
   const [downloading, setDownloading] = useState(false);
   const [presenting, setPresenting] = useState(false);
   const [decorOpen, setDecorOpen] = useState(false);
+  const [iconOpen, setIconOpen] = useState(false);
   const [renderForPdf, setRenderForPdf] = useState(false);
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -323,7 +324,18 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
       <DecorationDrawer
         open={decorOpen}
         theme={theme}
+        initialMode="graphics"
         onClose={() => setDecorOpen(false)}
+        onPick={(pick) => {
+          if (pick.kind === "decoration") addDecoration(pick.id);
+          else if (pick.kind === "icon") addIcon(pick.iconId);
+        }}
+      />
+      <DecorationDrawer
+        open={iconOpen}
+        theme={theme}
+        initialMode="icons"
+        onClose={() => setIconOpen(false)}
         onPick={(pick) => {
           if (pick.kind === "decoration") addDecoration(pick.id);
           else if (pick.kind === "icon") addIcon(pick.iconId);
@@ -368,6 +380,13 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
             title="Add a graphic from the library"
           >
             <Shapes size={14} /> Add graphic
+          </button>
+          <button
+            onClick={() => setIconOpen(true)}
+            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
+            title="Search 200,000+ icons from Iconify"
+          >
+            <Smile size={14} /> Add icon
           </button>
           {setTheme && (
             <button
