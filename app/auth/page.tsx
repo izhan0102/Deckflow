@@ -8,7 +8,7 @@ import {
 } from "@/lib/auth";
 import { trackEvent } from "@/lib/stats";
 import {
-  ArrowRight, Check, ChevronDown, Loader2, Lock, Mail, Sparkles, User,
+  ArrowRight, Check, ChevronDown, Eye, EyeOff, Loader2, Lock, Mail, Sparkles, User,
 } from "lucide-react";
 import Logo from "@/components/Logo";
 
@@ -331,6 +331,13 @@ function Field({
   autoComplete?: string;
   required?: boolean;
 }) {
+  // Password fields get a reveal toggle. When `type` is "password" we
+  // track a local visibility flag and swap the input type between
+  // "password" and "text", with an Eye / EyeOff button on the right.
+  const isPassword = type === "password";
+  const [revealed, setRevealed] = useState(false);
+  const effectiveType = isPassword && revealed ? "text" : type;
+
   return (
     <label className="block">
       <span className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/50 px-3 py-2.5 transition focus-within:border-white/30">
@@ -339,11 +346,23 @@ function Field({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          type={type}
+          type={effectiveType}
           autoComplete={autoComplete}
           required={required}
           className="w-full bg-transparent text-sm text-white outline-none placeholder:text-white/35"
         />
+        {isPassword && (
+          <button
+            type="button"
+            onClick={() => setRevealed((v) => !v)}
+            tabIndex={-1}
+            aria-label={revealed ? "Hide password" : "Show password"}
+            title={revealed ? "Hide password" : "Show password"}
+            className="-mr-1 grid h-7 w-7 shrink-0 place-items-center rounded-lg text-white/40 transition hover:bg-white/10 hover:text-white/80"
+          >
+            {revealed ? <EyeOff size={15} /> : <Eye size={15} />}
+          </button>
+        )}
       </span>
     </label>
   );
