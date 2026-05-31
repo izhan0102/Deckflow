@@ -277,10 +277,10 @@ export default function LandingPage() {
         id="pricing"
         className="relative z-10 mx-auto max-w-2xl px-6 py-20 text-center"
       >
-        <SectionLabel center kicker="Pricing" title="Free to draft. ₹15 to download." />
+        <SectionLabel center kicker="Pricing" title="Free to draft. $0.16 to download." />
         <p className="mx-auto mt-5 max-w-md text-[13.5px] leading-relaxed text-white/65">
           Generate, edit, preview, and present every deck for free.
-          When you're ready, pay a one-time ₹15 to unlock the .pptx and
+          When you're ready, pay a one-time $0.16 to unlock the .pptx and
           .pdf for that deck. No subscriptions, no slide-count tax.
         </p>
       </section>
