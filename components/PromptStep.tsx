@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, FileText, LayoutGrid, Sparkles, Upload, Wand2 } from "lucide-react";
+import { Check, FileText, LayoutGrid, Loader2, Sparkles, Upload, Wand2 } from "lucide-react";
 import type { ContentDensity } from "@/lib/types";
 
 type Props = {
@@ -53,6 +53,10 @@ export default function PromptStep(p: Props) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [uploadName, setUploadName] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  // PDF extraction progress (client-side text layer + OCR). Null when idle.
+  const [extracting, setExtracting] = useState<string | null>(null);
+  // Drag-and-drop highlight state for the content drop zone.
+  const [dragOver, setDragOver] = useState(false);
 
   const isContent = p.inputMode === "content";
 
@@ -101,15 +105,45 @@ export default function PromptStep(p: Props) {
     else p.onNext();
   };
 
-  // Read a dropped/selected text file into the source box. Plain-text only
-  // (.txt/.md) — no extra deps. Other formats are rejected with a hint.
+  // Read a dropped/selected file into the source box. Plain text (.txt/.md)
+  // is read directly; PDFs are extracted client-side (text layer + OCR) so
+  // the file never leaves the browser.
   const onFile = async (file: File | null) => {
     if (!file) return;
     setUploadError(null);
-    const okExt = /\.(txt|md|markdown|csv|text)$/i.test(file.name);
-    const okType = !file.type || /^text\//.test(file.type);
-    if (!okExt && !okType) {
-      setUploadError("Plain text only for now (.txt or .md). For a PDF or Word doc, copy the text and paste it.");
+
+    const isPdf = /\.pdf$/i.test(file.name) || file.type === "application/pdf";
+    const isText = /\.(txt|md|markdown|csv|text)$/i.test(file.name) || /^text\//.test(file.type || "");
+
+    if (isPdf) {
+      if (file.size > 1_500_000) {
+        setUploadError("That PDF is over 1.5 MB. Try a smaller file, or copy the text and paste it.");
+        return;
+      }
+      setExtracting("Reading PDF…");
+      try {
+        const { extractPdfText } = await import("@/lib/pdfText");
+        const text = await extractPdfText(file, (pr) => {
+          if (pr.phase === "reading") setExtracting(`Reading PDF… page ${pr.page} of ${pr.total}`);
+          else if (pr.phase === "ocr") setExtracting(`Scanning images (OCR)… page ${pr.page} of ${pr.total}`);
+        });
+        if (!text || text.trim().length < 40) {
+          setUploadError("Couldn't pull enough text from that PDF. If it's a scan, the quality may be too low — try pasting the text instead.");
+          setExtracting(null);
+          return;
+        }
+        p.setSourceText(text);
+        setUploadName(file.name);
+      } catch (e) {
+        setUploadError("Couldn't read that PDF. Try pasting the text instead.");
+      } finally {
+        setExtracting(null);
+      }
+      return;
+    }
+
+    if (!isText) {
+      setUploadError("Supported files: .pdf, .txt, .md. For a Word doc, copy the text and paste it.");
       return;
     }
     if (file.size > 1_000_000) {
@@ -125,6 +159,24 @@ export default function PromptStep(p: Props) {
     }
   };
 
+  // Drag-and-drop onto the content area. Only active in content mode.
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    if (extracting) return;
+    const file = e.dataTransfer?.files?.[0] || null;
+    if (file) onFile(file);
+  };
+  const onDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (!extracting) setDragOver(true);
+  };
+  const onDragLeave = (e: React.DragEvent) => {
+    // Ignore leaves that bubble up from children.
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+    setDragOver(false);
+  };
+
   return (
     <div className="fade-in mx-auto w-full max-w-6xl">
       {/* Page header — quieter than before, no wizard chip */}
@@ -138,7 +190,7 @@ export default function PromptStep(p: Props) {
           </h1>
           <p className="mt-1.5 max-w-xl text-sm text-white/55">
             {isContent
-              ? "Paste your essay, report, or notes. AI keeps your words and organizes them into a presentation."
+              ? "Upload a PDF, or paste your essay, report, or notes. AI keeps your words and organizes them into a presentation."
               : "A sentence or two is enough. Audience and tone help, but they're optional."}
           </p>
         </div>
@@ -163,7 +215,7 @@ export default function PromptStep(p: Props) {
             isContent ? "bg-white text-black" : "text-white/65 hover:text-white"
           }`}
         >
-          <FileText size={12} /> Paste your content
+          <FileText size={12} /> Upload / paste content
         </button>
       </div>
 
@@ -173,19 +225,55 @@ export default function PromptStep(p: Props) {
         <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 lg:p-6">
           {isContent ? (
             <>
-              <div className="relative">
+              {/* Drop zone — paste in the box, or drag a PDF/TXT/MD onto it. */}
+              <div
+                className="relative"
+                onDrop={onDrop}
+                onDragOver={onDragOver}
+                onDragLeave={onDragLeave}
+              >
                 <textarea
                   ref={taRef}
                   value={p.sourceText}
                   onChange={(e) => { p.setSourceText(e.target.value); if (uploadName) setUploadName(null); }}
-                  placeholder="Paste your essay, report, article, or notes here. AI keeps your words and turns them into slides — it won't rewrite your content into something generic."
+                  placeholder={"Paste your essay, report, article, or notes here — or drag and drop a PDF / .txt / .md file onto this box.\n\nAI keeps your words and turns them into slides. It won't rewrite your content into something generic."}
                   rows={10}
-                  className="block w-full resize-none rounded-xl border border-white/10 bg-black/40 p-4 pb-12 text-[15px] leading-relaxed outline-none placeholder:text-white/30 focus:border-white/30"
+                  className={`block w-full resize-none rounded-xl border bg-black/40 p-4 pb-12 text-[15px] leading-relaxed outline-none transition placeholder:text-white/30 focus:border-white/30 ${
+                    dragOver ? "border-white/40" : "border-white/10"
+                  }`}
                   style={{ minHeight: 300, maxHeight: 520 }}
                 />
+
+                {/* Drag-over overlay */}
+                {dragOver && (
+                  <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-xl border-2 border-dashed border-white/40 bg-black/70 backdrop-blur-sm">
+                    <div className="flex flex-col items-center gap-2 text-white/85">
+                      <Upload size={22} />
+                      <span className="text-sm font-medium">Drop your file to read it</span>
+                      <span className="text-[11px] text-white/45">PDF, .txt or .md · up to 1.5 MB</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Empty-state upload affordance, centered over the textarea */}
+                {!p.sourceText && !dragOver && !extracting && (
+                  <div className="pointer-events-none absolute inset-x-0 bottom-14 flex flex-col items-center gap-1.5 text-center">
+                    <button
+                      type="button"
+                      onClick={() => fileRef.current?.click()}
+                      className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.06] px-3.5 py-1.5 text-[12px] font-medium text-white/80 transition hover:bg-white/12"
+                    >
+                      <Upload size={13} /> Click to upload a file
+                    </button>
+                    <span className="text-[10.5px] text-white/40">or drag &amp; drop a PDF here · or paste above</span>
+                  </div>
+                )}
+
                 <div className="pointer-events-none absolute inset-x-3 bottom-3 flex items-center justify-between text-[11px] text-white/40">
                   <span className="line-clamp-1 pr-3">
-                    {sourceCount === 0
+                    {extracting
+                      ? extracting
+                      : sourceCount === 0
                       ? "Paste anything from a paragraph to a full document."
                       : sourceCount < 40
                       ? "A little more text and I can build a proper deck."
@@ -202,22 +290,26 @@ export default function PromptStep(p: Props) {
                 <input
                   ref={fileRef}
                   type="file"
-                  accept=".txt,.md,.markdown,.csv,.text,text/plain"
+                  accept=".pdf,application/pdf,.txt,.md,.markdown,.csv,.text,text/plain"
                   className="hidden"
-                  onChange={(e) => onFile(e.target.files?.[0] || null)}
+                  onChange={(e) => { onFile(e.target.files?.[0] || null); e.currentTarget.value = ""; }}
                 />
                 <button
                   onClick={() => fileRef.current?.click()}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/80 transition hover:border-white/30 hover:bg-white/10"
+                  disabled={!!extracting}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/80 transition hover:border-white/30 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <Upload size={12} /> Upload a .txt or .md file
+                  {extracting
+                    ? <Loader2 size={12} className="animate-spin" />
+                    : <Upload size={12} />}
+                  {extracting ? "Working…" : "Upload PDF, .txt or .md"}
                 </button>
-                {uploadName && (
+                {uploadName && !extracting && (
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-white/60">
                     <FileText size={11} /> {uploadName}
                   </span>
                 )}
-                {p.sourceText.trim().length > 0 && (
+                {p.sourceText.trim().length > 0 && !extracting && (
                   <button
                     onClick={() => { p.setSourceText(""); setUploadName(null); setUploadError(null); }}
                     className="text-[11px] text-white/45 underline-offset-2 hover:text-white/80 hover:underline"
@@ -226,9 +318,17 @@ export default function PromptStep(p: Props) {
                   </button>
                 )}
               </div>
+              {extracting && (
+                <p className="mt-2 text-[11px] text-white/55">
+                  {extracting} <span className="text-white/35">· stays on your device</span>
+                </p>
+              )}
               {uploadError && (
                 <p className="mt-2 text-[11px] text-red-300">{uploadError}</p>
               )}
+              <p className="mt-2 text-[10.5px] leading-relaxed text-white/35">
+                Drag &amp; drop or upload a PDF (up to 1.5 MB), .txt, or .md. Scanned PDFs are read with on-device OCR. Files never leave your browser.
+              </p>
 
               {/* Optional intent line */}
               <div className="mt-6">
