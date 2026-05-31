@@ -18,30 +18,32 @@
  * ============================================================ */
 
 :root {
-  /* Site chrome (dark — current look) */
-  --ezd-bg-page:        #050B17;
-  --ezd-bg-page-deep:   #03070F;
-  --ezd-bg-elev:        #0A1628;
-  --ezd-bg-elev-strong: #040A14;
-  --ezd-bg-card:        rgba(255, 255, 255, 0.025);
-  --ezd-bg-hover:       rgba(255, 255, 255, 0.05);
+  /* Site chrome — minimal monochrome. Pitch black by default. */
+  --ezd-bg-page:        #000000;
+  --ezd-bg-page-deep:   #000000;
+  --ezd-bg-elev:        #0A0A0A;
+  --ezd-bg-elev-strong: #000000;
+  --ezd-bg-card:        rgba(255, 255, 255, 0.03);
+  --ezd-bg-hover:       rgba(255, 255, 255, 0.06);
 
-  --ezd-fg:             #E6EDF7;
+  --ezd-fg:             #FFFFFF;
   --ezd-fg-strong:      #FFFFFF;
-  --ezd-fg-muted:       rgba(230, 237, 247, 0.65);
-  --ezd-fg-quiet:       rgba(230, 237, 247, 0.45);
+  --ezd-fg-muted:       rgba(255, 255, 255, 0.62);
+  --ezd-fg-quiet:       rgba(255, 255, 255, 0.42);
 
-  --ezd-hairline:       rgba(140, 179, 230, 0.12);
+  --ezd-hairline:       rgba(255, 255, 255, 0.10);
   --ezd-divider:        rgba(255, 255, 255, 0.10);
+  /* Floating nav background — translucent so the blur shows through. */
+  --ezd-nav-bg:         rgba(0, 0, 0, 0.72);
 
-  /* Accents — same on both themes; cyan reads on both backgrounds */
-  --ezd-accent:         #22D3EE;
-  --ezd-accent-soft:    #67E8F9;
-  --ezd-accent-deep:    #0891B2;
+  /* Accent is monochrome too — white on black, black on white. */
+  --ezd-accent:         #FFFFFF;
+  --ezd-accent-soft:    rgba(255, 255, 255, 0.85);
+  --ezd-accent-deep:    rgba(255, 255, 255, 0.70);
 
   /* Inputs / borders / button-on-light */
   --ezd-button-strong:  #FFFFFF;
-  --ezd-button-strong-fg: #03070F;
+  --ezd-button-strong-fg: #000000;
 
   --ezd-scrollbar-thumb: rgba(255, 255, 255, 0.14);
   --ezd-scrollbar-thumb-hover: rgba(255, 255, 255, 0.28);
@@ -60,28 +62,34 @@
 
 /* ---------- LIGHT THEME ----------
  * Triggered by `data-theme="light"` on <html>. The boot script in
- * <head> sets this synchronously before paint to prevent flashing. */
+ * <head> sets this synchronously before paint to prevent flashing.
+ * Pure white mirror of the black default. */
 :root[data-theme="light"] {
-  --ezd-bg-page:        #F6F4EE;     /* warm cream — easier on eyes than pure white */
-  --ezd-bg-page-deep:   #ECEAE3;
+  --ezd-bg-page:        #FFFFFF;
+  --ezd-bg-page-deep:   #F4F4F5;
   --ezd-bg-elev:        #FFFFFF;
   --ezd-bg-elev-strong: #FFFFFF;
-  --ezd-bg-card:        rgba(15, 23, 42, 0.025);
-  --ezd-bg-hover:       rgba(15, 23, 42, 0.045);
+  --ezd-bg-card:        rgba(0, 0, 0, 0.03);
+  --ezd-bg-hover:       rgba(0, 0, 0, 0.05);
 
-  --ezd-fg:             #1A1F2E;
-  --ezd-fg-strong:      #03070F;
-  --ezd-fg-muted:       rgba(26, 31, 46, 0.72);
-  --ezd-fg-quiet:       rgba(26, 31, 46, 0.50);
+  --ezd-fg:             #000000;
+  --ezd-fg-strong:      #000000;
+  --ezd-fg-muted:       rgba(0, 0, 0, 0.62);
+  --ezd-fg-quiet:       rgba(0, 0, 0, 0.45);
 
-  --ezd-hairline:       rgba(15, 23, 42, 0.10);
-  --ezd-divider:        rgba(15, 23, 42, 0.12);
+  --ezd-hairline:       rgba(0, 0, 0, 0.10);
+  --ezd-divider:        rgba(0, 0, 0, 0.12);
+  --ezd-nav-bg:         rgba(255, 255, 255, 0.78);
 
-  --ezd-button-strong:  #03070F;
-  --ezd-button-strong-fg: #FAFAF7;
+  --ezd-accent:         #000000;
+  --ezd-accent-soft:    rgba(0, 0, 0, 0.85);
+  --ezd-accent-deep:    rgba(0, 0, 0, 0.70);
 
-  --ezd-scrollbar-thumb: rgba(15, 23, 42, 0.20);
-  --ezd-scrollbar-thumb-hover: rgba(15, 23, 42, 0.38);
+  --ezd-button-strong:  #000000;
+  --ezd-button-strong-fg: #FFFFFF;
+
+  --ezd-scrollbar-thumb: rgba(0, 0, 0, 0.20);
+  --ezd-scrollbar-thumb-hover: rgba(0, 0, 0, 0.38);
 }
 
 /* ============================================================

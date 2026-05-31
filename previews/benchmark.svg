@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" font-family="-apple-system, Segoe UI, Roboto, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1220"/>
+      <stop offset="1" stop-color="#0e1a2b"/>
+    </linearGradient>
+    <linearGradient id="winBar" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#0ea5e9"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="720" fill="url(#bg)"/>
+
+  <!-- Header -->
+  <text x="64" y="78" font-size="34" font-weight="800" fill="#f1f5f9">Deckflow model benchmark</text>
+  <text x="64" y="112" font-size="17" fill="#94a3b8">Structured-edit tasks · 3 models × 5 tasks × 3 runs · scored on accuracy, latency, and JSON validity</text>
+  <line x1="64" y1="136" x2="1136" y2="136" stroke="#1e293b" stroke-width="2"/>
+
+  <!-- ===================== ACCURACY ===================== -->
+  <text x="64" y="184" font-size="18" font-weight="700" fill="#e2e8f0">Structure accuracy</text>
+  <text x="64" y="206" font-size="13" fill="#64748b">higher is better</text>
+
+  <!-- Scout -->
+  <text x="360" y="196" text-anchor="end" font-size="15" font-weight="700" fill="#f1f5f9">llama-4-scout-17b</text>
+  <rect x="380" y="178" width="640" height="26" rx="6" fill="#16202e"/>
+  <rect x="380" y="178" width="640" height="26" rx="6" fill="url(#winBar)"/>
+  <text x="1032" y="197" font-size="15" font-weight="800" fill="#22d3ee">100%</text>
+
+  <!-- 20b -->
+  <text x="360" y="236" text-anchor="end" font-size="15" font-weight="600" fill="#cbd5e1">gpt-oss-20b</text>
+  <rect x="380" y="218" width="640" height="26" rx="6" fill="#16202e"/>
+  <rect x="380" y="218" width="640" height="26" rx="6" fill="#64748b"/>
+  <text x="1032" y="237" font-size="15" font-weight="700" fill="#cbd5e1">100%</text>
+
+  <!-- 120b -->
+  <text x="360" y="276" text-anchor="end" font-size="15" font-weight="600" fill="#cbd5e1">gpt-oss-120b (old)</text>
+  <rect x="380" y="258" width="640" height="26" rx="6" fill="#16202e"/>
+  <rect x="380" y="258" width="595" height="26" rx="6" fill="#475569"/>
+  <text x="987" y="277" font-size="15" font-weight="700" fill="#cbd5e1">93%</text>
+
+  <line x1="64" y1="312" x2="1136" y2="312" stroke="#1e293b" stroke-width="1"/>
+
+  <!-- ===================== MEDIAN LATENCY ===================== -->
+  <text x="64" y="360" font-size="18" font-weight="700" fill="#e2e8f0">Median latency</text>
+  <text x="64" y="382" font-size="13" fill="#64748b">lower is better · ms</text>
+
+  <!-- scale: 772ms = 640px -->
+  <!-- Scout 364 -->
+  <text x="360" y="372" text-anchor="end" font-size="15" font-weight="700" fill="#f1f5f9">llama-4-scout-17b</text>
+  <rect x="380" y="354" width="302" height="26" rx="6" fill="url(#winBar)"/>
+  <text x="694" y="373" font-size="15" font-weight="800" fill="#22d3ee">364 ms</text>
+
+  <!-- 20b 581 -->
+  <text x="360" y="412" text-anchor="end" font-size="15" font-weight="600" fill="#cbd5e1">gpt-oss-20b</text>
+  <rect x="380" y="394" width="481" height="26" rx="6" fill="#64748b"/>
+  <text x="873" y="413" font-size="15" font-weight="700" fill="#cbd5e1">581 ms</text>
+
+  <!-- 120b 772 -->
+  <text x="360" y="452" text-anchor="end" font-size="15" font-weight="600" fill="#cbd5e1">gpt-oss-120b (old)</text>
+  <rect x="380" y="434" width="640" height="26" rx="6" fill="#475569"/>
+  <text x="1032" y="453" font-size="15" font-weight="700" fill="#cbd5e1">772 ms</text>
+
+  <line x1="64" y1="492" x2="1136" y2="492" stroke="#1e293b" stroke-width="1"/>
+
+  <!-- ===================== SUMMARY TABLE ===================== -->
+  <text x="64" y="538" font-size="18" font-weight="700" fill="#e2e8f0">Summary</text>
+
+  <!-- table header -->
+  <text x="64"  y="576" font-size="13" font-weight="700" fill="#64748b">MODEL</text>
+  <text x="470" y="576" font-size="13" font-weight="700" fill="#64748b" text-anchor="end">ACCURACY</text>
+  <text x="640" y="576" font-size="13" font-weight="700" fill="#64748b" text-anchor="end">MED LAT</text>
+  <text x="810" y="576" font-size="13" font-weight="700" fill="#64748b" text-anchor="end">AVG LAT</text>
+  <text x="980" y="576" font-size="13" font-weight="700" fill="#64748b" text-anchor="end">PARSE FAIL</text>
+  <text x="1136" y="576" font-size="13" font-weight="700" fill="#64748b" text-anchor="end">AVG TOK</text>
+  <line x1="64" y1="588" x2="1136" y2="588" stroke="#1e293b" stroke-width="1"/>
+
+  <!-- winner row highlighted -->
+  <rect x="56" y="600" width="1088" height="34" rx="8" fill="#0c2a33"/>
+  <text x="64"  y="623" font-size="15" font-weight="800" fill="#22d3ee">llama-4-scout-17b-16e</text>
+  <text x="470" y="623" font-size="15" font-weight="700" fill="#22d3ee" text-anchor="end">100%</text>
+  <text x="640" y="623" font-size="15" font-weight="700" fill="#22d3ee" text-anchor="end">364 ms</text>
+  <text x="810" y="623" font-size="15" font-weight="700" fill="#22d3ee" text-anchor="end">460 ms</text>
+  <text x="980" y="623" font-size="15" font-weight="700" fill="#22d3ee" text-anchor="end">0</text>
+  <text x="1136" y="623" font-size="15" font-weight="700" fill="#22d3ee" text-anchor="end">91</text>
+
+  <text x="64"  y="663" font-size="15" fill="#cbd5e1">gpt-oss-20b</text>
+  <text x="470" y="663" font-size="15" fill="#cbd5e1" text-anchor="end">100%</text>
+  <text x="640" y="663" font-size="15" fill="#cbd5e1" text-anchor="end">581 ms</text>
+  <text x="810" y="663" font-size="15" fill="#cbd5e1" text-anchor="end">1876 ms</text>
+  <text x="980" y="663" font-size="15" fill="#cbd5e1" text-anchor="end">0</text>
+  <text x="1136" y="663" font-size="15" fill="#cbd5e1" text-anchor="end">338</text>
+
+  <text x="64"  y="697" font-size="15" fill="#94a3b8">gpt-oss-120b (old)</text>
+  <text x="470" y="697" font-size="15" fill="#94a3b8" text-anchor="end">93%</text>
+  <text x="640" y="697" font-size="15" fill="#94a3b8" text-anchor="end">772 ms</text>
+  <text x="810" y="697" font-size="15" fill="#94a3b8" text-anchor="end">1127 ms</text>
+  <text x="980" y="697" font-size="15" fill="#94a3b8" text-anchor="end">1</text>
+  <text x="1136" y="697" font-size="15" fill="#94a3b8" text-anchor="end">287</text>
+
+  <!-- winner badge -->
+  <rect x="64" y="92" width="0" height="0"/>
+</svg>

@@ -44,9 +44,9 @@ export default function Logo({
       {variant === "full" && (
         <span
           className={`${cfg.word} font-semibold tracking-tight`}
-          style={{ color: white ? "#fff" : undefined }}
+          style={{ color: white ? "#fff" : "var(--ezd-fg-strong)" }}
         >
-          EZ<span className="text-white/85">deck</span>
+          EZ<span style={{ opacity: 0.7 }}>deck</span>
         </span>
       )}
     </span>
@@ -56,9 +56,10 @@ export default function Logo({
   return <Link href={href} className="inline-flex items-center">{inner}</Link>;
 }
 
-/* The "EZ" tile. SVG so it scales crisply at any size. */
+/* The "EZ" tile. SVG so it scales crisply at any size. Monochrome: the
+   tile fills with the theme foreground (white on black, black on white)
+   and the letters punch through in the page background color. */
 function Mark({ size, fontSize }: { size: number; fontSize: number }) {
-  const id = `ezdeck-${size}`;
   return (
     <svg
       width={size}
@@ -68,28 +69,14 @@ function Mark({ size, fontSize }: { size: number; fontSize: number }) {
       aria-hidden
       style={{ display: "block", flexShrink: 0 }}
     >
-      <defs>
-        <linearGradient id={`${id}-bg`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#0E2746" />
-          <stop offset="55%" stopColor="#0E7490" />
-          <stop offset="100%" stopColor="#22D3EE" />
-        </linearGradient>
-        <linearGradient id={`${id}-shine`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="rgba(255,255,255,0.35)" />
-          <stop offset="60%" stopColor="rgba(255,255,255,0)" />
-        </linearGradient>
-      </defs>
+      {/* Rounded tile in the theme foreground color */}
+      <rect width="64" height="64" rx="14" fill="var(--ezd-fg-strong)" />
 
-      {/* Rounded tile */}
-      <rect width="64" height="64" rx="14" fill={`url(#${id}-bg)`} />
-      {/* Subtle top sheen for depth */}
-      <rect width="64" height="40" rx="14" fill={`url(#${id}-shine)`} opacity="0.7" />
-
-      {/* "E" — the top bar of an E rendered as three short lines on the
-          left, suggesting layered slides at the same time. */}
+      {/* "E" — three short bars, drawn in the page background color so they
+          read as cut-outs of the tile. */}
       <g
         fill="none"
-        stroke="#fff"
+        stroke="var(--ezd-bg-page)"
         strokeWidth="5.5"
         strokeLinecap="round"
       >
@@ -98,13 +85,11 @@ function Mark({ size, fontSize }: { size: number; fontSize: number }) {
         <line x1="14" y1="42" x2="34" y2="42" />
       </g>
 
-      {/* "Z" — placed to the right, integrated with the E so the two
-          letters read as one mark rather than two. The diagonal forms the
-          motion / "deck flowing" cue. */}
+      {/* "Z" — diagonal, same cut-out treatment. */}
       <path
         d="M 38 22 L 50 22 L 38 42 L 50 42"
         fill="none"
-        stroke="#fff"
+        stroke="var(--ezd-bg-page)"
         strokeWidth="5.5"
         strokeLinecap="round"
         strokeLinejoin="round"

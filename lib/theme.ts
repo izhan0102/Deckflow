@@ -37,14 +37,9 @@ export const THEME_BOOT_SCRIPT = `
 (function () {
   try {
     var stored = localStorage.getItem("ezdeck_theme");
-    var resolved;
-    if (stored === "light" || stored === "dark") {
-      resolved = stored;
-    } else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) {
-      resolved = "light";
-    } else {
-      resolved = "dark";
-    }
+    // Pitch black is the default. Only honor an explicit stored choice;
+    // ignore the OS preference so the brand look is consistent.
+    var resolved = (stored === "light" || stored === "dark") ? stored : "dark";
     document.documentElement.setAttribute("data-theme", resolved);
   } catch (e) {
     document.documentElement.setAttribute("data-theme", "dark");

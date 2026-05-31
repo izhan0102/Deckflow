@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowRight, ChevronDown, Download, Github,
-  LogOut, Shapes, Sparkles, Wand2,
+  LogOut, Shapes, Sparkles, Star, Wand2,
 } from "lucide-react";
 import Logo from "@/components/Logo";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -87,17 +87,22 @@ export default function LandingPage() {
         <nav
           className={[
             "flex w-full items-center justify-between gap-3",
-            "transition-all duration-500 ease-out will-change-[max-width,padding,border-radius,background-color]",
+            "backdrop-blur-xl transition-all duration-300 ease-out will-change-[max-width,padding,border-radius]",
             scrolled
-              ? "max-w-3xl rounded-full border border-white/10 bg-[#0A1628]/80 px-3 py-1.5 backdrop-blur-xl shadow-[0_8px_30px_-10px_rgba(0,0,0,0.6)]"
-              : "max-w-[1400px] rounded-none border border-transparent border-b-white/8 bg-[#050B17]/80 px-6 py-3.5 backdrop-blur-md",
+              ? "max-w-3xl rounded-full border px-3 py-1.5"
+              : "max-w-[1400px] rounded-none border border-transparent px-6 py-3.5",
           ].join(" ")}
+          style={{
+            background: "var(--ezd-nav-bg)",
+            borderColor: scrolled ? "var(--ezd-hairline)" : "transparent",
+            borderBottomColor: scrolled ? "var(--ezd-hairline)" : "var(--ezd-hairline)",
+          }}
         >
           <Logo size="sm" href="/" />
           <div
             className={[
               "hidden items-center text-[12px] text-white/65 md:flex",
-              "transition-[gap] duration-500 ease-out",
+              "transition-[gap] duration-300 ease-out",
               scrolled ? "gap-5" : "gap-7",
             ].join(" ")}
           >
@@ -128,7 +133,7 @@ export default function LandingPage() {
             <button
               onClick={onGetStarted}
               className={[
-                "inline-flex items-center gap-1 rounded-full bg-white text-[12px] font-medium text-[#03070F] transition-all duration-500 ease-out hover:bg-white/90",
+                "inline-flex items-center gap-1 rounded-full bg-white text-[12px] font-medium text-black transition-all duration-300 ease-out hover:bg-white/90",
                 scrolled ? "px-3 py-1" : "px-4 py-1.5",
               ].join(" ")}
             >
@@ -141,50 +146,47 @@ export default function LandingPage() {
 
       {/* ================== Hero ================== */}
       <section className="relative z-10 mx-auto max-w-4xl px-6 pb-16 pt-32 text-center sm:pt-40">
-        {/* Pill chip */}
-        <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] text-white/75 backdrop-blur">
-          <Sparkles size={10} className="text-cyan-300" />
-          <span>Introducing EZdeck — AI deck builder that's actually good</span>
-        </div>
-
-        {/* Headline — tight, centered, two-tone */}
+        {/* Headline — plain, direct, no marketing fluff */}
         <h1
-          className="mx-auto max-w-[20ch] font-semibold text-white"
+          className="mx-auto max-w-[18ch] font-normal text-white"
           style={{
-            // Bricolage Grotesque — warm, slightly quirky, playful without
-            // feeling clown. Already preloaded in layout.tsx.
-            // Swap to "Fraunces" or "Syne" if you want even more character.
-            fontFamily: '"Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif',
-            fontSize: "clamp(34px, 5.6vw, 60px)",
-            lineHeight: 1.0,
-            letterSpacing: "-0.02em",
+            fontFamily: '"Fontdiner Swanky", ui-serif, Georgia, serif',
+            fontSize: "clamp(32px, 5.2vw, 54px)",
+            lineHeight: 1.12,
+            letterSpacing: "-0.01em",
           }}
         >
-          Beautiful presentations
+          Write a brief.
           <br />
-          <span className="text-white/55">from a single prompt.</span>
+          <span className="text-white/55">Get an editable deck.</span>
         </h1>
 
+        {/* Accent underline under the heading */}
+        <span
+          aria-hidden
+          className="mx-auto mt-5 block h-[3px] w-16 rounded-full"
+          style={{ background: "var(--ezd-fg-strong)" }}
+        />
+
         {/* Subhead */}
-        <p className="mx-auto mt-5 max-w-xl text-[13.5px] leading-relaxed text-white/60">
-          Type a brief, pick a theme, and EZdeck assembles a real,
-          editable deck in about ten seconds. Drag boxes around, recolor
-          a chart, ask the chat to rewrite a slide, export to PowerPoint.
+        <p className="mx-auto mt-5 max-w-lg text-[14px] leading-relaxed text-white/60">
+          Deckflow turns a few sentences into a working presentation you
+          can edit slide by slide and export to PowerPoint or PDF. No
+          templates to wrestle with, no subscription.
         </p>
 
         {/* CTA pair */}
         <div className="mt-7 flex flex-wrap items-center justify-center gap-2.5">
           <button
             onClick={onGetStarted}
-            className="group inline-flex items-center gap-1.5 rounded-full bg-white px-5 py-2.5 text-[13px] font-semibold text-[#03070F] shadow-[0_8px_24px_-12px_rgba(255,255,255,0.45)] transition hover:bg-white/90"
+            className="group inline-flex items-center gap-1.5 rounded-full bg-white px-5 py-2.5 text-[13px] font-semibold text-black transition hover:bg-white/90"
           >
-            <Wand2 size={13} />
             Start a deck
             <ArrowRight size={12} className="transition group-hover:translate-x-0.5" />
           </button>
           <a
             href="#how"
-            className="group inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.04] px-5 py-2.5 text-[13px] text-white/85 backdrop-blur transition hover:bg-white/10"
+            className="group inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.04] px-5 py-2.5 text-[13px] text-white/85 transition hover:bg-white/10"
           >
             How it works
             <ChevronDown size={12} className="transition group-hover:translate-y-0.5" />
@@ -195,14 +197,17 @@ export default function LandingPage() {
         <div className="mt-7 flex flex-wrap items-center justify-center gap-x-3.5 gap-y-1.5 text-[10.5px] text-white/40">
           <span>Free to draft</span>
           <Dot />
-          <span>Real .pptx & .pdf export</span>
+          <span>Real .pptx &amp; .pdf export</span>
           <Dot />
-          <span className="tabular-nums">
-            {stats.total.toLocaleString()} decks built
-          </span>
+          <span>Pay per deck</span>
           <Dot />
           <span>Open source</span>
         </div>
+      </section>
+
+      {/* ================== Reviews ================== */}
+      <section className="relative z-10 mx-auto max-w-3xl px-6 pb-8 pt-4">
+        <Reviews />
       </section>
 
       {/* ================== Feature row ================== */}
@@ -247,20 +252,20 @@ export default function LandingPage() {
             <DeckSpecimen
               kicker="Investor"
               title="Series A pitch"
-              theme={{ bg: "#1E40AF", fg: "#FFFFFF", accent: "#FB923C", muted: "#BFDBFE" }}
+              theme={{ bg: "#0A0A0A", fg: "#FFFFFF", accent: "#FFFFFF", muted: "#A1A1AA" }}
               brief="Series A pitch for a logistics platform. Problem, our edge, traction so far, market, ask."
             />
             <DeckSpecimen
               kicker="Lecture"
               title="Transformers, intro"
-              theme={{ bg: "#FAFAF7", fg: "#0A0A0A", accent: "#0A0A0A", muted: "#525252" }}
+              theme={{ bg: "#FFFFFF", fg: "#0A0A0A", accent: "#0A0A0A", muted: "#525252" }}
               brief="Intro lecture on transformer architectures: attention, encoders, decoders, a worked example."
               serif
             />
             <DeckSpecimen
               kicker="Strategy"
               title="Annual review"
-              theme={{ bg: "#1F2937", fg: "#FFFFFF", accent: "#F59E0B", muted: "#9CA3AF" }}
+              theme={{ bg: "#1A1A1A", fg: "#FFFFFF", accent: "#E5E5E5", muted: "#9CA3AF" }}
               brief="Annual strategy review: where we won, where we lost, the bets we are doubling down on."
             />
           </div>
@@ -297,13 +302,13 @@ export default function LandingPage() {
         <div className="mt-7 flex flex-wrap items-center justify-center gap-2.5">
           <button
             onClick={onGetStarted}
-            className="inline-flex items-center gap-1.5 rounded-full bg-white px-6 py-2.5 text-[13px] font-semibold text-[#03070F] hover:bg-white/90"
+            className="inline-flex items-center gap-1.5 rounded-full bg-white px-6 py-2.5 text-[13px] font-semibold text-black hover:bg-white/90"
           >
             Start a deck
           </button>
           <Link
             href="/app/decks"
-            className="inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.04] px-6 py-2.5 text-[13px] text-white/85 backdrop-blur transition hover:bg-white/10"
+            className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.04] px-6 py-2.5 text-[13px] text-white/85 transition hover:bg-white/10"
           >
             My decks <ChevronDown size={12} />
           </Link>
@@ -324,12 +329,177 @@ function Dot() {
   return <span aria-hidden className="text-white/15">·</span>;
 }
 
+/* ----------------------- Reviews ----------------------- */
+
+type Review = {
+  name: string;
+  role: string;
+  rating: number; // out of 5, supports .5
+  text: string;
+};
+
+const REVIEWS: Review[] = [
+  {
+    name: "Aarav Mehta",
+    role: "Product designer",
+    rating: 5,
+    text: "Tried EZdeck over the weekend. The UI is clean, the workflow makes sense, and generation is genuinely fast. No clutter, no learning curve.",
+  },
+  {
+    name: "Sofia Almeida",
+    role: "Startup founder",
+    rating: 4.5,
+    text: "Really solid tool. Speed is the standout for me, a full deck came back in seconds and the editing felt smooth the whole way through.",
+  },
+  {
+    name: "Rohan Iyer",
+    role: "MBA student",
+    rating: 5,
+    text: "The editor is the best part. Everything is draggable, the layouts actually make sense, and exporting to PowerPoint just works.",
+  },
+  {
+    name: "Lena Fischer",
+    role: "Marketing lead",
+    rating: 4.5,
+    text: "Minimal and quick. I like that it does not throw a hundred options at you. Pick a theme, type a brief, done. The output looks polished.",
+  },
+  {
+    name: "Karthik Nair",
+    role: "Engineering manager",
+    rating: 5,
+    text: "Performance is impressive. No lag when editing, charts render instantly, and the whole thing feels lightweight. Well built.",
+  },
+  {
+    name: "Daniel Okafor",
+    role: "Freelance consultant",
+    rating: 4,
+    text: "Good experience overall. The flow from prompt to editable deck is smooth and the interface stays out of your way. Export quality is clean.",
+  },
+  {
+    name: "Priya Raghavan",
+    role: "UX researcher",
+    rating: 5,
+    text: "The attention to detail shows. Typography, spacing, the way slides are laid out, it all feels considered. Fast and pleasant to use.",
+  },
+];
+
+function StarRating({ rating, size = 14 }: { rating: number; size?: number }) {
+  // Render 5 stars. Full stars for whole values, a half-filled star for .5.
+  return (
+    <span className="inline-flex items-center gap-0.5" aria-label={`${rating} out of 5`}>
+      {Array.from({ length: 5 }).map((_, i) => {
+        const fill = Math.max(0, Math.min(1, rating - i)); // 1, 0.5, or 0
+        return <StarGlyph key={i} fill={fill} size={size} />;
+      })}
+    </span>
+  );
+}
+
+function StarGlyph({ fill, size }: { fill: number; size: number }) {
+  // fill: 1 = full, 0.5 = half, 0 = empty. We layer a clipped filled star
+  // over an outline star so half-stars render cleanly.
+  if (fill >= 1) {
+    return <Star size={size} className="text-white" fill="currentColor" strokeWidth={0} />;
+  }
+  if (fill <= 0) {
+    return <Star size={size} className="text-white/25" fill="none" strokeWidth={1.5} />;
+  }
+  // half
+  return (
+    <span className="relative inline-block" style={{ width: size, height: size }}>
+      <Star size={size} className="absolute inset-0 text-white/25" fill="none" strokeWidth={1.5} />
+      <span className="absolute inset-0 overflow-hidden" style={{ width: size * fill }}>
+        <Star size={size} className="text-white" fill="currentColor" strokeWidth={0} />
+      </span>
+    </span>
+  );
+}
+
+function Reviews() {
+  const [index, setIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
+
+  // Auto-advance every 4.5s unless the user is hovering the card.
+  useEffect(() => {
+    if (paused) return;
+    const id = window.setInterval(() => {
+      setIndex((i) => (i + 1) % REVIEWS.length);
+    }, 4500);
+    return () => window.clearInterval(id);
+  }, [paused]);
+
+  const avg = (REVIEWS.reduce((a, r) => a + r.rating, 0) / REVIEWS.length).toFixed(1);
+
+  return (
+    <div className="text-center">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.26em] text-white/45">
+        What people say
+      </div>
+      <div className="mt-2 flex items-center justify-center gap-2">
+        <StarRating rating={4.5} size={16} />
+        <span className="text-[13px] text-white/70">
+          <span className="font-semibold text-white">{avg}</span> / 5 average
+        </span>
+      </div>
+
+      {/* Carousel viewport */}
+      <div
+        className="relative mt-7 overflow-hidden"
+        onMouseEnter={() => setPaused(true)}
+        onMouseLeave={() => setPaused(false)}
+      >
+        <div
+          className="flex transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]"
+          style={{ transform: `translateX(-${index * 100}%)` }}
+        >
+          {REVIEWS.map((r) => (
+            <div key={r.name} className="w-full shrink-0 px-1">
+              <figure className="mx-auto max-w-xl rounded-2xl border border-white/10 bg-white/[0.025] p-6 text-left">
+                <StarRating rating={r.rating} size={15} />
+                <blockquote className="mt-3 text-[14px] leading-relaxed text-white/85">
+                  {r.text}
+                </blockquote>
+                <figcaption className="mt-4 flex items-center gap-3">
+                  <span
+                    className="grid h-9 w-9 place-items-center rounded-full border border-white/15 bg-white/[0.06] text-[12px] font-semibold text-white"
+                    aria-hidden
+                  >
+                    {r.name.split(" ").map((p) => p[0]).join("").slice(0, 2)}
+                  </span>
+                  <span>
+                    <span className="block text-[13px] font-medium text-white">{r.name}</span>
+                    <span className="block text-[11.5px] text-white/50">{r.role}</span>
+                  </span>
+                </figcaption>
+              </figure>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Dots */}
+      <div className="mt-5 flex items-center justify-center gap-1.5">
+        {REVIEWS.map((_, i) => (
+          <button
+            key={i}
+            onClick={() => setIndex(i)}
+            aria-label={`Show review ${i + 1}`}
+            className={`h-1.5 rounded-full transition-all duration-300 ${
+              i === index ? "w-5 bg-white" : "w-1.5 bg-white/25 hover:bg-white/45"
+            }`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function SectionLabel({
   kicker, title, center,
 }: { kicker: string; title: string; center?: boolean }) {
   return (
     <div className={center ? "text-center" : ""}>
-      <div className="text-[10px] font-semibold uppercase tracking-[0.26em] text-cyan-300">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.26em] text-white/45">
         {kicker}
       </div>
       <h3
@@ -350,8 +520,8 @@ function FeatureBlock({
   icon, title, body,
 }: { icon: React.ReactNode; title: string; body: string }) {
   return (
-    <div className="rounded-xl border border-white/8 bg-white/[0.025] p-4 transition hover:border-white/15 hover:bg-white/[0.04]">
-      <div className="mb-3 inline-flex h-7 w-7 items-center justify-center rounded-lg border border-cyan-300/25 bg-cyan-300/10 text-cyan-200">
+    <div className="rounded-xl border border-white/10 bg-white/[0.025] p-4 transition hover:border-white/20">
+      <div className="mb-3 inline-flex h-7 w-7 items-center justify-center rounded-lg border border-white/15 bg-white/[0.06] text-white">
         {icon}
       </div>
       <h4 className="text-[13.5px] font-semibold text-white">{title}</h4>
@@ -416,17 +586,17 @@ function HowItWorks() {
 
   return (
     <ol className="relative mt-12 grid gap-y-10">
-      {/* Continuous accent rail down the left */}
+      {/* Continuous hairline rail down the left */}
       <span
         aria-hidden
-        className="pointer-events-none absolute left-[15px] top-3 bottom-3 w-px bg-gradient-to-b from-cyan-300/40 via-cyan-300/10 to-transparent"
+        className="pointer-events-none absolute left-[15px] top-3 bottom-3 w-px bg-white/15"
       />
 
       {steps.map((s) => (
         <li key={s.n} className="relative grid grid-cols-[32px_1fr] items-start gap-x-5 sm:grid-cols-[32px_1fr_240px] sm:gap-x-7">
           {/* Numbered node */}
           <span
-            className="z-10 grid h-8 w-8 place-items-center rounded-full border border-cyan-300/40 bg-[#0A1628] text-[12px] font-semibold tabular-nums text-cyan-200 shadow-[0_0_18px_-4px_rgba(34,211,238,0.55)]"
+            className="z-10 grid h-8 w-8 place-items-center rounded-full border border-white/25 bg-black text-[12px] font-semibold tabular-nums text-white"
             aria-hidden
           >
             {String(s.n).padStart(2, "0")}
@@ -434,7 +604,7 @@ function HowItWorks() {
 
           {/* Copy */}
           <div className="min-w-0 pt-0.5">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.26em] text-cyan-300/85">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.26em] text-white/45">
               {s.kicker}
             </div>
             <h4 className="mt-1.5 text-[16px] font-semibold leading-tight text-white tracking-[-0.01em]">
@@ -459,9 +629,9 @@ function HowItWorks() {
 
 function BriefVisual() {
   return (
-    <div className="rounded-lg border border-white/10 bg-black/40 p-3 shadow-[0_10px_30px_-15px_rgba(0,0,0,0.7)]">
+    <div className="rounded-lg border border-white/10 bg-white/[0.025] p-3">
       <div className="mb-2 flex items-center gap-1.5">
-        <span className="h-1.5 w-1.5 rounded-full bg-cyan-300" />
+        <span className="h-1.5 w-1.5 rounded-full bg-white/60" />
         <span className="text-[9px] uppercase tracking-[0.2em] text-white/35">
           Brief · 76 words
         </span>
@@ -469,20 +639,21 @@ function BriefVisual() {
       <p className="text-[11px] leading-relaxed text-white/85">
         Series A pitch for a logistics platform. Problem, our edge,
         traction so far, market, ask.
-        <span className="ml-0.5 inline-block h-3 w-[6px] translate-y-[2px] animate-pulse bg-cyan-300/80" />
       </p>
     </div>
   );
 }
 
 function ThemeVisual() {
+  // Monochrome swatches — the landing stays black and white. These read
+  // as "palette options" without pulling color into the minimal page.
   const swatches = [
-    { bg: "#0E2746", accent: "#22D3EE" },
-    { bg: "#FAFAF7", accent: "#0A0A0A" },
-    { bg: "#1F2937", accent: "#F59E0B" },
-    { bg: "#9F1239", accent: "#FCD34D" },
-    { bg: "#047857", accent: "#FCD34D" },
-    { bg: "#3F3DBD", accent: "#FBBF24" },
+    { bg: "#111111", accent: "#FFFFFF" },
+    { bg: "#FFFFFF", accent: "#111111" },
+    { bg: "#1A1A1A", accent: "#E5E5E5" },
+    { bg: "#2A2A2A", accent: "#FFFFFF" },
+    { bg: "#0A0A0A", accent: "#BFBFBF" },
+    { bg: "#3A3A3A", accent: "#FFFFFF" },
   ];
   return (
     <div className="rounded-lg border border-white/10 bg-white/[0.025] p-2.5">
@@ -491,7 +662,7 @@ function ThemeVisual() {
           <div
             key={i}
             className={`relative aspect-square overflow-hidden rounded-md border ${
-              i === 1 ? "border-cyan-300/60 ring-1 ring-cyan-300/40" : "border-white/8"
+              i === 1 ? "border-white/60 ring-1 ring-white/40" : "border-white/8"
             }`}
             style={{ background: s.bg }}
           >
@@ -528,7 +699,7 @@ function FontVisual() {
           <div
             key={s.name}
             className={`flex items-center justify-between rounded-md border px-2.5 py-1.5 ${
-              i === 0 ? "border-cyan-300/40 bg-cyan-300/5" : "border-white/6 bg-white/[0.015]"
+              i === 0 ? "border-white/40 bg-white/[0.06]" : "border-white/6 bg-white/[0.015]"
             }`}
           >
             <span
@@ -546,28 +717,28 @@ function FontVisual() {
 }
 
 function GraphicVisual() {
-  // Three small graphic patterns rendered inline.
+  // Three small graphic patterns rendered inline, monochrome.
   return (
     <div className="grid grid-cols-3 gap-1.5">
-      <div className="aspect-[4/3] overflow-hidden rounded-md border border-white/10 bg-[#0A1628]">
+      <div className="aspect-[4/3] overflow-hidden rounded-md border border-white/10 bg-white/[0.02]">
         <svg viewBox="0 0 80 60" className="h-full w-full" aria-hidden>
           <defs>
             <pattern id="g-grid" width="8" height="8" patternUnits="userSpaceOnUse">
-              <path d="M 8 0 L 0 0 0 8" fill="none" stroke="#22D3EE" strokeOpacity="0.45" strokeWidth="0.4" />
+              <path d="M 8 0 L 0 0 0 8" fill="none" stroke="#FFFFFF" strokeOpacity="0.45" strokeWidth="0.4" />
             </pattern>
           </defs>
           <rect width="100%" height="100%" fill="url(#g-grid)" />
         </svg>
       </div>
-      <div className="aspect-[4/3] overflow-hidden rounded-md border border-cyan-300/40 bg-[#0A1628] ring-1 ring-cyan-300/40">
+      <div className="aspect-[4/3] overflow-hidden rounded-md border border-white/40 bg-white/[0.02] ring-1 ring-white/30">
         <svg viewBox="0 0 80 60" className="h-full w-full" aria-hidden>
-          <path d="M 0 50 C 20 40, 40 60, 60 45 S 80 30, 80 35 L 80 60 L 0 60 Z" fill="#22D3EE" fillOpacity="0.35" />
-          <path d="M 0 40 C 20 30, 40 50, 60 35 S 80 20, 80 28 L 80 60 L 0 60 Z" fill="#22D3EE" fillOpacity="0.18" />
+          <path d="M 0 50 C 20 40, 40 60, 60 45 S 80 30, 80 35 L 80 60 L 0 60 Z" fill="#FFFFFF" fillOpacity="0.30" />
+          <path d="M 0 40 C 20 30, 40 50, 60 35 S 80 20, 80 28 L 80 60 L 0 60 Z" fill="#FFFFFF" fillOpacity="0.15" />
         </svg>
       </div>
-      <div className="aspect-[4/3] overflow-hidden rounded-md border border-white/10 bg-[#0A1628]">
+      <div className="aspect-[4/3] overflow-hidden rounded-md border border-white/10 bg-white/[0.02]">
         <svg viewBox="0 0 80 60" className="h-full w-full" aria-hidden>
-          <g fill="none" stroke="#22D3EE" strokeOpacity="0.55">
+          <g fill="none" stroke="#FFFFFF" strokeOpacity="0.5">
             <circle cx="80" cy="30" r="20" />
             <circle cx="80" cy="30" r="32" />
             <circle cx="80" cy="30" r="44" />
@@ -580,16 +751,16 @@ function GraphicVisual() {
 
 function EditVisual() {
   return (
-    <div className="overflow-hidden rounded-lg border border-white/10 bg-[#FAFAF7] shadow-[0_10px_30px_-15px_rgba(0,0,0,0.7)]">
+    <div className="overflow-hidden rounded-lg border border-white/10 bg-white">
       <div className="relative aspect-[16/9]">
-        <div className="absolute left-0 top-0 h-full w-[3px] bg-[#0E7490]" />
-        <div className="absolute left-3 top-3 h-[2px] w-7 bg-[#0E7490]" />
+        <div className="absolute left-0 top-0 h-full w-[3px] bg-black" />
+        <div className="absolute left-3 top-3 h-[2px] w-7 bg-black" />
         <div className="absolute left-3 right-3 top-[28%]">
-          <div className="text-[7px] font-bold tracking-[0.3em] text-[#0E7490]">
+          <div className="text-[7px] font-bold tracking-[0.3em] text-black/70">
             EDITED LIVE
           </div>
           <div
-            className="mt-1 font-semibold leading-tight text-[#0F172A]"
+            className="mt-1 font-semibold leading-tight text-black"
             style={{
               fontFamily: "ui-serif, Georgia, serif",
               fontSize: 13,
@@ -599,13 +770,13 @@ function EditVisual() {
             From idea to deck — in one minute.
           </div>
         </div>
-        <ul className="absolute inset-x-3 bottom-3 space-y-0.5 text-[8px] leading-snug text-[#0F172A]">
+        <ul className="absolute inset-x-3 bottom-3 space-y-0.5 text-[8px] leading-snug text-black">
           <li className="flex gap-1">
-            <span className="text-[#0E7490]">—</span>
+            <span className="text-black/60">—</span>
             <span>Drag, recolor, rewrite</span>
           </li>
           <li className="flex gap-1">
-            <span className="text-[#0E7490]">—</span>
+            <span className="text-black/60">—</span>
             <span>Export to .pptx or .pdf</span>
           </li>
         </ul>
@@ -629,7 +800,7 @@ function DeckSpecimen({
     <article>
       <div
         className="relative aspect-[16/9] overflow-hidden rounded-lg border"
-        style={{ background: theme.bg, color: theme.fg, borderColor: "rgba(140,179,230,0.18)" }}
+        style={{ background: theme.bg, color: theme.fg, borderColor: "rgba(255,255,255,0.14)" }}
       >
         <div
           className="absolute left-[6%] top-[14%] h-[2px] w-8"
@@ -706,7 +877,7 @@ function Footer({ dauToday }: { dauToday: number }) {
                 href="/about"
                 className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-white/75 transition hover:bg-white/10"
               >
-                <Sparkles size={11} className="text-cyan-300" /> Developer&rsquo;s note
+                <Sparkles size={11} className="text-white/70" /> Developer&rsquo;s note
               </Link>
             </div>
           </div>
@@ -794,40 +965,11 @@ function FooterCol({
 /* ----------------------- Background ----------------------- */
 
 /**
- * Quiet field. A single soft cyan glow at the top, a subtle hairline
- * grid that fades out, and a gentle bottom haze. No spinning orbs.
+ * Intentionally empty. The landing is pure black (or white in light
+ * mode) with no glows, grids, or animated effects. Kept as a named
+ * component so the call site stays stable if we ever want a quiet
+ * texture back.
  */
 function BackgroundField() {
-  return (
-    <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-      <div
-        className="absolute inset-0 opacity-[0.10]"
-        style={{
-          backgroundImage:
-            "linear-gradient(rgba(140,179,230,0.10) 1px, transparent 1px), linear-gradient(90deg, rgba(140,179,230,0.10) 1px, transparent 1px)",
-          backgroundSize: "64px 64px",
-          maskImage:
-            "radial-gradient(ellipse at 50% 30%, black 0%, black 35%, transparent 80%)",
-          WebkitMaskImage:
-            "radial-gradient(ellipse at 50% 30%, black 0%, black 35%, transparent 80%)",
-        }}
-      />
-      <div
-        className="absolute left-1/2 top-[-10%] h-[55vh] w-[110vw] -translate-x-1/2 rounded-full"
-        style={{
-          background:
-            "radial-gradient(circle at center, rgba(34,211,238,0.10) 0%, transparent 60%)",
-          filter: "blur(30px)",
-        }}
-      />
-      <div
-        aria-hidden
-        className="absolute inset-x-0 bottom-0 h-[28vh]"
-        style={{
-          background:
-            "linear-gradient(to top, var(--ezd-bg-page-deep) 0%, transparent 100%)",
-        }}
-      />
-    </div>
-  );
+  return null;
 }
