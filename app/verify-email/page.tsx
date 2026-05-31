@@ -133,7 +133,7 @@ function Inner() {
       className="relative grid min-h-screen place-items-center px-6 text-white"
       style={{
         background:
-          "radial-gradient(55% 45% at 25% 25%, rgba(34,211,238,0.18), transparent 70%), radial-gradient(45% 38% at 85% 85%, rgba(14,116,144,0.32), transparent 70%), var(--ezd-bg-page)",
+          "radial-gradient(55% 45% at 25% 25%, rgba(255,255,255,0.05), transparent 70%), var(--ezd-bg-page)",
       }}
     >
       <header className="absolute inset-x-0 top-0 mx-auto flex max-w-3xl items-center justify-between px-6 py-5">

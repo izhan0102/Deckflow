@@ -192,7 +192,7 @@ export default function OnboardingTour({ enabled = true }: { enabled?: boolean }
               borderRadius: 14,
               background: "transparent",
               boxShadow:
-                "0 0 0 9999px rgba(5, 11, 23, 0.68), 0 0 0 2px rgba(103,232,249,0.85), 0 16px 60px -10px rgba(34,211,238,0.55)",
+                "0 0 0 9999px rgba(0, 0, 0, 0.68), 0 0 0 2px rgba(255,255,255,0.9), 0 16px 60px -10px rgba(255,255,255,0.35)",
               transition: "top 280ms cubic-bezier(.2,.7,.2,1), left 280ms cubic-bezier(.2,.7,.2,1), width 280ms cubic-bezier(.2,.7,.2,1), height 280ms cubic-bezier(.2,.7,.2,1)",
               pointerEvents: "none",
             }}
@@ -206,7 +206,7 @@ export default function OnboardingTour({ enabled = true }: { enabled?: boolean }
               width: rect.width + 16,
               height: rect.height + 16,
               borderRadius: 14,
-              border: "2px solid rgba(103,232,249,0.85)",
+              border: "2px solid rgba(255,255,255,0.9)",
               transition: "top 280ms cubic-bezier(.2,.7,.2,1), left 280ms cubic-bezier(.2,.7,.2,1), width 280ms cubic-bezier(.2,.7,.2,1), height 280ms cubic-bezier(.2,.7,.2,1)",
               animation: "deckflow-tour-pulse 1.6s ease-in-out infinite",
               pointerEvents: "none",
@@ -257,7 +257,7 @@ export default function OnboardingTour({ enabled = true }: { enabled?: boolean }
                 className="h-1.5 rounded-full transition-all"
                 style={{
                   width: i === stepIdx ? 18 : 6,
-                  background: i === stepIdx ? "rgba(103,232,249,0.85)" : "rgba(255,255,255,0.25)",
+                  background: i === stepIdx ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.25)",
                 }}
               />
             ))}
@@ -284,8 +284,8 @@ export default function OnboardingTour({ enabled = true }: { enabled?: boolean }
 
       <style jsx global>{`
         @keyframes deckflow-tour-pulse {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(34,211,238,0.0); }
-          50%      { box-shadow: 0 0 0 8px rgba(34,211,238,0.18); }
+          0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0.0); }
+          50%      { box-shadow: 0 0 0 8px rgba(255,255,255,0.18); }
         }
         @keyframes deckflow-tour-tip {
           from { opacity: 0; transform: translateY(6px); }
@@ -302,12 +302,12 @@ export default function OnboardingTour({ enabled = true }: { enabled?: boolean }
  *  just a static representation so the user knows what to expect. */
 function FormatToolbarVisual() {
   return (
-    <div className="mt-4 rounded-xl border border-white/10 bg-[#06101F] p-4">
+    <div className="mt-4 rounded-xl border border-white/10 p-4" style={{ background: "var(--ezd-bg-elev)" }}>
       <div className="text-[11px] text-white/55">
-        <span className="bg-cyan-300/30 text-white/95">Highlight any text</span>{" "}
+        <span className="text-white/95" style={{ background: "rgba(255,255,255,0.22)" }}>Highlight any text</span>{" "}
         in a slide and a toolbar appears.
       </div>
-      <div className="mt-3 inline-flex items-center gap-1 rounded-lg border border-white/15 bg-[#0A1628] p-1 shadow-[0_10px_24px_-10px_rgba(0,0,0,0.7)]">
+      <div className="mt-3 inline-flex items-center gap-1 rounded-lg border border-white/15 p-1 shadow-[0_10px_24px_-10px_rgba(0,0,0,0.7)]" style={{ background: "var(--ezd-bg-elev-strong)" }}>
         <FakeBtn icon={<Bold size={11} />} active />
         <FakeBtn icon={<Italic size={11} />} />
         <FakeBtn icon={<UnderlineIcon size={11} />} />
@@ -316,7 +316,7 @@ function FormatToolbarVisual() {
         <FakeBtn icon={<Palette size={11} />} extra={
           <span
             className="inline-block h-2.5 w-2.5 rounded-full border border-white/15"
-            style={{ background: "#22D3EE" }}
+            style={{ background: "var(--ezd-fg-strong)" }}
           />
         } />
       </div>
@@ -331,10 +331,10 @@ function DragHandleVisual() {
         className="relative aspect-[16/9] w-full rounded-md"
         style={{ background: "#FAFAF7" }}
       >
-        <div className="absolute left-2 top-2 h-1 w-8 rounded-sm bg-cyan-700" />
+        <div className="absolute left-2 top-2 h-1 w-8 rounded-sm" style={{ background: "rgba(15,23,42,0.85)" }} />
         <div
-          className="absolute left-2 top-5 rounded-sm border border-dashed bg-cyan-300/10 px-2 py-1 text-[10px] font-semibold text-slate-900"
-          style={{ borderColor: "rgba(34,211,238,0.6)" }}
+          className="absolute left-2 top-5 rounded-sm border border-dashed px-2 py-1 text-[10px] font-semibold text-slate-900"
+          style={{ borderColor: "rgba(15,23,42,0.5)", background: "rgba(15,23,42,0.06)" }}
         >
           Drag me
         </div>

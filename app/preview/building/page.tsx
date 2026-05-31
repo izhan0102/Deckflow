@@ -26,7 +26,7 @@ export default function BuildingPreview() {
   return (
     <main
       className="relative min-h-screen text-white"
-      style={{ background: "#050B17" }}
+      style={{ background: "#000000" }}
     >
       {/* Quiet background while the overlay is closed */}
       <div className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-6 px-6 text-center">

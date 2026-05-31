@@ -4,7 +4,7 @@ import type { Deck, Slide, UploadedImage } from "@/lib/types";
 import type { Theme } from "@/lib/themes";
 import { PRESET_THEMES } from "@/lib/themes";
 import {
-  ChevronLeft, ChevronRight, Image as ImageIcon, Link as LinkIcon, Play, RotateCcw, Shapes, Smile, Undo2,
+  BarChart3, ChevronLeft, ChevronRight, Eye, Image as ImageIcon, Link as LinkIcon, Loader2, Play, RotateCcw, Shapes, Smile, Undo2,
 } from "lucide-react";
 import SlideCanvas from "./SlideCanvas";
 import DesignerPanel from "./DesignerPanel";
@@ -20,6 +20,8 @@ import { trackEvent } from "@/lib/stats";
 import type { ExportFormat } from "./ExportFormatPicker";
 import { getDecoration } from "@/lib/decorations";
 import { saveDeck, publishDeck, unpublishDeck, loadDeckPaid } from "@/lib/decks";
+import { loadShareAnalytics, formatDwell, type ShareAnalytics } from "@/lib/analytics";
+import { stripHtml } from "@/lib/richText";
 import type { AppUser } from "@/lib/auth";
 
 type Props = {
@@ -502,6 +504,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
       {shareOpen && shareUrl && (
         <ShareModal
           url={shareUrl}
+          deck={deck}
           onClose={() => setShareOpen(false)}
           onUnpublish={async () => {
             if (!user || !deckId) return;
@@ -547,45 +550,223 @@ function SaveBadge({ state }: { state: "idle" | "saving" | "saved" | "error" }) 
 }
 
 function ShareModal({
-  url, onClose, onUnpublish,
-}: { url: string; onClose: () => void; onUnpublish: () => Promise<void> | void }) {
+  url, deck, onClose, onUnpublish,
+}: { url: string; deck: Deck; onClose: () => void; onUnpublish: () => Promise<void> | void }) {
   const [copied, setCopied] = useState(false);
+  const [tab, setTab] = useState<"link" | "stats">("link");
+
+  // Derive the shareId from the public URL (.../share/<shareId>).
+  const shareId = url.split("/share/")[1] || "";
+
+  const [stats, setStats] = useState<ShareAnalytics | null>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [statsLoaded, setStatsLoaded] = useState(false);
+
+  const loadStats = async () => {
+    if (!shareId) return;
+    setStatsLoading(true);
+    try {
+      const a = await loadShareAnalytics(shareId);
+      setStats(a);
+    } finally {
+      setStatsLoading(false);
+      setStatsLoaded(true);
+    }
+  };
+
+  // Load analytics the first time the user opens the Performance tab.
+  const openStats = () => {
+    setTab("stats");
+    if (!statsLoaded) loadStats();
+  };
+
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 backdrop-blur-sm">
-      <div className="m-4 w-full max-w-md rounded-2xl border border-white/10 bg-zinc-950 p-6 shadow-2xl">
-        <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-[11px] text-emerald-200">
-          <LinkIcon size={11} /> Public link
-        </div>
-        <h3 className="text-lg font-semibold text-white">Share this deck</h3>
-        <p className="mt-2 text-sm text-white/65">
-          Anyone with this link can view a read-only copy. The link reflects the
-          version at publish time and updates whenever you click Share again.
-        </p>
-        <div className="mt-4 flex items-center gap-2 rounded-xl border border-white/10 bg-black/40 px-3 py-2">
-          <span className="flex-1 truncate font-mono text-[12px] text-white/85">{url}</span>
+      <div className="m-4 w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-zinc-950 shadow-2xl">
+        {/* Tabs */}
+        <div className="flex border-b border-white/10">
           <button
-            onClick={async () => {
-              try { await navigator.clipboard.writeText(url); setCopied(true); window.setTimeout(() => setCopied(false), 1500); } catch { /* ignore */ }
-            }}
-            className="rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-black hover:bg-white/90"
+            onClick={() => setTab("link")}
+            className={`flex flex-1 items-center justify-center gap-1.5 px-4 py-3 text-[12.5px] font-medium transition ${
+              tab === "link" ? "text-white" : "text-white/45 hover:text-white/75"
+            }`}
           >
-            {copied ? "Copied" : "Copy"}
-          </button>
-        </div>
-        <div className="mt-5 flex items-center justify-between gap-3">
-          <button
-            onClick={() => onUnpublish()}
-            className="text-xs text-white/55 underline-offset-2 hover:text-white/85 hover:underline"
-          >
-            Stop sharing
+            <LinkIcon size={12} /> Share link
           </button>
           <button
-            onClick={onClose}
-            className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-black hover:bg-white/90"
+            onClick={openStats}
+            className={`flex flex-1 items-center justify-center gap-1.5 px-4 py-3 text-[12.5px] font-medium transition ${
+              tab === "stats" ? "text-white" : "text-white/45 hover:text-white/75"
+            }`}
           >
-            Done
+            <BarChart3 size={12} /> Performance
           </button>
         </div>
+
+        <div className="p-6">
+          {tab === "link" ? (
+            <>
+              <h3 className="text-lg font-semibold text-white">Share this deck</h3>
+              <p className="mt-2 text-sm text-white/65">
+                Anyone with this link can view a read-only copy. The link reflects the
+                version at publish time and updates whenever you click Share again.
+              </p>
+              <div className="mt-4 flex items-center gap-2 rounded-xl border border-white/10 bg-black/40 px-3 py-2">
+                <span className="flex-1 truncate font-mono text-[12px] text-white/85">{url}</span>
+                <button
+                  onClick={async () => {
+                    try { await navigator.clipboard.writeText(url); setCopied(true); window.setTimeout(() => setCopied(false), 1500); } catch { /* ignore */ }
+                  }}
+                  className="rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-black hover:bg-white/90"
+                >
+                  {copied ? "Copied" : "Copy"}
+                </button>
+              </div>
+              <p className="mt-3 text-[11px] text-white/40">
+                Want to know if they actually read it? Check the Performance tab.
+              </p>
+              <div className="mt-5 flex items-center justify-between gap-3">
+                <button
+                  onClick={() => onUnpublish()}
+                  className="text-xs text-white/55 underline-offset-2 hover:text-white/85 hover:underline"
+                >
+                  Stop sharing
+                </button>
+                <button
+                  onClick={onClose}
+                  className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-black hover:bg-white/90"
+                >
+                  Done
+                </button>
+              </div>
+            </>
+          ) : (
+            <ShareStats
+              deck={deck}
+              stats={stats}
+              loading={statsLoading}
+              loaded={statsLoaded}
+              onRefresh={loadStats}
+              onClose={onClose}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Owner-facing view analytics for a shared deck. */
+function ShareStats({
+  deck, stats, loading, loaded, onRefresh, onClose,
+}: {
+  deck: Deck;
+  stats: ShareAnalytics | null;
+  loading: boolean;
+  loaded: boolean;
+  onRefresh: () => void;
+  onClose: () => void;
+}) {
+  if (loading || !loaded) {
+    return (
+      <div className="flex h-[200px] flex-col items-center justify-center gap-3 text-white/55">
+        <Loader2 size={20} className="animate-spin" />
+        <span className="text-[13px]">Loading view activity…</span>
+      </div>
+    );
+  }
+
+  const opens = stats?.opens || 0;
+
+  if (opens === 0) {
+    return (
+      <div className="flex h-[200px] flex-col items-center justify-center gap-3 text-center">
+        <div className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/5">
+          <Eye size={18} className="text-white/45" />
+        </div>
+        <div>
+          <div className="text-sm font-medium text-white">No views yet</div>
+          <p className="mx-auto mt-1 max-w-[16rem] text-[12px] text-white/50">
+            Once someone opens your link, you'll see how many times it was viewed
+            and which slides held attention.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Slide-level dwell. views = times the slide was on screen, ms = total time.
+  const slideRows = deck.slides.map((s, i) => {
+    const rec = stats?.slides?.[String(i)];
+    const views = rec?.views || 0;
+    const ms = rec?.ms || 0;
+    const avg = views > 0 ? ms / views : 0;
+    return { i, title: stripHtml(s.title) || `Slide ${i + 1}`, views, avg };
+  });
+  const maxAvg = Math.max(1, ...slideRows.map((r) => r.avg));
+
+  return (
+    <div>
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-white">Performance</h3>
+        <button
+          onClick={onRefresh}
+          className="text-[11px] text-white/45 underline-offset-2 hover:text-white/80 hover:underline"
+        >
+          Refresh
+        </button>
+      </div>
+
+      {/* Headline stat */}
+      <div className="mt-3 flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+        <div className="grid h-10 w-10 place-items-center rounded-lg border border-white/10 bg-white/5 text-white">
+          <Eye size={16} />
+        </div>
+        <div>
+          <div className="text-xl font-semibold tabular-nums text-white">{opens.toLocaleString()}</div>
+          <div className="text-[11px] text-white/50">total {opens === 1 ? "view" : "views"}</div>
+        </div>
+      </div>
+
+      {/* Per-slide attention */}
+      <div className="mt-4 max-h-[260px] space-y-2 overflow-y-auto pr-1">
+        <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/40">
+          Time spent per slide (avg)
+        </div>
+        {slideRows.map((r) => (
+          <div key={r.i} className="flex items-center gap-2.5">
+            <span className="w-5 shrink-0 text-right text-[11px] tabular-nums text-white/40">
+              {r.i + 1}
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className="truncate text-[12px] text-white/80">{r.title}</span>
+                <span className="shrink-0 text-[11px] tabular-nums text-white/50">
+                  {r.avg > 0 ? formatDwell(r.avg) : "—"}
+                </span>
+              </div>
+              <div className="mt-1 h-[5px] overflow-hidden rounded-full bg-white/8">
+                <div
+                  className="h-full rounded-full bg-white/70"
+                  style={{ width: `${Math.round((r.avg / maxAvg) * 100)}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <p className="mt-3 text-[10.5px] text-white/35">
+        Anonymous aggregate counts. No individual visitors are tracked.
+      </p>
+
+      <div className="mt-4 flex justify-end">
+        <button
+          onClick={onClose}
+          className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-black hover:bg-white/90"
+        >
+          Done
+        </button>
       </div>
     </div>
   );

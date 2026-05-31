@@ -22,9 +22,8 @@ export default async function OG() {
           width: "100%",
           height: "100%",
           display: "flex",
-          background:
-            "radial-gradient(70% 55% at 25% 25%, rgba(34,211,238,0.18), transparent 70%), radial-gradient(50% 40% at 85% 85%, rgba(14,116,144,0.32), transparent 70%), #050B17",
-          color: "#E6EDF7",
+          background: "#000000",
+          color: "#FFFFFF",
           fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
           padding: 64,
         }}
@@ -39,7 +38,7 @@ export default async function OG() {
             alignItems: "center",
             gap: 12,
             fontSize: 22,
-            color: "#E6EDF7",
+            color: "#FFFFFF",
             fontWeight: 700,
             letterSpacing: -0.3,
           }}
@@ -52,9 +51,8 @@ export default async function OG() {
               alignItems: "center",
               justifyContent: "center",
               borderRadius: 10,
-              background:
-                "linear-gradient(135deg, #0E2746 0%, #0E7490 55%, #22D3EE 100%)",
-              color: "white",
+              background: "#FFFFFF",
+              color: "#000000",
               fontSize: 18,
               fontWeight: 800,
             }}
@@ -80,7 +78,7 @@ export default async function OG() {
             style={{
               fontSize: 18,
               letterSpacing: "0.32em",
-              color: "#67E8F9",
+              color: "rgba(255,255,255,0.6)",
               fontWeight: 700,
               marginBottom: 24,
             }}
@@ -101,7 +99,7 @@ export default async function OG() {
             style={{
               marginTop: 26,
               fontSize: 24,
-              color: "rgba(230,237,247,0.7)",
+              color: "rgba(255,255,255,0.7)",
               lineHeight: 1.4,
             }}
           >
@@ -119,13 +117,13 @@ export default async function OG() {
             height: 360,
             borderRadius: 4,
             background: "#FFFFFF",
-            boxShadow: "0 30px 80px -20px rgba(8,145,178,0.55)",
+            boxShadow: "0 30px 80px -20px rgba(0,0,0,0.6)",
             border: "1px solid rgba(255,255,255,0.08)",
             display: "flex",
             flexDirection: "column",
             justifyContent: "center",
             padding: 36,
-            color: "#0F172A",
+            color: "#0A0A0A",
           }}
         >
           <div
@@ -135,14 +133,14 @@ export default async function OG() {
               top: 0,
               bottom: 0,
               width: 8,
-              background: "#0E7490",
+              background: "#000000",
             }}
           />
           <div
             style={{
               fontSize: 14,
               letterSpacing: "0.32em",
-              color: "#0E7490",
+              color: "#555555",
               fontWeight: 700,
               marginBottom: 14,
             }}
@@ -163,7 +161,7 @@ export default async function OG() {
             style={{
               marginTop: 14,
               fontSize: 18,
-              color: "#475569",
+              color: "#555555",
             }}
           >
             Real PPTX, edit anything inline, free to try.
@@ -180,7 +178,7 @@ export default async function OG() {
             alignItems: "center",
             gap: 24,
             fontSize: 18,
-            color: "rgba(230,237,247,0.55)",
+            color: "rgba(255,255,255,0.55)",
           }}
         >
           <span>Free to try</span>

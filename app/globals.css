@@ -441,3 +441,106 @@ textarea {
   from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
+/* ============================================================
+ * MONOCHROME ACCENT LAYER  (applies in BOTH themes)
+ *
+ * The product is one black-and-white identity. The editor, dashboard,
+ * auth, share viewer, and all modals were originally built with cyan,
+ * emerald, and amber Tailwind accents. Rather than rewrite every
+ * component, we remap those accent utilities to neutral tones here so
+ * the entire app reads monochrome — white-on-black in dark, black-on-
+ * white in light — matching the landing.
+ *
+ * `--ezd-fg-strong` resolves to #fff (dark) / #000 (light) and
+ * `--ezd-fg` / `--ezd-fg-muted` follow the theme, so a single rule set
+ * works for both. Status reds are intentionally LEFT colored — errors
+ * should still read as errors.
+ * ============================================================ */
+
+/* ---- Accent TEXT (any shade/alpha of cyan/emerald/amber/yellow/sky/teal
+ *      and accent blues) → foreground. Color-name-level catch-alls so
+ *      every shade (100-500) and alpha step (/70, /85, …) is covered. ---- */
+[class*="text-cyan-"], [class*="text-emerald-"], [class*="text-teal-"],
+[class*="text-amber-"], [class*="text-yellow-"],
+[class*="text-sky-"], [class*="text-blue-"] {
+  color: var(--ezd-fg-strong) !important;
+}
+
+/* ---- Accent BACKGROUNDS (any shade/alpha) → translucent neutral tint.
+ *      Tinted pills, glows, highlight chips all collapse to one neutral
+ *      surface tone that follows the theme. ---- */
+[class*="bg-cyan-"], [class*="bg-emerald-"], [class*="bg-teal-"],
+[class*="bg-amber-"], [class*="bg-yellow-"],
+[class*="bg-sky-"], [class*="bg-blue-"] {
+  background-color: var(--ezd-bg-hover) !important;
+}
+[class*="hover:bg-cyan-"]:hover, [class*="hover:bg-emerald-"]:hover,
+[class*="hover:bg-teal-"]:hover, [class*="hover:bg-amber-"]:hover,
+[class*="hover:bg-yellow-"]:hover, [class*="hover:bg-sky-"]:hover,
+[class*="hover:bg-blue-"]:hover {
+  background-color: var(--ezd-bg-hover) !important;
+}
+
+/* ---- Accent BORDERS / RINGS (any shade/alpha) → neutral hairline ---- */
+[class*="border-cyan-"], [class*="border-emerald-"], [class*="border-teal-"],
+[class*="border-amber-"], [class*="border-yellow-"],
+[class*="border-sky-"], [class*="border-blue-"] {
+  border-color: var(--ezd-divider) !important;
+}
+[class*="ring-cyan-"], [class*="ring-emerald-"], [class*="ring-teal-"],
+[class*="ring-amber-"], [class*="ring-yellow-"],
+[class*="ring-sky-"], [class*="ring-blue-"] {
+  --tw-ring-color: var(--ezd-divider) !important;
+}
+
+/* ---- Accent gradient STOPS → flatten to a neutral surface.
+ *      Tailwind 3.4 inlines the `via` color into --tw-gradient-stops, so
+ *      overriding individual stop vars is unreliable. Instead we just kill
+ *      the gradient image on any element carrying an accent stop and let a
+ *      neutral surface tint show. (bg-clip-text gradient TEXT is handled by
+ *      the more-specific rule below, which wins.) ---- */
+[class*="from-cyan-"], [class*="from-emerald-"], [class*="from-teal-"],
+[class*="from-amber-"], [class*="from-yellow-"],
+[class*="from-sky-"], [class*="from-blue-"],
+[class*="via-cyan-"], [class*="via-emerald-"], [class*="via-teal-"],
+[class*="via-amber-"], [class*="via-yellow-"],
+[class*="via-sky-"], [class*="via-blue-"],
+[class*="to-cyan-"], [class*="to-emerald-"], [class*="to-teal-"],
+[class*="to-amber-"], [class*="to-yellow-"],
+[class*="to-sky-"], [class*="to-blue-"] {
+  background-image: none !important;
+  background-color: var(--ezd-bg-hover) !important;
+}
+
+/* ---- Gradient accent TEXT (bg-clip-text) → solid foreground ---- */
+[class*="bg-clip-text"][class*="from-amber-"],
+[class*="bg-clip-text"][class*="from-cyan-"],
+[class*="bg-clip-text"][class*="from-emerald-"],
+[class*="bg-clip-text"][class*="from-sky-"],
+[class*="bg-clip-text"][class*="from-yellow-"] {
+  background-image: none !important;
+  background-color: transparent !important;
+  -webkit-text-fill-color: var(--ezd-fg-strong) !important;
+  color: var(--ezd-fg-strong) !important;
+}
+
+/* ---- Accent-colored glow shadows → neutral soft shadow ---- */
+[class*="shadow-[0_"][class*="rgba(34,211,238"],
+[class*="shadow-[0_"][class*="rgba(8,145,178"],
+[class*="shadow-[0_"][class*="rgba(52,211,153"],
+[class*="shadow-[0_"][class*="rgba(251,191,36"] {
+  box-shadow: 0 20px 50px -20px rgba(0, 0, 0, 0.55) !important;
+}
+
+/* ---- Accent range/checkbox controls ---- */
+input[type="range"][class*="accent-cyan-"],
+input[type="range"][class*="accent-emerald-"],
+input[type="range"][class*="accent-sky-"],
+input[type="checkbox"][class*="accent-cyan-"],
+input[type="checkbox"][class*="accent-emerald-"],
+input[type="checkbox"][class*="accent-sky-"] {
+  accent-color: var(--ezd-fg-strong) !important;
+}
+
+/* Status reds stay red on purpose (errors must read as errors). */

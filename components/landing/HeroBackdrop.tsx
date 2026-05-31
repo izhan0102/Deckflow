@@ -3,21 +3,20 @@
 /**
  * Editorial backdrop for the masthead-style landing page.
  *
- * No glowy orbs. Just three quiet things that read on a navy field:
+ * Minimal monochrome. Two quiet things that read on either a pure-black
+ * or pure-white field via theme tokens:
  *   1. A faint hairline grid that fades to the edges.
- *   2. A pinpoint cyan glow in the upper-right where the mock slide sits.
- *   3. A subtle vertical hairline rule down the page so the layout
- *      reads like a printed broadsheet.
+ *   2. A subtle bottom haze so the fold reads like a printed broadsheet.
  */
 export default function HeroBackdrop() {
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-      {/* Hairline grid */}
+      {/* Hairline grid — uses the theme divider tone so it inverts cleanly. */}
       <div
-        className="absolute inset-0 opacity-[0.18]"
+        className="absolute inset-0 opacity-[0.5]"
         style={{
           backgroundImage:
-            "linear-gradient(rgba(140,179,230,0.10) 1px, transparent 1px), linear-gradient(90deg, rgba(140,179,230,0.10) 1px, transparent 1px)",
+            "linear-gradient(var(--ezd-divider) 1px, transparent 1px), linear-gradient(90deg, var(--ezd-divider) 1px, transparent 1px)",
           backgroundSize: "56px 56px",
           maskImage:
             "radial-gradient(ellipse at 50% 30%, black 0%, black 35%, transparent 80%)",
@@ -26,17 +25,14 @@ export default function HeroBackdrop() {
         }}
       />
 
-      {/* Singular cyan pinpoint, no big blur */}
+      {/* Quiet bottom haze toward the page color */}
       <div
-        className="absolute right-[-10%] top-[-5%] h-[55vh] w-[55vh] rounded-full"
+        className="absolute inset-x-0 bottom-0 h-[28vh]"
         style={{
-          background: "radial-gradient(circle, rgba(34,211,238,0.10) 0%, transparent 65%)",
-          filter: "blur(40px)",
+          background:
+            "linear-gradient(to top, var(--ezd-bg-page-deep), transparent 70%)",
         }}
       />
-
-      {/* Quiet bottom haze */}
-      <div className="absolute inset-x-0 bottom-0 h-[28vh] bg-gradient-to-t from-[#030814] via-transparent to-transparent" />
     </div>
   );
 }

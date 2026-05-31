@@ -105,14 +105,14 @@ function AuthInner() {
   };
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-black text-white">
+    <main className="relative min-h-screen overflow-hidden text-white" style={{ background: "var(--ezd-bg-page)" }}>
       {/* Soft brand glow shared across both panes */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 opacity-70"
         style={{
           background:
-            "radial-gradient(55% 45% at 25% 25%, rgba(34,211,238,0.18), transparent 70%), radial-gradient(45% 38% at 85% 85%, rgba(14,116,144,0.32), transparent 70%)",
+            "radial-gradient(55% 45% at 25% 25%, rgba(255,255,255,0.05), transparent 70%)",
         }}
       />
 
@@ -307,7 +307,7 @@ function AuthInner() {
 
             <div className="mt-9 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
               <div className="text-[12px] text-white/65">
-                Built and shipped by an indie developer. ₹15 per deck unlocks
+                Built and shipped by an indie developer. $0.16 per deck unlocks
                 .pptx and .pdf — no subscriptions, no hidden fees.
               </div>
             </div>

@@ -93,7 +93,7 @@ function Inner() {
       className="grid min-h-screen place-items-center px-4"
       style={{
         background:
-          "radial-gradient(60% 50% at 50% 30%, rgba(34,211,238,0.16), transparent 70%), radial-gradient(40% 35% at 80% 80%, rgba(14,116,144,0.32), transparent 70%), #050B17",
+          "radial-gradient(60% 50% at 50% 30%, rgba(255,255,255,0.05), transparent 70%), var(--ezd-bg-page)",
       }}
     >
       <div className="w-full max-w-md rounded-2xl border border-white/10 bg-zinc-950 p-7 text-center shadow-2xl">

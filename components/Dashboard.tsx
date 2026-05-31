@@ -110,7 +110,8 @@ export default function Dashboard({
   return (
     <div className="min-h-screen lg:pl-[260px]">
       {/* ============== Sidebar ============== */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[260px] flex-col border-r border-white/10 bg-[#040A14]/90 p-5 backdrop-blur lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[260px] flex-col border-r border-white/10 p-5 backdrop-blur lg:flex"
+             style={{ background: "var(--ezd-nav-bg)" }}>
         <div className="flex items-center justify-between">
           <Logo size="md" />
           <ThemeToggle variant="compact" />

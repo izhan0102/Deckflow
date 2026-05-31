@@ -71,7 +71,8 @@ export default function PaymentDialog({
           />
           <div className="relative flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="grid h-10 w-10 place-items-center rounded-xl border border-amber-300/40 bg-gradient-to-br from-amber-300 via-yellow-400 to-amber-500 text-amber-950 shadow-inner">
+              <div className="grid h-10 w-10 place-items-center rounded-xl border border-white/15 shadow-inner"
+                   style={{ background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)" }}>
                 <Crown size={18} />
               </div>
               <div>
@@ -151,7 +152,8 @@ export default function PaymentDialog({
           <button
             onClick={goToPay}
             disabled={cantPay}
-            className="group relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-br from-amber-300 via-yellow-400 to-amber-500 px-4 py-3 font-semibold text-amber-950 shadow-[0_10px_30px_-8px_rgba(251,191,36,0.6)] hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+            className="group relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl px-4 py-3 font-semibold shadow-[0_10px_30px_-8px_rgba(0,0,0,0.5)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+            style={{ background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)" }}
           >
             <span
               aria-hidden

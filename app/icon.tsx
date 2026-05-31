@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og";
 
 /**
  * Dynamic favicon. Renders an EZ-mark tile that matches the brand logo
- * — navy → cyan gradient, rounded square, "EZ" stacked. Picked up
+ * — minimal monochrome, black tile with white "EZ". Picked up
  * automatically by Next.js as the site icon.
  */
 
@@ -20,9 +20,8 @@ export default function Icon() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background:
-            "linear-gradient(135deg, #0E2746 0%, #0E7490 55%, #22D3EE 100%)",
-          color: "white",
+          background: "#000000",
+          color: "#FFFFFF",
           fontSize: 16,
           fontWeight: 800,
           fontFamily: "system-ui, -apple-system, sans-serif",

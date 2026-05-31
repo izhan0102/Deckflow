@@ -134,7 +134,7 @@ export default function GenerateOverlay({ open }: { open: boolean }) {
       className="fixed inset-0 z-[300] flex items-center justify-center overflow-hidden"
       style={{
         background:
-          "radial-gradient(60% 50% at 50% 30%, rgba(34,211,238,0.16), transparent 70%), radial-gradient(45% 38% at 85% 85%, rgba(14,116,144,0.32), transparent 70%), #050B17",
+          "radial-gradient(60% 50% at 50% 30%, rgba(255,255,255,0.06), transparent 70%), #000000",
       }}
     >
       <BackdropGrid />
@@ -189,8 +189,8 @@ export default function GenerateOverlay({ open }: { open: boolean }) {
             className="ezd-progress absolute inset-y-0 left-0 origin-left rounded-full"
             style={{
               width: "100%",
-              background: "linear-gradient(90deg, #22D3EE, #67E8F9, #38BDF8)",
-              boxShadow: "0 0 16px rgba(34,211,238,0.55)",
+              background: "linear-gradient(90deg, rgba(255,255,255,0.4), #FFFFFF, rgba(255,255,255,0.4))",
+              boxShadow: "0 0 16px rgba(255,255,255,0.4)",
             }}
           />
         </div>
@@ -331,7 +331,7 @@ function BuildingSlide({
           aspectRatio: "16/9",
           background: theme.bg,
           color: theme.fg,
-          borderColor: "rgba(140,179,230,0.28)",
+          borderColor: "rgba(255,255,255,0.18)",
           fontFamily: "ui-sans-serif, system-ui, -apple-system, sans-serif",
         }}
       >
@@ -518,12 +518,12 @@ function BuildingSlide({
         </div>
       </div>
 
-      {/* Soft cyan glow under each card. Static — no animation. */}
+      {/* Soft glow under each card. Static — no animation. */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-x-4 -bottom-2 h-6 rounded-full blur-xl"
         style={{
-          background: isFront ? "rgba(34,211,238,0.45)" : "rgba(34,211,238,0.18)",
+          background: isFront ? "rgba(255,255,255,0.28)" : "rgba(255,255,255,0.12)",
         }}
       />
     </div>

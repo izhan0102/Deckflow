@@ -400,9 +400,9 @@ export default function TextFormatBar({ enabled, canvasRef }: Props) {
           color: #fff;
         }
         :global(.ezd-fb-btn-active) {
-          background: rgba(34, 211, 238, 0.18);
-          color: #67E8F9;
-          border-color: rgba(34, 211, 238, 0.32);
+          background: rgba(255, 255, 255, 0.92);
+          color: #000;
+          border-color: rgba(255, 255, 255, 0.5);
         }
         .ezd-fb-menu {
           position: absolute;

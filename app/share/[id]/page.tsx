@@ -11,6 +11,7 @@ import Logo from "@/components/Logo";
 import type { Deck } from "@/lib/types";
 import type { Theme } from "@/lib/themes";
 import { loadSharedDeck } from "@/lib/decks";
+import { trackShareOpen, trackSlideTime } from "@/lib/analytics";
 import { stripHtml } from "@/lib/richText";
 
 /**
@@ -37,6 +38,11 @@ export default function ShareViewer({ params }: { params: { id: string } }) {
   const [showNotes, setShowNotes] = useState(false);
   const [copied, setCopied] = useState(false);
   const stageRef = useRef<HTMLDivElement>(null);
+  // Analytics: timestamp the viewer entered the current slide, so we can
+  // log dwell time when they move off it. Held in a ref so it doesn't
+  // trigger re-renders.
+  const slideEnterRef = useRef<number>(Date.now());
+  const trackedOpenRef = useRef(false);
 
   /* ----------------------------- data ----------------------------- */
 
@@ -54,6 +60,46 @@ export default function ShareViewer({ params }: { params: { id: string } }) {
     })();
     return () => { cancelled = true; };
   }, [params.id]);
+
+  /* ----------------------- view analytics ----------------------- */
+
+  // Log one deck open, once, after the deck loads.
+  useEffect(() => {
+    if (!data || trackedOpenRef.current) return;
+    trackedOpenRef.current = true;
+    slideEnterRef.current = Date.now();
+    trackShareOpen(params.id);
+  }, [data, params.id]);
+
+  // Whenever the active slide changes, flush the time spent on the
+  // previous one. The cleanup runs with the OLD `active` value (closure),
+  // which is exactly the slide the viewer is leaving.
+  useEffect(() => {
+    if (!data) return;
+    slideEnterRef.current = Date.now();
+    return () => {
+      const spent = Date.now() - slideEnterRef.current;
+      trackSlideTime(params.id, active, spent);
+    };
+  }, [active, data, params.id]);
+
+  // Also flush when the tab is hidden or the page unloads, so a viewer
+  // who closes the tab on a slide still gets that time counted.
+  useEffect(() => {
+    if (!data) return;
+    const flush = () => {
+      const spent = Date.now() - slideEnterRef.current;
+      trackSlideTime(params.id, active, spent);
+      slideEnterRef.current = Date.now();
+    };
+    const onVis = () => { if (document.visibilityState === "hidden") flush(); };
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("pagehide", flush);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("pagehide", flush);
+    };
+  }, [active, data, params.id]);
 
   /* ------------------------- keyboard nav ------------------------- */
 
@@ -160,7 +206,10 @@ export default function ShareViewer({ params }: { params: { id: string } }) {
       )}
 
       {/* ===================== Top bar ===================== */}
-      <header className="sticky top-0 z-30 border-b border-white/10 bg-[#050B17]/90 backdrop-blur">
+      <header
+        className="sticky top-0 z-30 border-b border-white/10 backdrop-blur"
+        style={{ background: "var(--ezd-nav-bg)" }}
+      >
         <div className="mx-auto flex max-w-[1400px] items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <Logo size="sm" />
@@ -219,7 +268,7 @@ export default function ShareViewer({ params }: { params: { id: string } }) {
         <div className="min-w-0">
           <div
             ref={stageRef}
-            className="overflow-hidden rounded-2xl border border-white/10 bg-black shadow-[0_30px_80px_-20px_rgba(8,145,178,0.35)]"
+            className="overflow-hidden rounded-2xl border border-white/10 bg-black shadow-[0_30px_80px_-20px_rgba(0,0,0,0.6)]"
           >
             <SlideCanvas
               slide={enriched}
