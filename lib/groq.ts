@@ -46,7 +46,7 @@ Schema:
         "unit": string,                  // OPTIONAL suffix like "%", "M", "k"
         "data": [ { "label": string, "value": number, "color": string } ]  // 2-7 points; "color" optional hex
       },
-      "columnLabels": { "left": string, "right": string },  // ONLY for "two-column". The REAL heading for each side, e.g. {"left":"Challenges","right":"Opportunities"} or {"left":"Traditional","right":"Modern"}. Use {"left":"Pros","right":"Cons"} ONLY when it is genuinely a pros/cons trade-off.
+      "columnLabels": { "left": string, "right": string },  // ONLY for "two-column". Whatever the two sides actually are for this topic. Pick labels that fit the content; do not default to any fixed pairing.
       "kicker": string,         // OPTIONAL. ONLY for the first "title-hero" slide. Short uppercase context line shown above the title (e.g. "Q3 INVESTOR UPDATE", "INTRO LECTURE"). 2-5 words, always uppercase.
       "titleVariant": "centered" | "asymmetric" | "big-initial" | "numbered" | "underlined",  // OPTIONAL. ONLY for "title-hero".
       "bulletsVariant": "standard" | "numbered" | "cards" | "icon-check" | "dashed",  // OPTIONAL. ONLY for "bullets". Choose by content: "cards" for distinct features/pillars, "icon-check" for benefits/advantages, "numbered" for ordered steps, "standard"/"dashed" for plain points.
@@ -57,9 +57,12 @@ Schema:
 }
 
 YOUR JOB: design a deck that fits THIS topic. Every deck must feel different.
-Do NOT fall back to a fixed template. Choose each slide's layout based on what
-the content on that slide actually is. Two decks on different topics should look
-visibly different in their layout sequence.
+You have FULL freedom over slide titles, structure, and which layouts appear.
+Write whatever titles are most relevant to the topic — there are no required
+slides, no required comparison, no template to follow. Do not reuse the same
+structure across topics. Choose each slide's layout based on what the content
+on that slide actually is. Two decks on different topics should look visibly
+different in their layout sequence and their titles.
 
 TRUTH AND ACCURACY (non-negotiable):
 - Everything in the deck must be true or clearly framed as illustrative. NEVER
@@ -98,17 +101,20 @@ Layout palette — pick the BEST fit for each slide's content:
   Choose the chart's colors yourself when it helps (e.g. red for a declining
   segment), or omit "color" to use the theme palette. A chart slide usually
   has a short title and little or no bullets.
-- "table":       precise tabular data with multiple columns (feature matrix,
-  pricing tiers, spec comparison). Use a chart instead if it's a single series
-  of numbers that would read better visually. Always include "source".
-- "two-column":  a side-by-side of TWO related sets of points. Examples:
-  Challenges vs Opportunities, Traditional vs Modern, Theory vs Practice,
-  Short-term vs Long-term, Team A vs Team B. ALWAYS set "columnLabels" to the
-  REAL headings for the two sides (e.g. {"left":"Challenges","right":"Opportunities"}).
-  Set "twoColumnVariant":"compare" ONLY when it is a genuine PROS vs CONS
-  trade-off, and in that case set columnLabels to {"left":"Pros","right":"Cons"}.
-  For every other two-sided slide use "classic", "divider", or "cards" with the
-  real labels — NOT the pros/cons styling.
+- "table":       precise tabular data where you ACTUALLY KNOW every value.
+  Use only when you can fill EVERY cell with a real, specific entry (feature
+  matrix, pricing tiers, spec comparison). If a column would be numbers you
+  don't genuinely know (e.g. "Unemployment Rate" with no real figures), DO NOT
+  use a table and DO NOT leave cells blank — describe it in bullets instead, or
+  use a chart only if you know the real numbers. Never ship a table with an
+  empty column or placeholder cells. Always include a real "source".
+- "two-column":  a genuine side-by-side comparison of two things that the
+  topic NATURALLY splits into. Only use it when the content is actually two
+  parallel sets — otherwise use bullets. When you do use it, set "columnLabels"
+  to whatever the two sides actually are for THIS topic. Do NOT default to any
+  fixed pairing. Pick labels that fit the content. Set
+  "twoColumnVariant":"compare" ONLY when it is genuinely upsides vs downsides,
+  and only then set columnLabels to {"left":"Pros","right":"Cons"}.
 - "quote":       ONLY when the user's prompt explicitly asks for a quote,
   testimonial, or famous saying, and you have a real one. Never insert a quote
   for "variety".
@@ -124,11 +130,12 @@ HARD RULES on layout choice (this is what makes decks feel custom):
   closing — but YOU decide based on the actual content.
 - Pros and cons / advantages and disadvantages -> "two-column" with
   twoColumnVariant "compare" and columnLabels {"left":"Pros","right":"Cons"}.
-  Use this ONLY when the slide is genuinely weighing upsides against downsides,
-  AND only when the user's brief or that slide's substance actually calls for a
-  trade-off. NEVER apply pros/cons styling to a slide that is just two related
-  groups (e.g. "Challenges and Opportunities" is NOT pros/cons — it's a
-  two-column with those exact labels). Do not invent a pros/cons slide for filler.
+  Use this ONLY when the slide genuinely weighs upsides against downsides AND
+  the topic actually calls for it. Most decks need NO comparison slide at all.
+  Do not invent one for filler.
+- Do NOT lean on any one layout as a habit. A two-column comparison is only
+  right when the topic truly has two parallel sides. If it doesn't, use bullets,
+  a chart, or a table. There is no requirement to include a comparison slide.
 - Numbers that compare or trend -> strongly prefer "chart". Don't bury real data
   in prose bullets.
 - A "section" slide must contain ONLY a title (+ optional one-line body). If you
@@ -158,7 +165,10 @@ Composition rules:
 CRITICAL completeness rules:
 - EVERY content slide MUST be filled in fully.
 - "bullets" / "two-column": "bullets" has at least 3 items.
-- "table": "table.rows" has at least 2 rows, "table.headers" not empty.
+- "table": "table.rows" has at least 2 rows, "table.headers" not empty, and
+  EVERY cell in every row is filled with a real value. No blank cells, no
+  empty columns, no "TBD". If you can't fill the whole table with real data,
+  don't use a table.
 - "chart": "chart.data" has at least 2 points with real numeric values. NEVER
   emit a chart with made-up-looking placeholder numbers; if you don't have
   plausible figures for the topic, use a different layout.
@@ -287,6 +297,16 @@ function cleanTable(t: any): TableData | undefined {
         })
     : [];
   if (rows.length === 0) return undefined;
+
+  // Reject tables with an entirely-empty column. A table where, say, the
+  // "Unemployment Rate" column is blank in every row is worse than no table.
+  // The model is told not to do this, but this guards against it anyway —
+  // the slide then falls through to the bullet fill pass.
+  for (let col = 0; col < headers.length; col++) {
+    const everyCellBlank = rows.every((r: string[]) => !r[col] || r[col].trim() === "");
+    if (everyCellBlank) return undefined;
+  }
+
   const source = clean(t.source);
   return { headers, rows, source: source || undefined };
 }
@@ -477,6 +497,15 @@ export async function generateDeck(opts: {
     if (slides[i].layout === "chart" && (!slides[i].chart || slides[i].chart!.data.length < 2)) {
       slides[i].layout = "bullets";
       slides[i].chart = undefined;
+    }
+  }
+
+  // A "table" slide whose table was rejected (empty column, no rows, or the
+  // model couldn't fill it with real data) becomes bullets so the fill pass
+  // writes real content instead of leaving a half-empty grid.
+  for (let i = 1; i < slides.length - 1; i++) {
+    if (slides[i].layout === "table" && !slides[i].table) {
+      slides[i].layout = "bullets";
     }
   }
 

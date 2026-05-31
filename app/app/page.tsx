@@ -8,6 +8,7 @@ import FontStep from "@/components/FontStep";
 import GraphicStep from "@/components/GraphicStep";
 import DeckPreview from "@/components/DeckPreview";
 import GenerateOverlay from "@/components/GenerateOverlay";
+import ClarifyDialog from "@/components/ClarifyDialog";
 import TemplateGallery from "@/components/TemplateGallery";
 import OnboardingTour from "@/components/OnboardingTour";
 import Dashboard from "@/components/Dashboard";
@@ -89,6 +90,9 @@ function PageInner() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [galleryOpen, setGalleryOpen] = useState(false);
+  // Pre-generation clarifying step. requestGenerate() opens this; the
+  // dialog returns tap-only directives that get folded into the prompt.
+  const [clarifyOpen, setClarifyOpen] = useState(false);
   // When a template is picked, we keep its variant defaults so we can apply
   // them to every slide once generation finishes.
   const [templateVariants, setTemplateVariants] = useState<TemplateVariantDefaults | null>(null);
@@ -119,7 +123,29 @@ function PageInner() {
     return () => { cancelled = true; };
   }, [user, searchParams, deckId]);
 
-  const generate = async () => {
+  // Mandatory pre-generation step: open the AI clarifying dialog. The
+  // dialog calls back into generate() with the chosen directives. We
+  // guard the quota here too so a user at their limit gets told before
+  // we bother asking questions.
+  const requestGenerate = async () => {
+    if (user) {
+      const used = await getTodayGenerations(user.uid);
+      if (used >= DAILY_GENERATION_LIMIT) {
+        setError(
+          `You've used all ${DAILY_GENERATION_LIMIT} of today's free generations. Resets in ${formatRefillIn()}.`,
+        );
+        return;
+      }
+    }
+    if (prompt.trim().length < 5) {
+      setError("Add a sentence or two about your deck first.");
+      return;
+    }
+    setError(null);
+    setClarifyOpen(true);
+  };
+
+  const generate = async (directives = "") => {
     // Quota gate. Soft check on the client — Firebase rules + a server
     // round-trip after success keep the count honest, but a determined
     // user could still bypass via direct curl. Catches casual abuse.
@@ -133,6 +159,11 @@ function PageInner() {
       }
     }
 
+    // Fold the clarifying answers into the brief as hard directives.
+    const effectivePrompt = directives
+      ? `${prompt}\n\n${directives}`
+      : prompt;
+
     setLoading(true);
     setError(null);
     // Minimum animation time of 10s so the overlay always feels intentional.
@@ -145,7 +176,7 @@ function PageInner() {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ prompt, slideCount, audience, tone, density, includeReferences }),
+        body: JSON.stringify({ prompt: effectivePrompt, slideCount, audience, tone, density, includeReferences }),
       }).then(async (res) => {
         if (res.status === 403) {
           // Send unverified users back to the auth gate
@@ -334,7 +365,7 @@ function PageInner() {
           onNext={() => setStep("theme")}
           onUseTemplate={() => setGalleryOpen(true)}
           activeTemplateName={templateName || undefined}
-          onGenerateDirect={generate}
+          onGenerateDirect={requestGenerate}
           generateLoading={loading}
         />
       )}
@@ -367,7 +398,7 @@ function PageInner() {
           graphicAccent={graphicAccent}
           setGraphicAccent={setGraphicAccent}
           onBack={() => setStep("font")}
-          onGenerate={generate}
+          onGenerate={requestGenerate}
           loading={loading}
         />
       )}
@@ -389,6 +420,21 @@ function PageInner() {
           GraphicStep) and unmounts after both the API call and a 10s
           minimum animation finish. */}
       <GenerateOverlay open={loading} />
+
+      {/* Mandatory AI clarifying step before generation. Returns tap-only
+          directives that get folded into the generation prompt. */}
+      <ClarifyDialog
+        open={clarifyOpen}
+        prompt={prompt}
+        audience={audience}
+        tone={tone}
+        slideCount={slideCount}
+        onClose={() => setClarifyOpen(false)}
+        onComplete={(directives) => {
+          setClarifyOpen(false);
+          generate(directives);
+        }}
+      />
 
       <TemplateGallery
         open={galleryOpen}
