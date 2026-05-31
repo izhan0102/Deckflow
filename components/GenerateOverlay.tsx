@@ -143,7 +143,7 @@ export default function GenerateOverlay({ open }: { open: boolean }) {
         {/* Brand pill */}
         <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] font-medium text-white/80 backdrop-blur">
           <Sparkles size={11} className="text-cyan-300" />
-          EZdeck · cooking up your deck
+          EZdeck · cooking up your presentation
         </div>
 
         {/* Headline */}
@@ -155,7 +155,7 @@ export default function GenerateOverlay({ open }: { open: boolean }) {
             letterSpacing: "-0.025em",
           }}
         >
-          Building your deck
+          Building your presentation
         </h2>
 
         {/* Rotating one-liner */}

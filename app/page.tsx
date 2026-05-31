@@ -158,7 +158,7 @@ export default function LandingPage() {
         >
           Write a brief.
           <br />
-          <span className="text-white/55">Get an editable deck.</span>
+          <span className="text-white/55">Get an editable presentation.</span>
         </h1>
 
         {/* Accent underline under the heading */}
@@ -170,7 +170,7 @@ export default function LandingPage() {
 
         {/* Subhead */}
         <p className="mx-auto mt-5 max-w-lg text-[14px] leading-relaxed text-white/60">
-          Deckflow turns a few sentences into a working presentation you
+          EZdeck turns a few sentences into a working presentation you
           can edit slide by slide and export to PowerPoint or PDF. No
           templates to wrestle with, no subscription.
         </p>
@@ -181,7 +181,7 @@ export default function LandingPage() {
             onClick={onGetStarted}
             className="group inline-flex items-center gap-1.5 rounded-full bg-white px-5 py-2.5 text-[13px] font-semibold text-black transition hover:bg-white/90"
           >
-            Start a deck
+            Start a presentation
             <ArrowRight size={12} className="transition group-hover:translate-x-0.5" />
           </button>
           <a
@@ -199,7 +199,7 @@ export default function LandingPage() {
           <Dot />
           <span>Real .pptx &amp; .pdf export</span>
           <Dot />
-          <span>Pay per deck</span>
+          <span>Pay per file</span>
           <Dot />
           <span>Open source</span>
         </div>
@@ -227,7 +227,7 @@ export default function LandingPage() {
           <FeatureBlock
             icon={<Download size={14} />}
             title="Export, no lock-in"
-            body="A real .pptx that opens in PowerPoint, Keynote, or Google Slides. A high-res .pdf if you'd rather lock it. Pay once per deck. No subscriptions."
+            body="A real .pptx that opens in PowerPoint, Keynote, or Google Slides. A high-res .pdf if you'd rather lock it. Pay once per file. No subscriptions."
           />
         </div>
       </section>
@@ -244,29 +244,36 @@ export default function LandingPage() {
       {/* ================== Examples ================== */}
       <section
         id="examples"
-        className="relative z-10 border-t border-white/8 bg-white/[0.015]"
+        className="relative z-10 border-t"
+        style={{ borderColor: "var(--ezd-divider)", background: "var(--ezd-bg-card)" }}
       >
         <div className="mx-auto max-w-5xl px-6 py-20">
-          <SectionLabel kicker="Examples" title="Three decks built from a one-line brief." />
+          <SectionLabel kicker="Examples" title="Real slides, generated from one line." />
           <div className="mt-9 grid grid-cols-1 gap-6 md:grid-cols-3">
             <DeckSpecimen
-              kicker="Investor"
-              title="Series A pitch"
-              theme={{ bg: "#0A0A0A", fg: "#FFFFFF", accent: "#FFFFFF", muted: "#A1A1AA" }}
-              brief="Series A pitch for a logistics platform. Problem, our edge, traction so far, market, ask."
+              tag="Pitch"
+              theme={{ bg: "#0B1220", fg: "#F8FAFC", accent: "#38BDF8", muted: "#94A3B8" }}
+              kicker="SERIES A · 2026"
+              title="Rebuilding logistics, software-first."
+              bullets={["Dispatch to delivery in one stack", "40% lower cost per shipment", "Live in 9 metros"]}
+              brief="Series A pitch for a logistics platform."
             />
             <DeckSpecimen
-              kicker="Lecture"
-              title="Transformers, intro"
-              theme={{ bg: "#FFFFFF", fg: "#0A0A0A", accent: "#0A0A0A", muted: "#525252" }}
-              brief="Intro lecture on transformer architectures: attention, encoders, decoders, a worked example."
+              tag="Lecture"
+              theme={{ bg: "#FBFBF7", fg: "#0A0A0A", accent: "#B45309", muted: "#57534E" }}
+              kicker="CS401 · LECTURE 4"
+              title="Attention is all you need."
+              bullets={["Self-attention, intuitively", "Queries, keys, and values", "One head, worked example"]}
+              brief="Intro lecture on transformer architecture."
               serif
             />
             <DeckSpecimen
-              kicker="Strategy"
-              title="Annual review"
-              theme={{ bg: "#1A1A1A", fg: "#FFFFFF", accent: "#E5E5E5", muted: "#9CA3AF" }}
-              brief="Annual strategy review: where we won, where we lost, the bets we are doubling down on."
+              tag="Report"
+              theme={{ bg: "#10241C", fg: "#ECFDF5", accent: "#34D399", muted: "#9CA3AF" }}
+              kicker="FY26 · STRATEGY"
+              title="Where we won this year."
+              bullets={["Net retention reached 124%", "Two new enterprise segments", "Margin up 8 points"]}
+              brief="Annual strategy review for the board."
             />
           </div>
         </div>
@@ -279,9 +286,9 @@ export default function LandingPage() {
       >
         <SectionLabel center kicker="Pricing" title="Free to draft. $0.16 to download." />
         <p className="mx-auto mt-5 max-w-md text-[13.5px] leading-relaxed text-white/65">
-          Generate, edit, preview, and present every deck for free.
+          Generate, edit, preview, and present every presentation for free.
           When you're ready, pay a one-time $0.16 to unlock the .pptx and
-          .pdf for that deck. No subscriptions, no slide-count tax.
+          .pdf for that file. No subscriptions, no slide-count tax.
         </p>
       </section>
 
@@ -304,7 +311,7 @@ export default function LandingPage() {
             onClick={onGetStarted}
             className="inline-flex items-center gap-1.5 rounded-full bg-white px-6 py-2.5 text-[13px] font-semibold text-black hover:bg-white/90"
           >
-            Start a deck
+            Start a presentation
           </button>
           <Link
             href="/app/decks"
@@ -349,7 +356,7 @@ const REVIEWS: Review[] = [
     name: "Sofia Almeida",
     role: "Startup founder",
     rating: 4.5,
-    text: "Really solid tool. Speed is the standout for me, a full deck came back in seconds and the editing felt smooth the whole way through.",
+    text: "Really solid tool. Speed is the standout for me, a full presentation came back in seconds and the editing felt smooth the whole way through.",
   },
   {
     name: "Rohan Iyer",
@@ -373,7 +380,7 @@ const REVIEWS: Review[] = [
     name: "Daniel Okafor",
     role: "Freelance consultant",
     rating: 4,
-    text: "Good experience overall. The flow from prompt to editable deck is smooth and the interface stays out of your way. Export quality is clean.",
+    text: "Good experience overall. The flow from prompt to editable slides is smooth and the interface stays out of your way. Export quality is clean.",
   },
   {
     name: "Priya Raghavan",
@@ -550,7 +557,7 @@ function HowItWorks() {
     {
       n: 1,
       kicker: "The brief",
-      title: "Type what the deck's about.",
+      title: "Type what it's about.",
       body: "A sentence or two is enough. Topic, audience, tone. Specific beats long every time.",
       visual: <BriefVisual />,
     },
@@ -577,7 +584,7 @@ function HowItWorks() {
     },
     {
       n: 5,
-      kicker: "The deck",
+      kicker: "The result",
       title: "Edit, present, export.",
       body: "Drag, recolor, rewrite. Present fullscreen with arrow keys. Export to .pptx or .pdf when you're ready.",
       visual: <EditVisual />,
@@ -767,7 +774,7 @@ function EditVisual() {
               letterSpacing: "-0.015em",
             }}
           >
-            From idea to deck — in one minute.
+            From idea to slides — in one minute.
           </div>
         </div>
         <ul className="absolute inset-x-3 bottom-3 space-y-0.5 text-[8px] leading-snug text-black">
@@ -788,63 +795,85 @@ function EditVisual() {
 /* ----------------------- Deck specimen ----------------------- */
 
 function DeckSpecimen({
-  kicker, title, theme, brief, serif,
+  tag, kicker, title, theme, bullets, brief, serif,
 }: {
+  tag: string;
   kicker: string;
   title: string;
   theme: { bg: string; fg: string; accent: string; muted: string };
+  bullets: string[];
   brief: string;
   serif?: boolean;
 }) {
+  // A fixed neutral frame around the slide so the card looks intentional
+  // in both light and dark site themes. The slide itself uses its OWN
+  // colors (theme prop), independent of the page theme.
   return (
-    <article>
-      <div
-        className="relative aspect-[16/9] overflow-hidden rounded-lg border"
-        style={{ background: theme.bg, color: theme.fg, borderColor: "rgba(255,255,255,0.14)" }}
-      >
+    <article
+      className="overflow-hidden rounded-2xl border"
+      style={{
+        borderColor: "var(--ezd-divider)",
+        background: "var(--ezd-bg-elev)",
+      }}
+    >
+      {/* Slide preview */}
+      <div className="p-3">
         <div
-          className="absolute left-[6%] top-[14%] h-[2px] w-8"
-          style={{ background: theme.accent }}
-        />
-        <div className="absolute left-[6%] right-[6%] top-[20%]">
+          className="relative aspect-[16/9] overflow-hidden rounded-lg"
+          style={{ background: theme.bg, color: theme.fg }}
+        >
+          {/* accent rail */}
+          <div className="absolute left-0 top-0 h-full w-[3px]" style={{ background: theme.accent }} />
+          {/* kicker */}
           <div
-            className="text-[7.5px] font-bold tracking-[0.32em]"
-            style={{ color: theme.accent }}
+            className="absolute left-[7%] top-[12%] text-[7.5px] font-bold"
+            style={{ color: theme.accent, letterSpacing: "0.26em" }}
           >
-            {kicker.toUpperCase()}
+            {kicker}
           </div>
+          {/* title */}
           <div
-            className="mt-1.5 font-semibold leading-[1.04]"
+            className="absolute left-[7%] right-[7%] top-[23%] font-semibold leading-[1.12]"
             style={{
               color: theme.fg,
               fontFamily: serif ? "ui-serif, Georgia, serif" : "ui-sans-serif, system-ui",
-              fontSize: 18,
+              fontSize: 17,
               letterSpacing: "-0.015em",
             }}
           >
             {title}
           </div>
+          {/* bullets */}
+          <ul className="absolute inset-x-[7%] bottom-[12%] space-y-[5px]">
+            {bullets.map((b) => (
+              <li key={b} className="flex items-start gap-1.5 text-[9px] leading-snug" style={{ color: theme.fg }}>
+                <span style={{ color: theme.accent }}>—</span>
+                <span style={{ opacity: 0.9 }}>{b}</span>
+              </li>
+            ))}
+          </ul>
+          {/* footer rule */}
+          <div className="absolute inset-x-[7%] bottom-[6%] h-px" style={{ background: theme.muted, opacity: 0.3 }} />
         </div>
-        <ul
-          className="absolute inset-x-[6%] bottom-[14%] space-y-1 text-[9px] leading-relaxed"
-          style={{ color: theme.fg }}
+      </div>
+
+      {/* Caption — uses site theme so it reads in light and dark */}
+      <div className="flex items-center justify-between px-4 pb-3 pt-1">
+        <span
+          className="rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.16em]"
+          style={{ borderColor: "var(--ezd-divider)", color: "var(--ezd-fg-muted)" }}
         >
-          <li className="flex gap-1.5">
-            <span style={{ color: theme.accent }}>—</span>
-            <span>Built from a one-line brief</span>
-          </li>
-          <li className="flex gap-1.5">
-            <span style={{ color: theme.accent }}>—</span>
-            <span>Edited inline, exported in seconds</span>
-          </li>
-        </ul>
+          {tag}
+        </span>
+        <span className="text-[10px]" style={{ color: "var(--ezd-fg-quiet)" }}>
+          16:9 · .pptx
+        </span>
       </div>
-      <div className="mt-2 flex items-center justify-between text-[9.5px] uppercase tracking-[0.22em] text-white/40">
-        <span>{kicker}</span>
-        <span>16:9 · .pptx</span>
-      </div>
-      <p className="mt-1.5 text-[11.5px] leading-[1.55] text-white/55">
-        Brief: <em>"{brief}"</em>
+      <p
+        className="px-4 pb-4 text-[11.5px] leading-[1.55]"
+        style={{ color: "var(--ezd-fg-muted)" }}
+      >
+        Brief: <em>&ldquo;{brief}&rdquo;</em>
       </p>
     </article>
   );
@@ -915,7 +944,7 @@ function Footer({ dauToday }: { dauToday: number }) {
 
       <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-2 px-6 py-4 text-[10.5px] text-white/40">
         <span>© {new Date().getFullYear()} EZdeck — All rights reserved</span>
-        <span className="tabular-nums">{dauToday.toLocaleString()} decks built today</span>
+        <span className="tabular-nums">{dauToday.toLocaleString()} presentations built today</span>
         <span>
           Built by{" "}
           <a
