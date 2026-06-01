@@ -1,0 +1,86 @@
+name: Bug report
+description: Something isn't working right in EZdeck
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Fill in as much as you can — it helps us reproduce and fix it faster.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where did it break?
+      description: Pick the part of EZdeck where you hit the problem.
+      options:
+        - Landing page
+        - Generator / editor (/app)
+        - Share viewer
+        - Export (PPTX or PDF)
+        - Auth (sign-in / sign-up)
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug.
+      placeholder: "e.g. Clicking 'Export PPTX' shows a spinner indefinitely and no file downloads."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Walk us through what you did.
+      placeholder: |
+        1. Go to /app
+        2. Generate a deck with the prompt "…"
+        3. Click Export → PPTX
+        4. See the spinner hang
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+      placeholder: "A .pptx file should download within a few seconds."
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser & OS
+      placeholder: "e.g. Chrome 124 on macOS 14"
+    validations:
+      required: true
+
+  - type: textarea
+    id: console
+    attributes:
+      label: Console errors (if any)
+      description: Open DevTools → Console, paste any red errors here.
+      render: shell
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Screenshots, screen recordings, or extra context welcome.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and this has not been reported before.
+          required: true
+        - label: I can reproduce this bug consistently with the steps above.
+          required: true
+        - label: I am running the latest version of the main branch.
+          required: true
