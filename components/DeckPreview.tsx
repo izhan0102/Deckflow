@@ -4,13 +4,14 @@ import type { Deck, Slide, UploadedImage } from "@/lib/types";
 import type { Theme } from "@/lib/themes";
 import { PRESET_THEMES } from "@/lib/themes";
 import {
-  BarChart3, ChevronLeft, ChevronRight, Eye, Image as ImageIcon, Link as LinkIcon, Loader2, Play, RotateCcw, Shapes, Smile, Undo2,
+  BarChart3, ChevronLeft, ChevronRight, Eye, Image as ImageIcon, LayoutGrid, Link as LinkIcon, List, Loader2, Play, RotateCcw, Shapes, Smile, Undo2,
 } from "lucide-react";
 import SlideCanvas from "./SlideCanvas";
 import DesignerPanel from "./DesignerPanel";
 import Presenter from "./Presenter";
 import DeckChat from "./DeckChat";
 import SlideRail from "./SlideRail";
+import OutlineEditor from "./OutlineEditor";
 import HiddenSlidesRenderer, { type HiddenSlidesHandle } from "./HiddenSlidesRenderer";
 import ExportButton from "./ExportButton";
 import DecorationDrawer from "./DecorationDrawer";
@@ -36,6 +37,7 @@ type Props = {
 
 export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart, deckId, user }: Props) {
   const [active, setActive] = useState(0);
+  const [viewMode, setViewMode] = useState<"slides" | "outline">("slides");
   const [downloading, setDownloading] = useState(false);
   const [presenting, setPresenting] = useState(false);
   const [decorOpen, setDecorOpen] = useState(false);
@@ -351,6 +353,27 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
             {deck.subtitle && <p className="text-sm text-white/60">{deck.subtitle}</p>}
           </div>
           <SaveBadge state={saveState} />
+          {/* View toggle: slides ↔ outline */}
+          <div className="ml-1 inline-flex items-center rounded-full border border-white/12 bg-white/[0.03] p-0.5 text-[12px]">
+            <button
+              onClick={() => setViewMode("slides")}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 transition ${
+                viewMode === "slides" ? "bg-white text-black" : "text-white/65 hover:text-white"
+              }`}
+              title="Edit slide by slide"
+            >
+              <LayoutGrid size={12} /> Slides
+            </button>
+            <button
+              onClick={() => setViewMode("outline")}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 transition ${
+                viewMode === "outline" ? "bg-white text-black" : "text-white/65 hover:text-white"
+              }`}
+              title="Edit the whole deck as an outline"
+            >
+              <List size={12} /> Outline
+            </button>
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <input
@@ -427,6 +450,9 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
         </div>
       </div>
 
+      {viewMode === "outline" ? (
+        <OutlineEditor deck={deck} setDeck={setDeck} active={active} setActive={setActive} />
+      ) : (
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[200px_minmax(0,1fr)_320px]">
         <SlideRail
           deck={deck} theme={theme}
@@ -499,6 +525,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
           />
         </div>
       </div>
+      )}
 
       {/* Share modal */}
       {shareOpen && shareUrl && (
