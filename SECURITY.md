@@ -6,7 +6,7 @@ Please do not report security vulnerabilities through public GitHub issues.
 
 Instead, report them privately to:
 
-**email**
+**muhammadizhan710@gmail.com**
 
 Include:
 - Description of the vulnerability

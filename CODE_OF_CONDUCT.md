@@ -28,7 +28,7 @@ This Code of Conduct applies in all project spaces — GitHub issues, pull reque
 
 ## Enforcement
 
-If you witness or experience unacceptable behaviour, please report it to the maintainer at **email**. All reports will be reviewed promptly and kept confidential. The maintainer will take whatever action is appropriate, up to and including a permanent ban from the project.
+If you witness or experience unacceptable behaviour, please report it to the maintainer at **muhammadizhan710@gmail.com**. All reports will be reviewed promptly and kept confidential. The maintainer will take whatever action is appropriate, up to and including a permanent ban from the project.
 
 ## Attribution
 
