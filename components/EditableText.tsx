@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useRef } from "react";
-import { sanitizeRichHtml } from "@/lib/richText";
+import { useEffect, useRef, useState } from "react";
+import { sanitizeRichHtml, stripHtml } from "@/lib/richText";
 
 /**
  * Inline-editable text. Click to place the caret, type to edit.
@@ -44,12 +44,16 @@ export default function EditableText({
   // changed — never on cosmetic re-renders.
   const lastWrittenRef = useRef<string>(value || "");
 
+  const [mounted, setMounted] = useState(false);
+
   // First mount — write the initial HTML.
   useEffect(() => {
+    setMounted(true);
     const el = ref.current;
     if (!el) return;
-    el.innerHTML = value || "";
-    lastWrittenRef.current = value || "";
+    const cleanHtml = sanitizeRichHtml(value || "");
+    el.innerHTML = cleanHtml;
+    lastWrittenRef.current = cleanHtml;
     // First mount only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -61,7 +65,7 @@ export default function EditableText({
     const el = ref.current;
     if (!el) return;
     if (document.activeElement === el) return;
-    const next = value || "";
+    const next = sanitizeRichHtml(value || "");
     if (lastWrittenRef.current === next) return;
     el.innerHTML = next;
     lastWrittenRef.current = next;
@@ -73,7 +77,7 @@ export default function EditableText({
       <span
         style={style}
         className={className}
-        dangerouslySetInnerHTML={{ __html: value || "" }}
+        dangerouslySetInnerHTML={{ __html: mounted ? sanitizeRichHtml(value || "") : stripHtml(value || "") }}
       />
     );
   }
@@ -109,6 +113,14 @@ export default function EditableText({
     }
   };
 
+  const onPaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const text = e.clipboardData.getData("text/plain");
+    const html = e.clipboardData.getData("text/html");
+    const data = html ? sanitizeRichHtml(html) : text;
+    document.execCommand("insertHTML", false, data);
+  };
+
   // Hard-stop pointer events from bubbling to the Movable parent.
   const stop = (e: React.SyntheticEvent) => e.stopPropagation();
 
@@ -128,6 +140,7 @@ export default function EditableText({
       onDoubleClick={stop}
       onBlur={commit}
       onKeyDown={onKey}
+      onPaste={onPaste}
       title="Click to edit. Select text to format."
       className={className}
       style={{
