@@ -1,0 +1,59 @@
+name: Feature request
+description: Suggest an idea or improvement for EZdeck
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Got an idea? We'd love to hear it. Please search existing issues first to avoid duplicates.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the situation where you felt something was missing or frustrating.
+      placeholder: "e.g. When I generate a deck about financials, I can't choose which chart type is used — the AI always picks bars."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Describe the solution you'd like
+      description: What would you want EZdeck to do instead?
+      placeholder: "e.g. A chart-type override in the slide panel so I can switch bar → line without re-generating."
+    validations:
+      required: true
+
+  - type: textarea
+    id: affected_files
+    attributes:
+      label: List out the files that you propose to change
+      description: All the files that need to be changed to implement your solution.
+      placeholder: |
+            e.g.
+            app/app/page.tsx
+            components/SlideCanvas.tsx
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you've considered
+      description: Any workarounds you've tried, or other approaches that could work.
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional context
+      description: Mockups, references, or anything else that helps explain the idea.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and this has not been reported before.
+          required: true
+        - label: This change would benefit contributors beyond my own use case.
+          required: true
+

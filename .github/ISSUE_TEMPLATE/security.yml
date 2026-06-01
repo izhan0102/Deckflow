@@ -1,0 +1,26 @@
+name: Security vulnerability
+description: Report a security issue — DO NOT open a public issue for vulnerabilities
+labels: ["security"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Please do not report security vulnerabilities in a public issue
+
+        Disclosing a vulnerability publicly before it is patched puts other users at risk.
+
+        **Instead, please email the details directly to the maintainer:**
+
+          **email**
+
+        Include:
+        - A description of the vulnerability
+        - Steps to reproduce it
+        - Potential impact (what an attacker could do)
+        - Any suggested mitigations, if you have them
+
+        We aim to acknowledge reports within **48 hours** and will keep you updated as we work toward a fix. 
+
+        ---
+
+        If you have a non-security bug or question, please [open a regular bug report](../new/choose) instead.
