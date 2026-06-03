@@ -11,8 +11,7 @@ import { decorationDataUri, applyDecorationOverrides } from "@/lib/decorations";
 import { iconifySvgUrl } from "@/lib/iconify";
 import { stripHtml } from "@/lib/richText";
 import { renderChartSvg } from "@/lib/charts";
-import { rateLimit } from "@/lib/rateLimit";
-import { headers } from "next/headers";
+import { rateLimitResponse } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -690,18 +689,8 @@ function parseHex(s: string) {
 /* ----------------------------------- POST ---------------------------------- */
 
 export async function POST(req: NextRequest) {
-  const headersList = headers();
-  const ip = headersList.get("x-forwarded-for") ?? "unknown";
-  const { allowed, retryAfter } = rateLimit(ip);
-  if (!allowed) {
-    return new Response(JSON.stringify({ error: "Too many requests" }), {
-      status: 429,
-      headers: {
-        "Content-Type": "application/json",
-        "Retry-After": String(retryAfter),
-      },
-    });
-  }
+  const limited = rateLimitResponse("export");
+  if (limited) return limited;
   try {
     const { deck, theme } = (await req.json()) as { deck: Deck; theme: Theme };
     if (!deck || !theme) {

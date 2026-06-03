@@ -1,26 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateDeck, generateDeckFromContent } from "@/lib/groq";
 import { authenticateRequest, AuthError } from "@/lib/firebaseAdmin";
-import { rateLimit } from "@/lib/rateLimit";
-import { headers } from "next/headers";
+import { rateLimitResponse } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
-  
-  const headersList = headers();
-  const ip = headersList.get("x-forwarded-for") ?? "unknown";
-  const { allowed, retryAfter } = rateLimit(ip);
-  if (!allowed) {
-    return new Response(JSON.stringify({ error: "Too many requests" }), {
-      status: 429,
-      headers: {
-        "Content-Type": "application/json",
-        "Retry-After": String(retryAfter),
-      },
-    });
-  }
+  const limited = rateLimitResponse("generate");
+  if (limited) return limited;
   try {
     const uid = await authenticateRequest(req);
     const body = await req.json();
