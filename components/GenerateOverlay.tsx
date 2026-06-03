@@ -24,7 +24,6 @@ import { getTheme } from "@/lib/themes";
  * crimson) so the preview shows something close to what the user
  * will actually get out the other end.
  */
-
 /** ms — total animation cycle length, before it loops. */
 const CYCLE_MS = 4500;
 
@@ -104,7 +103,18 @@ const SLIDES: SlideSpec[] = [
   },
 ];
 
-export default function GenerateOverlay({ open }: { open: boolean }) {
+export default function GenerateOverlay({
+  open,
+  error,
+  loading,
+  onRetry,
+}: {
+  open: boolean;
+  error?: string | null;
+  loading?: boolean;
+  onRetry?: () => void;
+}) {
+
   const [lineIdx, setLineIdx] = useState(0);
 
   // Lock body scroll while the overlay is mounted.
@@ -138,9 +148,16 @@ export default function GenerateOverlay({ open }: { open: boolean }) {
       }}
     >
       <BackdropGrid />
+      {/* Error Toast */}
 
-      <div className="relative z-10 flex w-full max-w-4xl flex-col items-center px-6 text-center text-white">
-        {/* Brand pill */}
+<div
+  className={`relative z-10 flex w-full max-w-4xl flex-col items-center px-6 text-center text-white transition-all duration-500 ${
+    error
+      ? "opacity-20 blur-md scale-[0.98]"
+      : "opacity-100 blur-0 scale-100"
+  }`}
+>
+          {/* Brand pill */}
         <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] font-medium text-white/80 backdrop-blur">
           <Sparkles size={11} className="text-cyan-300" />
           EZdeck · cooking up your presentation
@@ -205,6 +222,46 @@ export default function GenerateOverlay({ open }: { open: boolean }) {
           Sit tight. Usually about 10 seconds.
         </p>
       </div>
+        {error && (
+<div className="fixed inset-0 z-[350] flex items-center justify-center p-6">    <div
+      className="w-full max-w-md rounded-3xl border border-red-500/30 bg-black/80 p-8 text-center backdrop-blur-xl"
+      style={{
+        boxShadow: "0 20px 80px rgba(255,0,0,.15)",
+      }}
+    >
+      <div className="mb-4 text-5xl">⚠️</div>
+
+      <h3 className="text-2xl font-semibold text-white">
+        Couldn't generate presentation
+      </h3>
+
+      <p className="mt-3 text-sm text-white/60">
+        Something interrupted the generation process.
+      </p>
+
+      <div className="mt-4 rounded-xl bg-white/5 p-3 text-sm text-red-300">
+        {error}
+      </div>
+
+      <div className="mt-6 flex justify-center gap-3">
+        <button
+          onClick={onRetry}
+          disabled={loading}
+          className="rounded-xl bg-white px-5 py-2.5 font-medium text-black transition hover:opacity-90"
+        >
+          ↻ Try Again
+        </button>
+
+        <button
+          onClick={() => window.location.reload()}
+          className="rounded-xl border border-white/15 px-5 py-2.5 text-white/70 transition hover:bg-white/5"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
       {/* All animation timing lives here. transform + opacity only. */}
       <style jsx global>{`

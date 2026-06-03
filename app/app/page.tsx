@@ -134,6 +134,7 @@ function PageInner() {
   // dialog calls back into generate() with the chosen directives. We
   // guard the quota here too so a user at their limit gets told before
   // we bother asking questions.
+  const [lastDirectives, setLastDirectives] = useState("");
   const requestGenerate = async () => {
     if (user) {
       const used = await getTodayGenerations(user.uid);
@@ -154,6 +155,12 @@ function PageInner() {
     setError(null);
     setClarifyOpen(true);
   };
+const retryGenerate = () => {
+  if (!error) return;
+
+  setError(null);
+  generate(lastDirectives);
+};
 
   const generate = async (directives = "") => {
     // Hard guard against a double-invoke (e.g. clarify completing twice, or
@@ -179,6 +186,7 @@ function PageInner() {
     // Minimum animation time of 10s so the overlay always feels intentional.
     const minDelay = new Promise<void>((r) => window.setTimeout(r, 10000));
     try {
+      setLastDirectives(directives);
       const doFetch = async (forceRefresh = false) => {
         const token = await getIdToken(forceRefresh);
         const res = await fetch("/api/generate", {
@@ -346,12 +354,6 @@ function PageInner() {
         </div>
       )}
 
-      {error && (
-        <div className="mx-auto mb-6 max-w-3xl rounded-xl border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200">
-          {error}
-        </div>
-      )}
-
       {step === "prompt" && (
         <PromptStep
           prompt={prompt}
@@ -428,7 +430,12 @@ function PageInner() {
           loading flips on (i.e. when the user clicks Generate on the
           GraphicStep) and unmounts after both the API call and a 10s
           minimum animation finish. */}
-      <GenerateOverlay open={loading} />
+<GenerateOverlay
+  open={loading || !!error}
+  error={error}
+  loading={loading}
+  onRetry={retryGenerate}
+/>
 
       {/* Mandatory AI clarifying step before generation. Returns tap-only
           directives that get folded into the generation prompt. */}
