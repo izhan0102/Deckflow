@@ -32,6 +32,15 @@ import type { Deck, Slide, SlideLayout, TableData } from "./types";
 import type { ChartSpec } from "./charts";
 import { cleanChartSpec } from "./charts";
 
+export class DeckOpValidationError extends Error {
+  status: number;
+  constructor(message: string) {
+    super(message);
+    this.name = "DeckOpValidationError";
+    this.status = 400;
+  }
+}
+
 /* ----------------------------- op types ----------------------------- */
 
 /** Insert a new slide after the given index. afterIndex = -1 prepends. */
@@ -222,34 +231,65 @@ export function applyDeckOps(deck: Deck, ops: DeckOp[]): {
   // 1) Patches and replacements first (they don't shift indices).
   for (const op of ops) {
     if (op.type === "patchSlide") {
-      if (op.index < 0 || op.index >= slides.length) continue;
+      if (op.index < 0 || op.index >= slides.length) {
+        throw new DeckOpValidationError(
+          `Cannot patch slide: index ${op.index} is out of bounds (deck has ${slides.length} slides).`
+        );
+      }
       slides[op.index] = applyPatch(slides[op.index], op.patch || {});
       summary.push(`patched slide ${op.index + 1}`);
     } else if (op.type === "replaceSlide") {
-      if (op.index < 0 || op.index >= slides.length) continue;
+      if (op.index < 0 || op.index >= slides.length) {
+        throw new DeckOpValidationError(
+          `Cannot replace slide: index ${op.index} is out of bounds (deck has ${slides.length} slides).`
+        );
+      }
       slides[op.index] = specToSlide(op.slide);
       summary.push(`replaced slide ${op.index + 1}`);
     }
   }
 
-  // 2) Removals. Sort descending so earlier indices don't shift.
+  // 2) Removals.
   const removeIndices = ops
     .filter((o): o is DeckOpRemoveSlide => o.type === "removeSlide")
-    .map((o) => o.index)
-    .filter((i) => i >= 0 && i < slides.length)
-    .sort((a, b) => b - a);
+    .map((o) => o.index);
+
+  const removeSeen = new Set<number>();
   for (const i of removeIndices) {
+    if (i < 0 || i >= slides.length) {
+      throw new DeckOpValidationError(
+        `Cannot remove slide: index ${i} is out of bounds (deck has ${slides.length} slides).`
+      );
+    }
+    if (removeSeen.has(i)) {
+      throw new DeckOpValidationError(
+        `Duplicate removeSlide operation for slide index ${i}.`
+      );
+    }
+    removeSeen.add(i);
+  }
+
+  const sortedRemoveIndices = [...removeIndices].sort((a, b) => b - a);
+  for (const i of sortedRemoveIndices) {
     slides.splice(i, 1);
     summary.push(`removed slide ${i + 1}`);
   }
 
-  // 3) Additions. Sort by afterIndex descending so later inserts don't
-  // push earlier ones forward.
+  // 3) Additions.
   const adds = ops
     .filter((o): o is DeckOpAddSlide => o.type === "addSlide")
-    .filter((o) => typeof o.afterIndex === "number" && o.slide)
-    .sort((a, b) => b.afterIndex - a.afterIndex);
+    .filter((o) => typeof o.afterIndex === "number" && o.slide);
+
   for (const op of adds) {
+    if (op.afterIndex < -1 || op.afterIndex >= slides.length) {
+      throw new DeckOpValidationError(
+        `Cannot add slide: afterIndex ${op.afterIndex} is out of bounds (-1 to ${slides.length - 1}).`
+      );
+    }
+  }
+
+  const sortedAdds = [...adds].sort((a, b) => b.afterIndex - a.afterIndex);
+  for (const op of sortedAdds) {
     const at = Math.max(-1, Math.min(slides.length - 1, op.afterIndex));
     slides.splice(at + 1, 0, specToSlide(op.slide));
     summary.push(`added a "${specToSlide(op.slide).title || op.slide.layout}" slide`);
@@ -257,17 +297,25 @@ export function applyDeckOps(deck: Deck, ops: DeckOp[]): {
 
   // 4) Reorder (single op honored — last one wins).
   const reorderOp = [...ops].reverse().find((o): o is DeckOpReorderSlides => o.type === "reorderSlides");
-  if (reorderOp && reorderOp.newOrder.length === slides.length) {
+  if (reorderOp) {
+    if (reorderOp.newOrder.length !== slides.length) {
+      throw new DeckOpValidationError(
+        `Cannot reorder slides: newOrder length (${reorderOp.newOrder.length}) does not match current slide count (${slides.length}).`
+      );
+    }
     const seen = new Set<number>();
     const valid = reorderOp.newOrder.every((i) => {
       if (i < 0 || i >= slides.length || seen.has(i)) return false;
       seen.add(i);
       return true;
     });
-    if (valid) {
-      slides = reorderOp.newOrder.map((i) => slides[i]);
-      summary.push("reordered slides");
+    if (!valid) {
+      throw new DeckOpValidationError(
+        `Cannot reorder slides: newOrder contains duplicate or out-of-bounds indices.`
+      );
     }
+    slides = reorderOp.newOrder.map((i) => slides[i]);
+    summary.push("reordered slides");
   }
 
   // 5) Deck-level meta.
