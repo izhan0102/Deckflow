@@ -244,12 +244,20 @@ export function applyDeckOps(deck: Deck, ops: DeckOp[]): {
   }
 
   // 3) Additions. Sort by afterIndex descending so later inserts don't
-  // push earlier ones forward.
+  // push earlier ones forward. If two additions have the same afterIndex,
+  // sort by original operation index descending (larger index first)
+  // so sequential splices at the same target preserve correct relative order.
   const adds = ops
-    .filter((o): o is DeckOpAddSlide => o.type === "addSlide")
-    .filter((o) => typeof o.afterIndex === "number" && o.slide)
-    .sort((a, b) => b.afterIndex - a.afterIndex);
-  for (const op of adds) {
+    .map((o, idx) => ({ o, idx }))
+    .filter((x): x is { o: DeckOpAddSlide; idx: number } => x.o.type === "addSlide")
+    .filter((x) => typeof x.o.afterIndex === "number" && x.o.slide)
+    .sort((a, b) => {
+      if (b.o.afterIndex !== a.o.afterIndex) {
+        return b.o.afterIndex - a.o.afterIndex;
+      }
+      return b.idx - a.idx;
+    });
+  for (const { o: op } of adds) {
     const at = Math.max(-1, Math.min(slides.length - 1, op.afterIndex));
     slides.splice(at + 1, 0, specToSlide(op.slide));
     summary.push(`added a "${specToSlide(op.slide).title || op.slide.layout}" slide`);
