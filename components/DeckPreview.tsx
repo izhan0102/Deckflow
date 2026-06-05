@@ -346,36 +346,40 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
         }}
       />
 
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">{deck.title}</h1>
-            {deck.subtitle && <p className="text-sm text-white/60">{deck.subtitle}</p>}
-          </div>
-          <SaveBadge state={saveState} />
-          {/* View toggle: slides ↔ outline */}
-          <div className="ml-1 inline-flex items-center rounded-full border border-white/12 bg-white/[0.03] p-0.5 text-[12px]">
+      <div className="mb-5 flex items-center justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-3">
+          {/* View toggle: slides ↔ outline — prominent segmented control */}
+          <div
+            role="tablist"
+            aria-label="Editor view"
+            className="inline-flex items-center rounded-xl border border-white/15 bg-white/[0.04] p-1 text-[13px]"
+          >
             <button
+              role="tab"
+              aria-selected={viewMode === "slides"}
               onClick={() => setViewMode("slides")}
-              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 transition ${
-                viewMode === "slides" ? "bg-white text-black" : "text-white/65 hover:text-white"
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 font-medium transition ${
+                viewMode === "slides" ? "bg-white text-black shadow-sm" : "text-white/70 hover:text-white"
               }`}
               title="Edit slide by slide"
             >
-              <LayoutGrid size={12} /> Slides
+              <LayoutGrid size={13} /> Slides
             </button>
             <button
+              role="tab"
+              aria-selected={viewMode === "outline"}
               onClick={() => setViewMode("outline")}
-              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 transition ${
-                viewMode === "outline" ? "bg-white text-black" : "text-white/65 hover:text-white"
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 font-medium transition ${
+                viewMode === "outline" ? "bg-white text-black shadow-sm" : "text-white/70 hover:text-white"
               }`}
               title="Edit the whole deck as an outline"
             >
-              <List size={12} /> Outline
+              <List size={13} /> Outline
             </button>
           </div>
+          <SaveBadge state={saveState} />
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2 overflow-x-auto [&>*]:shrink-0">
           <input
             ref={fileInputRef} type="file" accept="image/*" hidden
             onChange={(e) => {
@@ -384,6 +388,8 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
               if (fileInputRef.current) fileInputRef.current.value = "";
             }}
           />
+          {viewMode === "slides" && (
+            <>
           <button
             onClick={() => fileInputRef.current?.click()}
             className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
@@ -422,6 +428,8 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
               <span className="inline-block h-3 w-3 rounded-full" style={{ background: theme.accent }} />
               Theme
             </button>
+          )}
+            </>
           )}
           {user && deckId && (
             <button

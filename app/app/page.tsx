@@ -340,7 +340,7 @@ const retryGenerate = () => {
       }`}
       style={{ background: "var(--ezd-bg-page)" }}
     >
-      <div aria-hidden className="landing-bg" />
+      {!isDeckStep && <div aria-hidden className="landing-bg" />}
       <div className="relative z-10">
       {!fullBleed && step !== "prompt" && (
         <div className="mx-auto mb-6 flex max-w-6xl justify-end">

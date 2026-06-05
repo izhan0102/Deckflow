@@ -1,6 +1,6 @@
 "use client";
 import { useMemo } from "react";
-import { ArrowDown, ArrowUp, GripVertical, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, GripVertical, List, Plus, Trash2 } from "lucide-react";
 import type { Deck, Slide, SlideLayout } from "@/lib/types";
 import { stripHtml } from "@/lib/richText";
 
@@ -62,36 +62,47 @@ export default function OutlineEditor({
   };
 
   return (
-    <div className="rounded-2xl border border-white/12 bg-white/[0.02] p-4 sm:p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h2 className="text-[15px] font-semibold text-white">Outline</h2>
-          <p className="mt-0.5 text-[12px] text-white/50">
-            Edit every piece of text, reorder, add or remove slides. Design, charts, and images are kept.
-          </p>
+    <div className="mx-auto w-full max-w-3xl">
+      <div className="overflow-hidden rounded-2xl border border-white/12 bg-white/[0.02]">
+        {/* Header */}
+        <div className="flex items-center justify-between gap-3 border-b border-white/10 bg-white/[0.03] px-5 py-3.5">
+          <div className="flex items-center gap-2.5">
+            <span className="grid h-7 w-7 place-items-center rounded-lg border border-white/12 bg-white/[0.06]">
+              <List size={14} />
+            </span>
+            <div>
+              <h2 className="text-[14px] font-semibold leading-tight text-white">Outline</h2>
+              <p className="text-[11px] leading-tight text-white/45">
+                Edit text, reorder, add or remove. Design &amp; charts are kept.
+              </p>
+            </div>
+          </div>
+          <span className="shrink-0 rounded-full border border-white/12 bg-white/5 px-2.5 py-1 text-[11px] tabular-nums text-white/55">
+            {slides.length} slides
+          </span>
         </div>
-        <span className="text-[11px] text-white/40">{slides.length} slides</span>
-      </div>
 
-      <ol className="space-y-2.5">
-        {slides.map((s, i) => (
-          <OutlineRow
-            key={i}
-            index={i}
-            slide={s}
-            isActive={i === active}
-            isFirst={i === 0}
-            isLast={i === slides.length - 1}
-            canDelete={slides.length > 1}
-            onFocus={() => setActive(i)}
-            onPatch={(p) => patch(i, p)}
-            onUp={() => move(i, -1)}
-            onDown={() => move(i, 1)}
-            onDelete={() => remove(i)}
-            onAdd={() => addAfter(i)}
-          />
-        ))}
-      </ol>
+        {/* Rows */}
+        <ol className="space-y-2.5 p-4 sm:p-5">
+          {slides.map((s, i) => (
+            <OutlineRow
+              key={i}
+              index={i}
+              slide={s}
+              isActive={i === active}
+              isFirst={i === 0}
+              isLast={i === slides.length - 1}
+              canDelete={slides.length > 1}
+              onFocus={() => setActive(i)}
+              onPatch={(p) => patch(i, p)}
+              onUp={() => move(i, -1)}
+              onDown={() => move(i, 1)}
+              onDelete={() => remove(i)}
+              onAdd={() => addAfter(i)}
+            />
+          ))}
+        </ol>
+      </div>
     </div>
   );
 }
