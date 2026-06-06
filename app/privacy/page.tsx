@@ -129,7 +129,13 @@ export default function PrivacyPage() {
         {LEGAL.BUSINESS_NAME} (operated by {LEGAL.PROPRIETOR_NAME}) <br />
         {LEGAL.BUSINESS_ADDRESS} <br />
         Email: {LEGAL.SUPPORT_EMAIL} <br />
-        Phone: {LEGAL.SUPPORT_PHONE}
+        Phone:{" "}
+<a
+  href={`tel:${LEGAL.SUPPORT_PHONE.replace(/\s+/g, "")}`}
+  aria-label={`Call support at ${LEGAL.SUPPORT_PHONE}`}
+>
+  {LEGAL.SUPPORT_PHONE}
+</a>
       </p>
     </LegalShell>
   );
