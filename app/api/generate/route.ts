@@ -68,6 +68,25 @@ export async function POST(req: NextRequest) {
       code = "user_auth";
     } else if (status === 429 || /rate.?limit|quota/i.test(msg)) {
       code = "rate_limit";
+    } else if (/timeout|timed out/i.test(msg)) {
+      code = "timeout";
+    } else if (/token limit|context length|maximum context/i.test(msg)) {
+      code = "token_limit";
+    } else if (/provider|openai|groq|model unavailable/i.test(msg)) {
+      code = "ai_provider";
+    } else if (/source content|invalid content/i.test(msg)) {
+      code = "invalid_source";
+    } else if (status === 401 || status === 403 || /invalid.api.key|unauthorized/i.test(msg)) {
+      code = "auth";
+    } else if (/json|parse|invalid/i.test(msg)) {
+      code = "parse";
+    } else if (status >= 500) {
+      code = "internal";
+    }
+    if (err instanceof AuthError) {
+      code = "user_auth";
+    } else if (status === 429 || /rate.?limit|quota/i.test(msg)) {
+      code = "rate_limit";
     } else if (status === 401 || status === 403 || /invalid.api.key|unauthorized/i.test(msg)) {
       code = "auth";
     } else if (/json|parse|invalid/i.test(msg)) {
