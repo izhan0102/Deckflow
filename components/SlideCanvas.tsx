@@ -456,25 +456,34 @@ function TitleHeroCentered({ slide, theme, deckTitle, interactive, onUpdate, can
   const sub = slide.subtitle || "";
   return (
     <>
-      {slide.kicker && (
-        <Movable id="kicker" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
-          baseStyle={{ position: "absolute", left: "8%", right: "8%", top: "30%", textAlign: "center" }}
-        >
-          <div style={{ fontSize: pt(11), letterSpacing: "0.18em", color: theme.accent, fontWeight: 600 }}>
+      {/* Symmetric framing rules top & bottom */}
+      <div style={{ position: "absolute", left: "50%", top: "16%", transform: "translateX(-50%)", width: inches(0.9), height: pt(3), background: theme.accent, borderRadius: pt(2) }} />
+      <div style={{ position: "absolute", left: "50%", bottom: "14%", transform: "translateX(-50%)", width: inches(0.5), height: pt(3), background: theme.accent, opacity: 0.5, borderRadius: pt(2) }} />
+
+      <Movable id="kicker" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{ position: "absolute", left: "8%", right: "8%", top: "27%", textAlign: "center" }}
+      >
+        <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "100%" }}>
+          <span style={{
+            fontSize: pt(10.5), letterSpacing: "0.26em", color: theme.accent, fontWeight: 700,
+            textTransform: "uppercase", padding: `${pt(5)} ${pt(14)}`,
+            border: `1px solid ${theme.accent}66`, borderRadius: pt(40),
+          }}>
             <EditableText
-              value={slide.kicker}
+              value={slide.kicker || "PRESENTATION"}
               interactive={interactive}
               onCommit={(v) => onUpdate?.({ kicker: v })}
             />
-          </div>
-        </Movable>
-      )}
+          </span>
+        </div>
+      </Movable>
+
       <Movable id="title" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
         baseStyle={{ position: "absolute", left: "8%", right: "8%", top: "40%", textAlign: "center" }}
       >
         <div style={{
           fontSize: pt(titleSize(title, "title-hero", slide)),
-          fontWeight: 800, lineHeight: 1.1, color: theme.accent,
+          fontWeight: 800, lineHeight: 1.08, color: theme.fg, letterSpacing: "-0.02em",
         }}>
           <EditableText
             value={title}
@@ -485,11 +494,11 @@ function TitleHeroCentered({ slide, theme, deckTitle, interactive, onUpdate, can
       </Movable>
       {sub && (
         <Movable id="subtitle" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
-          baseStyle={{ position: "absolute", left: "12%", right: "12%", top: "60%", textAlign: "center" }}
+          baseStyle={{ position: "absolute", left: "16%", right: "16%", top: "62%", textAlign: "center" }}
         >
           <div style={{
             fontSize: pt(subtitleSize(sub, "title-hero", slide)),
-            color: theme.muted,
+            color: theme.muted, lineHeight: 1.5,
           }}>
             <EditableText
               value={sub}
@@ -508,16 +517,29 @@ function TitleHeroAsymmetric({ slide, theme, deckTitle, interactive, onUpdate, c
   const sub = slide.subtitle || "";
   return (
     <>
-      {/* Half-bleed accent panel */}
+      {/* Full-bleed accent panel with layered tonal blocks */}
+      <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: "40%", background: theme.accent }} />
+      <div style={{ position: "absolute", left: "28%", top: 0, height: "100%", width: "12%", background: theme.accent, opacity: 0.4 }} />
+      {/* Vertical brand label on the panel */}
       <div style={{
-        position: "absolute", left: 0, top: 0, height: "100%", width: "42%",
-        background: theme.accent,
-      }} />
-      {/* Kicker top-right */}
+        position: "absolute", left: inches(0.55), top: "50%",
+        transform: "translateY(-50%) rotate(180deg)", writingMode: "vertical-rl",
+        fontSize: pt(10), color: theme.bg, opacity: 0.9, letterSpacing: "0.3em", fontWeight: 700,
+      }}>
+        EZDECK
+      </div>
+      {/* Big quiet number on the panel */}
+      <div style={{
+        position: "absolute", left: inches(1.0), top: "12%",
+        fontSize: pt(64), fontWeight: 900, color: theme.bg, opacity: 0.22, lineHeight: 1,
+      }}>
+        01
+      </div>
+
       {slide.kicker && (
         <div style={{
-          position: "absolute", left: "46%", top: inches(0.6),
-          fontSize: pt(10), letterSpacing: "0.2em", color: theme.muted, fontWeight: 600,
+          position: "absolute", left: "46%", top: "22%",
+          fontSize: pt(10.5), letterSpacing: "0.22em", color: theme.accent, fontWeight: 700, textTransform: "uppercase",
         }}>
           <EditableText
             value={slide.kicker}
@@ -527,11 +549,11 @@ function TitleHeroAsymmetric({ slide, theme, deckTitle, interactive, onUpdate, c
         </div>
       )}
       <Movable id="title" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
-        baseStyle={{ position: "absolute", left: "46%", right: "6%", top: "30%" }}
+        baseStyle={{ position: "absolute", left: "46%", right: "6%", top: "32%" }}
       >
         <div style={{
           fontSize: pt(titleSize(title, "title-hero", slide)),
-          fontWeight: 800, lineHeight: 1.05, color: theme.fg,
+          fontWeight: 800, lineHeight: 1.04, color: theme.fg, letterSpacing: "-0.02em",
         }}>
           <EditableText
             value={title}
@@ -540,11 +562,13 @@ function TitleHeroAsymmetric({ slide, theme, deckTitle, interactive, onUpdate, c
           />
         </div>
       </Movable>
+      {/* Short rule between title & subtitle */}
+      <div style={{ position: "absolute", left: "46%", top: "60%", width: inches(1.2), height: pt(4), background: theme.accent, borderRadius: pt(2) }} />
       {sub && (
         <Movable id="subtitle" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
-          baseStyle={{ position: "absolute", left: "46%", right: "6%", top: "62%" }}
+          baseStyle={{ position: "absolute", left: "46%", right: "6%", top: "65%" }}
         >
-          <div style={{ fontSize: pt(subtitleSize(sub, "title-hero", slide)), color: theme.muted, lineHeight: 1.4 }}>
+          <div style={{ fontSize: pt(subtitleSize(sub, "title-hero", slide)), color: theme.muted, lineHeight: 1.45 }}>
             <EditableText
               value={sub}
               interactive={interactive}
@@ -553,13 +577,6 @@ function TitleHeroAsymmetric({ slide, theme, deckTitle, interactive, onUpdate, c
           </div>
         </Movable>
       )}
-      {/* Decorative chip on the accent panel */}
-      <div style={{
-        position: "absolute", left: inches(0.6), bottom: inches(0.6),
-        fontSize: pt(10), color: theme.bg, opacity: 0.85, letterSpacing: "0.18em", fontWeight: 600,
-      }}>
-        EZDECK
-      </div>
     </>
   );
 }
@@ -570,18 +587,21 @@ function TitleHeroBigInitial({ slide, theme, deckTitle, interactive, onUpdate, c
   const initial = (title || "D").trim().charAt(0).toUpperCase();
   return (
     <>
-      {/* Massive initial cap, centered behind the text */}
+      {/* Massive ghost initial bleeding off the right edge */}
       <div style={{
-        position: "absolute", left: "4%", top: "-6%",
-        fontSize: pt(360), fontWeight: 900, lineHeight: 1,
-        color: theme.accent, opacity: 0.18,
+        position: "absolute", right: "-4%", top: "-12%",
+        fontSize: pt(430), fontWeight: 900, lineHeight: 1,
+        color: theme.accent, opacity: 0.12, letterSpacing: "-0.04em",
       }}>
         {initial}
       </div>
+      {/* Accent tab top-left */}
+      <div style={{ position: "absolute", left: "10%", top: "28%", width: inches(0.7), height: pt(5), background: theme.accent, borderRadius: pt(3) }} />
+
       {slide.kicker && (
         <div style={{
-          position: "absolute", left: "10%", top: "32%",
-          fontSize: pt(10), letterSpacing: "0.22em", color: theme.accent, fontWeight: 700,
+          position: "absolute", left: "10%", top: "33%",
+          fontSize: pt(10.5), letterSpacing: "0.24em", color: theme.accent, fontWeight: 700, textTransform: "uppercase",
         }}>
           <EditableText
             value={slide.kicker}
@@ -591,11 +611,11 @@ function TitleHeroBigInitial({ slide, theme, deckTitle, interactive, onUpdate, c
         </div>
       )}
       <Movable id="title" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
-        baseStyle={{ position: "absolute", left: "10%", right: "10%", top: "42%" }}
+        baseStyle={{ position: "absolute", left: "10%", right: "22%", top: "42%" }}
       >
         <div style={{
           fontSize: pt(titleSize(title, "title-hero", slide)),
-          fontWeight: 800, lineHeight: 1.05, color: theme.fg,
+          fontWeight: 900, lineHeight: 1.02, color: theme.fg, letterSpacing: "-0.025em",
         }}>
           <EditableText
             value={title}
@@ -606,9 +626,9 @@ function TitleHeroBigInitial({ slide, theme, deckTitle, interactive, onUpdate, c
       </Movable>
       {sub && (
         <Movable id="subtitle" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
-          baseStyle={{ position: "absolute", left: "10%", right: "10%", top: "70%" }}
+          baseStyle={{ position: "absolute", left: "10%", right: "30%", top: "72%" }}
         >
-          <div style={{ fontSize: pt(subtitleSize(sub, "title-hero", slide)), color: theme.muted }}>
+          <div style={{ fontSize: pt(subtitleSize(sub, "title-hero", slide)), color: theme.muted, lineHeight: 1.45 }}>
             <EditableText
               value={sub}
               interactive={interactive}
@@ -627,35 +647,35 @@ function TitleHeroNumbered({ slide, theme, deckTitle, interactive, onUpdate, can
   // If kicker contains a year/number we show it big; otherwise show "01".
   const numMatch = (slide.kicker || "").match(/\b(20\d{2}|Q[1-4]|\d{2,4})\b/);
   const big = numMatch?.[0] || "01";
-  const restKicker = (slide.kicker || "").replace(big, "").trim();
   return (
     <>
+      {/* Left accent spine */}
+      <div style={{ position: "absolute", left: "8%", top: "22%", bottom: "22%", width: pt(4), background: theme.accent, borderRadius: pt(2) }} />
+
+      {/* Oversized index number */}
       <div style={{
-        position: "absolute", left: "8%", top: "20%",
-        fontSize: pt(120), fontWeight: 900, lineHeight: 1,
-        color: theme.accent, letterSpacing: "-0.02em",
+        position: "absolute", left: "12%", top: "20%",
+        fontSize: pt(116), fontWeight: 900, lineHeight: 1,
+        color: theme.accent, letterSpacing: "-0.03em",
       }}>
         {big}
       </div>
-      {(restKicker || interactive) && (
-        <div style={{
-          position: "absolute", left: "8%", top: "48%",
-          fontSize: pt(11), letterSpacing: "0.2em", color: theme.muted, fontWeight: 600,
-          textTransform: "uppercase",
-        }}>
-          <EditableText
-            value={slide.kicker || ""}
-            interactive={interactive}
-            onCommit={(v) => onUpdate?.({ kicker: v })}
-          />
-        </div>
-      )}
+      <div style={{
+        position: "absolute", left: "12%", top: "50%",
+        fontSize: pt(11), letterSpacing: "0.22em", color: theme.muted, fontWeight: 600, textTransform: "uppercase",
+      }}>
+        <EditableText
+          value={slide.kicker || ""}
+          interactive={interactive}
+          onCommit={(v) => onUpdate?.({ kicker: v })}
+        />
+      </div>
       <Movable id="title" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
-        baseStyle={{ position: "absolute", left: "8%", right: "8%", top: "56%" }}
+        baseStyle={{ position: "absolute", left: "12%", right: "10%", top: "57%" }}
       >
         <div style={{
           fontSize: pt(titleSize(title, "title-hero", slide)),
-          fontWeight: 800, lineHeight: 1.05, color: theme.fg,
+          fontWeight: 800, lineHeight: 1.05, color: theme.fg, letterSpacing: "-0.02em",
         }}>
           <EditableText
             value={title}
@@ -666,7 +686,7 @@ function TitleHeroNumbered({ slide, theme, deckTitle, interactive, onUpdate, can
       </Movable>
       {sub && (
         <Movable id="subtitle" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
-          baseStyle={{ position: "absolute", left: "8%", right: "8%", top: "82%" }}
+          baseStyle={{ position: "absolute", left: "12%", right: "10%", top: "83%" }}
         >
           <div style={{ fontSize: pt(subtitleSize(sub, "title-hero", slide)), color: theme.muted }}>
             <EditableText
@@ -686,11 +706,16 @@ function TitleHeroUnderlined({ slide, theme, deckTitle, interactive, onUpdate, c
   const sub = slide.subtitle || "";
   return (
     <>
+      {/* Soft tonal band behind the lower third */}
+      <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: "30%", background: theme.accent, opacity: 0.06 }} />
+
       {slide.kicker && (
         <div style={{
-          position: "absolute", left: "8%", top: "26%",
-          fontSize: pt(11), letterSpacing: "0.22em", color: theme.accent, fontWeight: 700,
+          position: "absolute", left: "8%", top: "24%",
+          display: "inline-flex", alignItems: "center", gap: pt(8),
+          fontSize: pt(11), letterSpacing: "0.22em", color: theme.accent, fontWeight: 700, textTransform: "uppercase",
         }}>
+          <span style={{ width: pt(22), height: pt(3), background: theme.accent, borderRadius: pt(2), display: "inline-block" }} />
           <EditableText
             value={slide.kicker}
             interactive={interactive}
@@ -699,11 +724,11 @@ function TitleHeroUnderlined({ slide, theme, deckTitle, interactive, onUpdate, c
         </div>
       )}
       <Movable id="title" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
-        baseStyle={{ position: "absolute", left: "8%", right: "8%", top: "34%" }}
+        baseStyle={{ position: "absolute", left: "8%", right: "8%", top: "33%" }}
       >
         <div style={{
           fontSize: pt(titleSize(title, "title-hero", slide)),
-          fontWeight: 800, lineHeight: 1.05, color: theme.fg,
+          fontWeight: 800, lineHeight: 1.05, color: theme.fg, letterSpacing: "-0.02em",
         }}>
           <EditableText
             value={title}
@@ -716,13 +741,13 @@ function TitleHeroUnderlined({ slide, theme, deckTitle, interactive, onUpdate, c
       <div style={{
         position: "absolute", left: "8%",
         top: "62%", width: inches(2.5), height: pt(8),
-        background: theme.accent,
+        background: theme.accent, borderRadius: pt(2),
       }} />
       {sub && (
         <Movable id="subtitle" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
           baseStyle={{ position: "absolute", left: "8%", right: "8%", top: "70%" }}
         >
-          <div style={{ fontSize: pt(subtitleSize(sub, "title-hero", slide)), color: theme.muted, maxWidth: "80%" }}>
+          <div style={{ fontSize: pt(subtitleSize(sub, "title-hero", slide)), color: theme.muted, maxWidth: "80%", lineHeight: 1.45 }}>
             <EditableText
               value={sub}
               interactive={interactive}
@@ -855,6 +880,10 @@ function BulletsCards(props: any) {
   const { slide, theme, idx, total, deckTitle, interactive, onUpdate, canvasRef } = props;
   const bullets: string[] = slide.bullets || [];
   const cols = bullets.length <= 4 ? 2 : 3;
+  // Flex-wrap (not grid) so a trailing orphan row auto-centers between the
+  // cards above it instead of sticking to the left.
+  const gap = pt(12);
+  const cardWidth = `calc((100% - ${cols - 1} * ${gap}) / ${cols})`;
   const editBullet = (i: number, value: string) => {
     const next = [...bullets];
     next[i] = value;
@@ -868,14 +897,18 @@ function BulletsCards(props: any) {
         baseStyle={{ position: "absolute", left: inches(0.6), top: inches(2.6), right: inches(0.6) }}
       >
         <div style={{
-          display: "grid",
-          gridTemplateColumns: `repeat(${cols}, 1fr)`,
-          gap: pt(12),
+          display: "flex",
+          flexWrap: "wrap",
+          justifyContent: "center",
+          gap,
           fontSize: pt(bulletSize(bullets.length, slide)),
           color: theme.fg,
         }}>
           {bullets.map((b, i) => (
             <div key={i} style={{
+              width: cardWidth,
+              flexGrow: 0,
+              flexShrink: 0,
               padding: pt(14),
               borderRadius: pt(8),
               border: `1px solid ${theme.muted}33`,

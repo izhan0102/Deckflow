@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
-  Check, ChevronLeft, ChevronRight, Copy, Link as LinkIcon, Maximize2, Play,
+  Check, ChevronLeft, ChevronRight, Copy, Link as LinkIcon, Play,
   StickyNote, Sparkles,
 } from "lucide-react";
 import SlideCanvas from "@/components/SlideCanvas";
@@ -169,9 +169,7 @@ export default function ShareViewer({ params }: { params: { id: string } }) {
     ? { ...slide, references: deck.references || [] }
     : slide;
 
-  const hasNotes = useMemo(() => {
-    return deck.slides.some((s) => !!s.notes);
-  }, [deck.slides]);
+  const hasNotes = deck.slides.some((s) => !!s.notes);
 
   const onCopyLink = async () => {
     try {
@@ -179,20 +177,6 @@ export default function ShareViewer({ params }: { params: { id: string } }) {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1600);
     } catch { /* clipboard might be blocked */ }
-  };
-
-  const onFullscreen = () => {
-    const el = stageRef.current;
-    if (!el) return;
-    const req = (el as any).requestFullscreen
-      || (el as any).webkitRequestFullscreen
-      || (el as any).msRequestFullscreen;
-    if (req) {
-      try {
-        const p = req.call(el);
-        if (p && typeof p.then === "function") p.catch(() => {});
-      } catch { /* user gesture missing */ }
-    }
   };
 
   return (
@@ -244,12 +228,6 @@ export default function ShareViewer({ params }: { params: { id: string } }) {
               label={copied ? "Copied" : "Copy link"}
               onClick={onCopyLink}
             />
-            <ToolbarButton
-              icon={<Maximize2 size={12} />}
-              label="Fullscreen"
-              onClick={onFullscreen}
-              className="hidden sm:inline-flex"
-            />
             <button
               onClick={() => setPresenting(true)}
               title="Press P"
@@ -273,6 +251,7 @@ export default function ShareViewer({ params }: { params: { id: string } }) {
 
         {/* Stage */}
         <div className="min-w-0">
+          <div className="mx-auto w-full max-w-[860px]">
           <div
             ref={stageRef}
             className="overflow-hidden rounded-2xl border border-white/10 bg-black shadow-[0_30px_80px_-20px_rgba(0,0,0,0.6)]"
@@ -349,6 +328,7 @@ export default function ShareViewer({ params }: { params: { id: string } }) {
             <KeyHint label="Present" keys={["P"]} />
             {hasNotes && <KeyHint label="Notes" keys={["N"]} />}
             <KeyHint label="First / Last" keys={["Home", "End"]} />
+          </div>
           </div>
         </div>
       </div>

@@ -6,6 +6,7 @@ import PromptStep from "@/components/PromptStep";
 import ThemeStep from "@/components/ThemeStep";
 import FontStep from "@/components/FontStep";
 import GraphicStep from "@/components/GraphicStep";
+import StyleBundleStep from "@/components/StyleBundleStep";
 import DeckPreview from "@/components/DeckPreview";
 import GenerateOverlay from "@/components/GenerateOverlay";
 import ClarifyDialog from "@/components/ClarifyDialog";
@@ -15,6 +16,7 @@ import Dashboard from "@/components/Dashboard";
 import { PRESET_THEMES, getTheme, type Theme } from "@/lib/themes";
 import type { Deck, ContentDensity } from "@/lib/types";
 import { applyTemplateToSlide, type TemplateVariantDefaults } from "@/lib/templates";
+import { getStyleBundle, applyBundleToSlide, STYLE_BUNDLES } from "@/lib/styleBundles";
 import { createDeck, loadDeck } from "@/lib/decks";
 import { logout, onAuthStateChange, getIdToken, reloadUser, type AppUser } from "@/lib/auth";
 import { trackEvent } from "@/lib/stats";
@@ -24,7 +26,7 @@ import {
 } from "@/lib/usage";
 import { ArrowLeft } from "lucide-react";
 
-type Step = "dashboard" | "prompt" | "theme" | "font" | "graphic" | "deck";
+type Step = "dashboard" | "prompt" | "theme" | "font" | "graphic" | "style" | "deck";
 
 // useSearchParams() forces this route to render on each request rather than
 // being prerendered at build time. Without this, the build complains that
@@ -104,6 +106,10 @@ function PageInner() {
   // them to every slide once generation finishes.
   const [templateVariants, setTemplateVariants] = useState<TemplateVariantDefaults | null>(null);
   const [templateName, setTemplateName] = useState<string | null>(null);
+  // Style bundle chosen on the "style" step — a self-consistent set of
+  // per-layout variants layered onto every generated slide. Defaults to the
+  // first bundle so generation always has a look even if the user rushes.
+  const [styleBundleId, setStyleBundleId] = useState<string | null>(STYLE_BUNDLES[0].id);
 
   // Load an existing deck via ?id=... so "Open" links from /app/decks work.
   useEffect(() => {
@@ -235,9 +241,17 @@ const retryGenerate = () => {
       })();
 
       const [data] = await Promise.all([fetchPromise, minDelay]);
-      const slides = (templateVariants
-        ? data.deck.slides.map((s: any) => applyTemplateToSlide(s, templateVariants))
-        : data.deck.slides);
+      // Apply the chosen look to every slide. If the user picked a concrete
+      // template, its variants fill empty slots (AI choices still win). If
+      // they picked a style bundle on the "style" step, that's a deliberate
+      // choice and OVERRIDES the AI's per-slide variants so the deck matches
+      // exactly what they previewed.
+      const bundle = templateVariants ? null : getStyleBundle(styleBundleId);
+      const slides = bundle
+        ? data.deck.slides.map((s: any) => applyBundleToSlide(s, bundle))
+        : templateVariants
+          ? data.deck.slides.map((s: any) => applyTemplateToSlide(s, templateVariants))
+          : data.deck.slides;
       const deckWithExtras: Deck = { ...data.deck, slides, graphic: graphicId, graphicAccent, fontId };
       setDeck(deckWithExtras);
       setStep("deck");
@@ -329,6 +343,34 @@ const retryGenerate = () => {
 
         {/* First-visit walkthrough still useful here. Self-disables after one show. */}
         <OnboardingTour enabled />
+      </main>
+    );
+  }
+
+  // Style-bundle picker owns the full screen, like the dashboard.
+  if (step === "style") {
+    return (
+      <main className="relative min-h-screen text-white" style={{ background: "var(--ezd-bg-page)" }}>
+        <div aria-hidden className="landing-bg" />
+        <div className="relative z-10 px-4 py-10 sm:px-8 lg:py-14">
+          <StyleBundleStep
+            theme={theme}
+            fontId={fontId}
+            graphicId={graphicId}
+            graphicAccent={graphicAccent}
+            selectedBundleId={styleBundleId}
+            onSelect={setStyleBundleId}
+            onBack={() => setStep("graphic")}
+            onGenerate={() => generate(lastDirectives)}
+            loading={loading}
+          />
+        </div>
+        <GenerateOverlay
+          open={loading || !!error}
+          error={error}
+          loading={loading}
+          onRetry={retryGenerate}
+        />
       </main>
     );
   }
@@ -449,7 +491,8 @@ const retryGenerate = () => {
         onClose={() => setClarifyOpen(false)}
         onComplete={(directives) => {
           setClarifyOpen(false);
-          generate(directives);
+          setLastDirectives(directives);
+          setStep("style");
         }}
       />
 
