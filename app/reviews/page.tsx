@@ -5,6 +5,7 @@ import { ArrowLeft, Copy, Loader2, Star } from "lucide-react";
 import Logo from "@/components/Logo";
 import { loadReviews, type Review } from "@/lib/reviews";
 
+
 /**
  * Owner-facing review browser. No auth — it's an unlisted utility page
  * (not linked anywhere, not in the sitemap) for reading every submitted
@@ -14,6 +15,9 @@ import { loadReviews, type Review } from "@/lib/reviews";
  * there's nothing to protect server-side.
  */
 export default function ReviewsPage() {
+  const [search, setSearch] = useState("");
+  const [ratingFilter, setRatingFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("newest");
   const [reviews, setReviews] = useState<Review[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
@@ -32,6 +36,55 @@ export default function ReviewsPage() {
     if (!reviews || reviews.length === 0) return "0.0";
     return (reviews.reduce((a, r) => a + r.rating, 0) / reviews.length).toFixed(1);
   }, [reviews]);
+  const filteredReviews = useMemo(() => {
+    if (!reviews) return [];
+
+    let result = [...reviews];
+
+    if (search.trim()) {
+      const query = search.toLowerCase();
+
+      result = result.filter(
+        (r) =>
+          r.name.toLowerCase().includes(query) ||
+          r.role.toLowerCase().includes(query) ||
+          r.text.toLowerCase().includes(query)
+      );
+    }
+
+    if (ratingFilter !== "all") {
+      result = result.filter(
+        (r) => Math.round(r.rating) === Number(ratingFilter)
+      );
+    }
+
+    switch (sortBy) {
+      case "oldest":
+        result.sort(
+          (a, b) =>
+            new Date(a.createdAt || 0).getTime() -
+            new Date(b.createdAt || 0).getTime()
+        );
+        break;
+
+      case "highest":
+        result.sort((a, b) => b.rating - a.rating);
+        break;
+
+      case "lowest":
+        result.sort((a, b) => a.rating - b.rating);
+        break;
+
+      default:
+        result.sort(
+          (a, b) =>
+            new Date(b.createdAt || 0).getTime() -
+            new Date(a.createdAt || 0).getTime()
+        );
+    }
+
+    return result;
+  }, [reviews, search, ratingFilter, sortBy]);
 
   // Copy a review as a ready-to-paste REVIEWS entry for app/page.tsx.
   const copyAsCode = (r: Review) => {
@@ -44,14 +97,52 @@ export default function ReviewsPage() {
     navigator.clipboard?.writeText(snippet).then(() => {
       setCopied(r.id || r.name);
       window.setTimeout(() => setCopied(null), 1600);
-    }).catch(() => {});
+    }).catch(() => { });
   };
 
   return (
     <main
+
       className="relative min-h-screen"
       style={{ background: "var(--ezd-bg-page)", color: "var(--ezd-fg)" }}
     >
+      <p className="mt-2 text-[12.5px] text-white/45">
+        Newest first. Click &ldquo;Copy&rdquo; on any review to grab a ready-to-paste
+        entry for the hero <code className="text-white/60">REVIEWS</code> array.
+      </p>
+      <div className="mt-6 flex flex-wrap gap-3">
+        <input
+          type="text"
+          placeholder="Search reviews..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white"
+        />
+
+        <select
+          value={ratingFilter}
+          onChange={(e) => setRatingFilter(e.target.value)}
+          className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white"
+        >
+          <option value="all">All Ratings</option>
+          <option value="5">5 Stars</option>
+          <option value="4">4 Stars</option>
+          <option value="3">3 Stars</option>
+          <option value="2">2 Stars</option>
+          <option value="1">1 Star</option>
+        </select>
+
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value)}
+          className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white"
+        >
+          <option value="newest">Newest</option>
+          <option value="oldest">Oldest</option>
+          <option value="highest">Highest Rated</option>
+          <option value="lowest">Lowest Rated</option>
+        </select>
+      </div>
       <div aria-hidden className="landing-bg" />
 
       <header className="relative z-10 border-b border-white/10">
@@ -70,7 +161,9 @@ export default function ReviewsPage() {
               Submitted reviews
             </div>
             <h1 className="mt-2 text-[26px] font-semibold tracking-tight text-white">
-              {reviews ? `${reviews.length} review${reviews.length === 1 ? "" : "s"}` : "Loading…"}
+              {reviews
+                ? `${filteredReviews.length} review${filteredReviews.length === 1 ? "" : "s"}`
+                : "Loading…"}
             </h1>
           </div>
           {reviews && reviews.length > 0 && (
@@ -101,7 +194,7 @@ export default function ReviewsPage() {
             </div>
           )}
 
-          {reviews?.map((r) => (
+          {filteredReviews.map((r) => (
             <article
               key={r.id}
               className="rounded-2xl border border-white/12 bg-white/[0.025] p-4"
