@@ -17,6 +17,7 @@ export default function ReviewsPage() {
   const [reviews, setReviews] = useState<Review[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [copyError, setCopyError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -34,17 +35,33 @@ export default function ReviewsPage() {
   }, [reviews]);
 
   // Copy a review as a ready-to-paste REVIEWS entry for app/page.tsx.
-  const copyAsCode = (r: Review) => {
+  const copyAsCode = async (r: Review) => {
     const snippet = `  {
     name: ${JSON.stringify(r.name)},
     role: ${JSON.stringify(r.role)},
     rating: ${r.rating},
     text: ${JSON.stringify(r.text)},
   },`;
-    navigator.clipboard?.writeText(snippet).then(() => {
+
+    try {
+      if (!navigator.clipboard) {
+        throw new Error("Clipboard API not supported");
+      }
+
+      await navigator.clipboard.writeText(snippet);
+
       setCopied(r.id || r.name);
-      window.setTimeout(() => setCopied(null), 1600);
-    }).catch(() => {});
+      setCopyError(null);
+
+      window.setTimeout(() => {
+        setCopied(null);
+      }, 1600);
+    } catch (err) {
+      console.error("Failed to copy review:", err);
+      setCopyError(
+        "Copy failed. Your browser may not support clipboard access."
+      );
+    }
   };
 
   return (
@@ -88,6 +105,12 @@ export default function ReviewsPage() {
 
         <div className="mt-8 space-y-3">
           {error && <p className="text-[13px] text-red-300">{error}</p>}
+
+          {copyError && (
+            <p className="text-[13px] text-red-300">
+              {copyError}
+            </p>
+          )}
 
           {!reviews && !error && (
             <div className="flex items-center justify-center rounded-2xl border border-white/10 bg-white/[0.02] p-12">
