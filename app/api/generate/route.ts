@@ -13,6 +13,38 @@ export async function POST(req: NextRequest) {
     const uid = await authenticateRequest(req);
     const body = await req.json();
     const { prompt, slideCount, audience, tone, density, includeReferences, directives, sourceText } = body || {};
+    const validDensities = ["brief", "normal", "detailed"];
+
+    if (
+      density &&
+      (typeof density !== "string" || !validDensities.includes(density))
+    ) {
+      return NextResponse.json(
+        {
+          error: "density must be one of: brief, normal, detailed",
+        },
+        { status: 400 }
+      );
+    }
+
+    const sanitizedAudience =
+      typeof audience === "string"
+        ? audience.trim().slice(0, 100)
+        : "";
+
+    const sanitizedTone =
+      typeof tone === "string"
+        ? tone.trim().slice(0, 50)
+        : "";
+
+    const sanitizedDensity = density || "normal";
+
+    const sanitizedDirectives =
+      typeof directives === "string"
+        ? directives.trim().slice(0, 1000)
+        : "";
+
+    const sanitizedIncludeReferences = Boolean(includeReferences);
 
     // Import mode: the user pasted/uploaded their own content. Organize it
     // into slides rather than generating from a brief. A short prompt is
@@ -32,11 +64,11 @@ export async function POST(req: NextRequest) {
       deck = await generateDeckFromContent({
         sourceText: sourceText.trim(),
         prompt: typeof prompt === "string" ? prompt.trim() : "",
-        audience,
-        tone,
-        density,
-        includeReferences,
-        directives: typeof directives === "string" ? directives : "",
+        audience: sanitizedAudience,
+        tone: sanitizedTone,
+        density: sanitizedDensity,
+        includeReferences: sanitizedIncludeReferences,
+        directives: sanitizedDirectives,
         maxSlides,
       });
       deck.topic = (typeof prompt === "string" && prompt.trim()) || deck.title;
@@ -45,18 +77,18 @@ export async function POST(req: NextRequest) {
       deck = await generateDeck({
         prompt: prompt.trim(),
         slideCount: count,
-        audience,
-        tone,
-        density,
-        includeReferences,
-        directives: typeof directives === "string" ? directives : "",
+        audience: sanitizedAudience,
+        tone: sanitizedTone,
+        density: sanitizedDensity,
+        includeReferences: sanitizedIncludeReferences,
+        directives: sanitizedDirectives,
       });
       deck.topic = prompt.trim();
     }
 
-    deck.audience = audience;
-    deck.tone = tone;
-    deck.density = density;
+    deck.audience = sanitizedAudience;
+    deck.tone = sanitizedTone;
+    deck.density = sanitizedDensity;
 
     return NextResponse.json({ deck });
   } catch (err: any) {
