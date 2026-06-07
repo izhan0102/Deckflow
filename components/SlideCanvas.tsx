@@ -25,6 +25,13 @@ const pt = (p: number) => `${p * PT}cqw`;
 const inches = (i: number) => `${i * IN}cqw`;
 function clamp(n: number, lo: number, hi: number) { return Math.max(lo, Math.min(hi, n)); }
 
+/** Resolve a per-role template font-family (title/subtitle/kicker/body),
+ *  falling back to undefined so the slide's base font applies. */
+function roleFontFamily(slide: Slide | undefined, role: "title" | "subtitle" | "kicker" | "body"): string | undefined {
+  const id = slide?.templateFonts?.[role];
+  return id ? resolveFontFamily(id) : undefined;
+}
+
 /* ------------------- Canvas element selection context --------------------- */
 
 /**
@@ -311,13 +318,17 @@ function Movable({
   } | null>(null);
   const dragInchesRef = useRef<{ dx: number; dy: number } | null>(null);
   const rafRef = useRef<number | null>(null);
+  const movedRef = useRef(false);
 
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     if (!interactive || !onUpdate) return;
     const target = e.target as HTMLElement;
     if (target.closest("[data-no-drag]")) return;
-    if (target.isContentEditable) return;
-    e.preventDefault();
+    // Start a *potential* drag even when the press lands on the editable
+    // text (the text fills the whole box, so otherwise these elements could
+    // never be moved). We only treat it as a drag once the pointer actually
+    // moves; a press without movement falls through to a normal click so the
+    // caret can be placed for editing.
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     dragRef.current = {
       startX: e.clientX, startY: e.clientY,
@@ -325,11 +336,18 @@ function Movable({
       pointerId: e.pointerId,
     };
     dragInchesRef.current = { dx: offset.dx, dy: offset.dy };
-    if (elRef.current) elRef.current.style.cursor = "grabbing";
+    movedRef.current = false;
   }, [interactive, onUpdate, offset.dx, offset.dy]);
 
   const onPointerMove = useCallback((e: React.PointerEvent) => {
     if (!dragRef.current || !canvasRef.current || !elRef.current) return;
+    if (!movedRef.current) {
+      const moved = Math.abs(e.clientX - dragRef.current.startX) + Math.abs(e.clientY - dragRef.current.startY);
+      if (moved < 4) return;
+      movedRef.current = true;
+      if (elRef.current) elRef.current.style.cursor = "grabbing";
+      try { window.getSelection()?.removeAllRanges(); } catch { /* ignore */ }
+    }
     const rect = canvasRef.current.getBoundingClientRect();
     const inPerPx = SLIDE_W_IN / rect.width;
     const dx = clamp(
@@ -369,9 +387,9 @@ function Movable({
     }
     if (elRef.current) elRef.current.style.cursor = "grab";
 
-    // Commit the final offset to deck state in a single update. If the
-    // user didn't actually move, skip the update so we don't churn React.
-    if (!onUpdate || !finalOffset) return;
+    // Commit the final offset only if the user actually dragged. A press
+    // without movement is a click (handled by onClick → select/edit).
+    if (!onUpdate || !finalOffset || !movedRef.current) return;
     if (finalOffset.dx === offset.dx && finalOffset.dy === offset.dy) return;
     onUpdate({
       elementOffsets: { ...(slide.elementOffsets || {}), [id]: finalOffset },
@@ -395,6 +413,7 @@ function Movable({
       onPointerCancel={onPointerUp}
       onClick={(e) => {
         if (!interactive || !onUpdate) return;
+        if (movedRef.current) { movedRef.current = false; return; }
         e.stopPropagation();
         sel.select({ kind: "element", id, defaultColor: theme.accent });
       }}
@@ -1053,6 +1072,7 @@ function TitleHeroUnderlined({ slide, theme, deckTitle, interactive, onUpdate, c
           position: "absolute", left: "8%", top: "24%",
           display: "inline-flex", alignItems: "center", gap: pt(8),
           fontSize: pt(11), letterSpacing: "0.22em", color: theme.accent, fontWeight: 700, textTransform: "uppercase",
+          fontFamily: roleFontFamily(slide, "kicker"),
         }}>
           <Deco decoKey="ulKickerTick" slide={slide} theme={theme} interactive={interactive}
             onUpdate={onUpdate} canvasRef={canvasRef} defaultColor={theme.accent}
@@ -1074,6 +1094,7 @@ function TitleHeroUnderlined({ slide, theme, deckTitle, interactive, onUpdate, c
         <div style={{
           fontSize: pt(titleSize(title, "title-hero", slide)),
           fontWeight: 800, lineHeight: 1.05, color: theme.fg, letterSpacing: "-0.02em",
+          fontFamily: roleFontFamily(slide, "title"),
         }}>
           <EditableText
             value={title}
@@ -1094,7 +1115,7 @@ function TitleHeroUnderlined({ slide, theme, deckTitle, interactive, onUpdate, c
         <Movable id="subtitle" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
           baseStyle={{ position: "absolute", left: "8%", right: "8%", top: "70%" }}
         >
-          <div style={{ fontSize: pt(subtitleSize(sub, "title-hero", slide)), color: theme.muted, maxWidth: "80%", lineHeight: 1.45 }}>
+          <div style={{ fontSize: pt(subtitleSize(sub, "title-hero", slide)), color: theme.muted, maxWidth: "80%", lineHeight: 1.45, fontFamily: roleFontFamily(slide, "subtitle") }}>
             <EditableText
               value={sub}
               interactive={interactive}
@@ -1196,6 +1217,7 @@ function ContentTitle({ slide, theme, interactive, onUpdate, canvasRef }: any) {
         <div style={{
           fontSize: pt(titleSize(slide.title, slide.layout, slide)),
           fontWeight: 700, color: theme.fg, lineHeight: 1.15,
+          fontFamily: roleFontFamily(slide, "title"),
         }}>
           <EditableText
             value={slide.title}
@@ -1211,6 +1233,7 @@ function ContentTitle({ slide, theme, interactive, onUpdate, canvasRef }: any) {
           <div style={{
             fontSize: pt(subtitleSize(slide.subtitle, slide.layout, slide)),
             color: theme.muted,
+            fontFamily: roleFontFamily(slide, "subtitle"),
           }}>
             <EditableText
               value={slide.subtitle}

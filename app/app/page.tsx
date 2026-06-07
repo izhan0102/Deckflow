@@ -11,12 +11,17 @@ import DeckPreview from "@/components/DeckPreview";
 import GenerateOverlay from "@/components/GenerateOverlay";
 import ClarifyDialog from "@/components/ClarifyDialog";
 import TemplateGallery from "@/components/TemplateGallery";
+import TemplateDesigner from "@/components/TemplateDesigner";
 import OnboardingTour from "@/components/OnboardingTour";
 import Dashboard from "@/components/Dashboard";
+import DashboardMobile from "@/components/DashboardMobile";
+import { useDeviceMode } from "@/lib/deviceMode";
 import { PRESET_THEMES, getTheme, type Theme } from "@/lib/themes";
 import type { Deck, ContentDensity } from "@/lib/types";
 import { applyTemplateToSlide, type TemplateVariantDefaults } from "@/lib/templates";
 import { getStyleBundle, applyBundleToSlide, STYLE_BUNDLES } from "@/lib/styleBundles";
+import { watchCustomTemplates, deleteCustomTemplate, type CustomTemplate } from "@/lib/customTemplates";
+import { applyCustomTemplateToDeck } from "@/lib/applyCustomTemplate";
 import { createDeck, loadDeck } from "@/lib/decks";
 import { logout, onAuthStateChange, getIdToken, reloadUser, type AppUser } from "@/lib/auth";
 import { trackEvent } from "@/lib/stats";
@@ -49,6 +54,7 @@ export default function Page() {
 function PageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { mode: deviceMode, setMode: setDeviceMode, ready: deviceReady } = useDeviceMode();
   const [authReady, setAuthReady] = useState(false);
   const [user, setUser] = useState<AppUser | null>(null);
 
@@ -106,6 +112,10 @@ function PageInner() {
   // them to every slide once generation finishes.
   const [templateVariants, setTemplateVariants] = useState<TemplateVariantDefaults | null>(null);
   const [templateName, setTemplateName] = useState<string | null>(null);
+  // Custom (user-designed) templates.
+  const [customTemplates, setCustomTemplates] = useState<CustomTemplate[]>([]);
+  const [designerOpen, setDesignerOpen] = useState(false);
+  const [activeCustomTemplate, setActiveCustomTemplate] = useState<CustomTemplate | null>(null);
   // Style bundle chosen on the "style" step — a self-consistent set of
   // per-layout variants layered onto every generated slide. Defaults to the
   // first bundle so generation always has a look even if the user rushes.
@@ -135,6 +145,13 @@ function PageInner() {
     })();
     return () => { cancelled = true; };
   }, [user, searchParams, deckId]);
+
+  // Watch the user's saved custom templates for the gallery.
+  useEffect(() => {
+    if (!user) return;
+    const unsub = watchCustomTemplates(user.uid, setCustomTemplates);
+    return () => unsub();
+  }, [user]);
 
   // Mandatory pre-generation step: open the AI clarifying dialog. The
   // dialog calls back into generate() with the chosen directives. We
@@ -252,7 +269,19 @@ const retryGenerate = () => {
         : templateVariants
           ? data.deck.slides.map((s: any) => applyTemplateToSlide(s, templateVariants))
           : data.deck.slides;
-      const deckWithExtras: Deck = { ...data.deck, slides, graphic: graphicId, graphicAccent, fontId };
+      const baseDeck: Deck = { ...data.deck, slides, graphic: graphicId, graphicAccent, fontId };
+
+      // If the user picked one of their custom templates, re-skin the whole
+      // deck to follow it exactly (colors/fonts/background/decorations),
+      // overriding the default look. Content/structure is untouched.
+      let deckWithExtras = baseDeck;
+      let effectiveTheme = theme;
+      if (activeCustomTemplate) {
+        const applied = applyCustomTemplateToDeck(baseDeck, activeCustomTemplate);
+        deckWithExtras = applied.deck;
+        effectiveTheme = applied.theme;
+        setTheme(applied.theme);
+      }
       setDeck(deckWithExtras);
       setStep("deck");
 
@@ -268,7 +297,7 @@ const retryGenerate = () => {
         incrementTodayGenerations(user.uid).catch(() => {});
 
         try {
-          const id = await createDeck(user.uid, deckWithExtras, theme);
+          const id = await createDeck(user.uid, deckWithExtras, effectiveTheme);
           setDeckId(id);
           // Reflect the id in the URL so a refresh recovers the deck.
           try {
@@ -329,6 +358,20 @@ const retryGenerate = () => {
 
   // Dashboard owns its own layout; render it standalone.
   if (isDashboard && user) {
+    // Mobile mode: a dedicated touch-first dashboard. Desktop is unchanged.
+    if (deviceReady && deviceMode === "mobile") {
+      return (
+        <main className="relative min-h-screen text-white" style={{ background: "var(--ezd-bg-page)" }}>
+          <DashboardMobile
+            user={user}
+            onStartFromScratch={() => setStep("prompt")}
+            onStartFromTemplate={() => { setStep("prompt"); setGalleryOpen(true); }}
+            onSignOut={async () => { await logout(); router.replace("/"); }}
+            onSwitchToDesktop={() => { setDeviceMode("desktop"); try { window.location.reload(); } catch { /* ignore */ } }}
+          />
+        </main>
+      );
+    }
     return (
       <main className="relative min-h-screen text-white" style={{ background: "var(--ezd-bg-page)" }}>
         <div aria-hidden className="landing-bg" />
@@ -499,7 +542,22 @@ const retryGenerate = () => {
       <TemplateGallery
         open={galleryOpen}
         onClose={() => setGalleryOpen(false)}
+        customTemplates={customTemplates}
+        onDesignNew={() => { setGalleryOpen(false); setDesignerOpen(true); }}
+        onPickCustom={(t) => {
+          // Use a custom template: clear preset variants, mark it active so
+          // generation re-skins the deck to follow it exactly.
+          setActiveCustomTemplate(t);
+          setTemplateVariants(null);
+          setTemplateName(t.name);
+          setStep("prompt");
+        }}
+        onDeleteCustom={(t) => {
+          if (user) deleteCustomTemplate(user.uid, t.id).catch(() => {});
+          if (activeCustomTemplate?.id === t.id) setActiveCustomTemplate(null);
+        }}
         onPick={(t) => {
+          setActiveCustomTemplate(null);
           const picked = getTheme(t.themeId);
           if (picked) setTheme(picked);
           setFontId(t.fontId);
@@ -514,6 +572,14 @@ const retryGenerate = () => {
           setTemplateName(t.name);
         }}
       />
+
+      {designerOpen && user && (
+        <TemplateDesigner
+          user={user}
+          onClose={() => setDesignerOpen(false)}
+          onSaved={() => { setDesignerOpen(false); setGalleryOpen(true); }}
+        />
+      )}
 
       {/* First-visit walkthrough. Self-disables after one show. */}
       <OnboardingTour enabled={false} />

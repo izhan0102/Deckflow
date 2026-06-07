@@ -1,13 +1,15 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, LayoutGrid, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, LayoutGrid, Plus, Sparkles, Trash2, X } from "lucide-react";
 import { DECK_TEMPLATES, type DeckTemplate } from "@/lib/templates";
 import { getTheme, type Theme } from "@/lib/themes";
 import { getGraphic } from "@/lib/graphics";
 import { resolveFontFamily } from "@/lib/fonts";
+import type { CustomTemplate } from "@/lib/customTemplates";
 import Skeleton from "./Skeleton";
 
-const PAGE_SIZE = 6;
+const PAGE_SIZE_DESKTOP = 6;
+const PAGE_SIZE_MOBILE = 3;
 
 /**
  * Modal: paginated, category-filtered gallery of deck templates.
@@ -15,11 +17,15 @@ const PAGE_SIZE = 6;
  * step — no scaling, no aspect-ratio CSS, no container queries.
  */
 export default function TemplateGallery({
-  open, onClose, onPick,
+  open, onClose, onPick, customTemplates = [], onDesignNew, onPickCustom, onDeleteCustom,
 }: {
   open: boolean;
   onClose: () => void;
   onPick: (t: DeckTemplate) => void;
+  customTemplates?: CustomTemplate[];
+  onDesignNew?: () => void;
+  onPickCustom?: (t: CustomTemplate) => void;
+  onDeleteCustom?: (t: CustomTemplate) => void;
 }) {
   const categories = useMemo(() => {
     const set = new Set<string>(DECK_TEMPLATES.map((t) => t.category));
@@ -28,6 +34,16 @@ export default function TemplateGallery({
   const [filter, setFilter] = useState<string>("All");
   const [page, setPage] = useState(0);
   const [pageLoading, setPageLoading] = useState(false);
+
+  // Mobile shows fewer cards per page so none get clipped by the modal.
+  const [pageSize, setPageSize] = useState(PAGE_SIZE_DESKTOP);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const apply = () => setPageSize(window.innerWidth < 640 ? PAGE_SIZE_MOBILE : PAGE_SIZE_DESKTOP);
+    apply();
+    window.addEventListener("resize", apply);
+    return () => window.removeEventListener("resize", apply);
+  }, []);
 
   // Brief skeleton flash on page/filter change so paging feels deliberate.
   useEffect(() => {
@@ -41,13 +57,33 @@ export default function TemplateGallery({
     return DECK_TEMPLATES.filter((t) => t.category === filter);
   }, [filter]);
 
-  const totalPages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
-  const pageTemplates = useMemo(
-    () => visible.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE),
-    [visible, page],
-  );
+  // Cards injected before the presets on page 0 of the "All" view:
+  // the "Design your own" card + each saved custom template. They consume
+  // grid slots, so page 0 shows fewer presets to avoid overflow/clipping.
+  const reserved = filter === "All" ? 1 + customTemplates.length : 0;
+
+  // How many presets fit on each page once page 0's reserved slots are taken.
+  const firstPagePresetCount = Math.max(0, pageSize - reserved);
+  const totalPages = useMemo(() => {
+    if (visible.length <= firstPagePresetCount) return 1;
+    return 1 + Math.ceil((visible.length - firstPagePresetCount) / pageSize);
+  }, [visible.length, firstPagePresetCount, pageSize]);
+
+  const pageTemplates = useMemo(() => {
+    if (page === 0) return visible.slice(0, firstPagePresetCount);
+    const start = firstPagePresetCount + (page - 1) * pageSize;
+    return visible.slice(start, start + pageSize);
+  }, [visible, page, pageSize, firstPagePresetCount]);
 
   useEffect(() => { setPage(0); }, [filter]);
+  // Keep the current page valid when the page size changes (resize/rotate).
+  useEffect(() => { setPage((p) => Math.min(p, totalPages - 1)); }, [totalPages]);
+
+  // Whenever the gallery (re)opens, snap back to the first page + All filter
+  // so freshly-saved custom templates are always visible.
+  useEffect(() => {
+    if (open) { setFilter("All"); setPage(0); }
+  }, [open]);
 
   if (!open) return null;
 
@@ -88,9 +124,33 @@ export default function TemplateGallery({
         </div>
 
         {/* Grid */}
-        <div className="grid grid-cols-1 gap-4 overflow-y-auto px-6 pt-6 pb-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid min-h-0 flex-1 grid-cols-1 content-start gap-4 overflow-y-auto px-6 pt-6 pb-4 sm:grid-cols-2 lg:grid-cols-3">
+          {/* Design-your-own + saved custom templates (first page, All filter). */}
+          {page === 0 && filter === "All" && (
+            <>
+              <button
+                onClick={() => { onDesignNew?.(); }}
+                className="group flex min-h-[224px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-cyan-300/30 bg-cyan-400/[0.04] text-center transition hover:border-cyan-300/60 hover:bg-cyan-400/[0.08]"
+              >
+                <span className="grid h-12 w-12 place-items-center rounded-full border border-cyan-300/40 bg-cyan-400/10 text-cyan-200">
+                  <Plus size={20} />
+                </span>
+                <span className="text-[14px] font-semibold text-white">Design your own template</span>
+                <span className="max-w-[80%] text-[11px] text-white/55">Colors, fonts, background, decorations — your look, every deck.</span>
+              </button>
+
+              {customTemplates.map((t) => (
+                <CustomTemplateCard
+                  key={t.id}
+                  template={t}
+                  onPick={() => { onPickCustom?.(t); onClose(); }}
+                  onDelete={onDeleteCustom ? () => onDeleteCustom(t) : undefined}
+                />
+              ))}
+            </>
+          )}
           {pageLoading
-            ? Array.from({ length: PAGE_SIZE }).map((_, i) => (
+            ? Array.from({ length: pageSize }).map((_, i) => (
                 <Skeleton key={i} height={272} />
               ))
             : pageTemplates.map((t) => (
@@ -125,6 +185,42 @@ export default function TemplateGallery({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function CustomTemplateCard({
+  template, onPick, onDelete,
+}: { template: CustomTemplate; onPick: () => void; onDelete?: () => void }) {
+  const { bg, fg, accent, muted } = template.colors;
+  return (
+    <div className="group relative flex flex-col overflow-hidden rounded-xl border border-cyan-300/30 bg-white/[0.02] text-left transition hover:border-cyan-300/60">
+      <span className="pointer-events-none absolute left-3 top-3 z-10 inline-flex items-center gap-1 rounded-full border border-cyan-300/40 bg-gradient-to-br from-cyan-300/30 to-transparent px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-cyan-100 backdrop-blur">
+        <Sparkles size={9} /> Yours
+      </span>
+      {onDelete && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          className="absolute right-2 top-2 z-10 grid h-7 w-7 place-items-center rounded-full border border-white/15 bg-black/40 text-red-200 opacity-0 transition group-hover:opacity-100 hover:bg-red-500/20"
+          aria-label="Delete template"
+        >
+          <Trash2 size={12} />
+        </button>
+      )}
+      <button onClick={onPick} className="flex flex-1 flex-col">
+        <div className="relative h-56 w-full overflow-hidden" style={{ background: bg }}>
+          <div style={{ position: "absolute", left: 18, top: "50%", right: 18, transform: "translateY(-50%)" }}>
+            <div style={{ fontSize: 9, letterSpacing: "0.22em", color: accent, fontWeight: 700, marginBottom: 8, textTransform: "uppercase" }}>{template.fontCategory} template</div>
+            <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.05, color: fg, letterSpacing: "-0.015em" }}>{template.name}</div>
+            <div style={{ marginTop: 8, width: 48, height: 3, background: accent }} />
+            <div style={{ marginTop: 8, fontSize: 11, color: muted }}>Your saved look</div>
+          </div>
+        </div>
+        <div className="flex items-center justify-between gap-3 border-t border-white/10 px-3 py-2.5">
+          <div className="truncate text-sm font-medium text-white">{template.name}</div>
+          <span className="shrink-0 rounded-full border border-white/10 bg-black/30 px-2 py-0.5 text-[10px] text-white/55">Custom</span>
+        </div>
+      </button>
     </div>
   );
 }

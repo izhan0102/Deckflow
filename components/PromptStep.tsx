@@ -62,8 +62,15 @@ export default function PromptStep(p: Props) {
 
   const isContent = p.inputMode === "content";
 
-  // Autofocus on mount so the first thing you do is type.
-  useEffect(() => { taRef.current?.focus(); }, []);
+  // Autofocus on mount so the first thing you do is type — but NOT on
+  // touch devices, where focusing a textarea pops the on-screen keyboard
+  // (annoying, and it fired even when opening the template gallery on top).
+  useEffect(() => {
+    const coarse = typeof window !== "undefined"
+      && window.matchMedia?.("(pointer: coarse)").matches;
+    if (coarse) return;
+    taRef.current?.focus();
+  }, []);
 
   // Auto-grow the textarea as content changes (prompt mode only — the
   // content textarea has its own fixed min/max height).

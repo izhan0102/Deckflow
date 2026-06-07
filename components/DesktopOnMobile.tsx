@@ -29,6 +29,17 @@ export default function DesktopOnMobile() {
   useEffect(() => {
     // Phone-only — never tablets or desktop UAs.
     if (typeof navigator === "undefined") return;
+
+    // Respect the user's chosen device mode. In "mobile" mode the app uses
+    // its own responsive mobile shells, so we must NOT force a 1280px
+    // viewport. When there's no explicit choice, a phone defaults to mobile
+    // mode (see lib/deviceMode), so we skip forcing there too. Only force
+    // the desktop viewport when the user explicitly picked "desktop".
+    const storedMode = (() => {
+      try { return window.localStorage.getItem("ezdeck_device_mode"); } catch { return null; }
+    })();
+    if (storedMode === "mobile") return;
+
     const ua = navigator.userAgent || "";
     // Treat anything reporting iPhone, iPod, Android Mobile, Mobile
     // Safari, Windows Phone, BlackBerry as a phone. iPads send a
@@ -43,6 +54,10 @@ export default function DesktopOnMobile() {
       /Mobi(?!Gen)/i.test(ua);
 
     if (!isPhone) return;
+    // A phone with no explicit choice defaults to mobile mode, which uses
+    // responsive shells — don't force the desktop viewport. Only force it
+    // when the user explicitly opted into desktop mode on a phone.
+    if (storedMode !== "desktop") return;
     if (typeof document === "undefined") return;
 
     const head = document.head;

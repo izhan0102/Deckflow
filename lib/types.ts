@@ -60,8 +60,8 @@ export type Reference = {
 
 export type UploadedImage = {
   id: string;
-  /** "user" = uploaded photo. "decoration" = SVG decoration. "icon" = Iconify icon. */
-  kind?: "user" | "decoration" | "icon";
+  /** "user" = uploaded photo. "decoration" = SVG decoration. "icon" = Iconify icon. "templateBg" = full-bleed template background. */
+  kind?: "user" | "decoration" | "icon" | "templateBg";
   dataUrl: string;     // for "user": base64 data: URL. Empty for decoration/icon.
   decorationId?: string;
   /** Iconify id like "tabler:rocket" or "mdi:home" — used when kind === "icon". */
@@ -138,6 +138,8 @@ export type Slide = {
   uploadedImages?: UploadedImage[];
   /** Optional per-slide background pattern (see lib/patterns.ts). */
   pattern?: { id: string; color?: string; opacity?: number };
+  /** Per-role font preset ids from a custom template (title/subtitle/kicker/body). */
+  templateFonts?: { title?: string; subtitle?: string; kicker?: string; body?: string };
   /** Free-floating text boxes the user adds via the side panel. */
   textBoxes?: TextBox[];
 };
