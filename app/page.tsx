@@ -397,6 +397,12 @@ type Review = {
 
 const REVIEWS: Review[] = [
   {
+    name: "Asif Mohammad",
+    role: "Student",
+    rating: 5,
+    text: "Have seen & used many PPT generators for my personal use, but this thing is something different. The UI/UX in the dark theme is brilliant — you can pick your own theme, font, and much more. Also proud to say I'm a contributor to this project.",
+  },
+  {
     name: "Aarav Mehta",
     role: "Product designer",
     rating: 5,
