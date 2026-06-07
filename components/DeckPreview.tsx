@@ -1,12 +1,13 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Deck, Slide, UploadedImage } from "@/lib/types";
+import type { Deck, Slide, UploadedImage, TextBox } from "@/lib/types";
 import type { Theme } from "@/lib/themes";
 import { PRESET_THEMES } from "@/lib/themes";
 import {
-  BarChart3, ChevronLeft, ChevronRight, Eye, Image as ImageIcon, LayoutGrid, Link as LinkIcon, List, Loader2, Play, RotateCcw, Shapes, Smile, Star, Undo2, X,
+  BarChart3, ChevronDown, ChevronLeft, ChevronRight, Eye, Grid3x3, Image as ImageIcon, LayoutGrid, Link as LinkIcon, List, Loader2, Play, RotateCcw, Smile, Star, Undo2, X,
+  Type, Bold, Italic, Underline as UnderlineIcon, Trash2, AlignLeft, AlignCenter, AlignRight, PanelRightOpen,
 } from "lucide-react";
-import SlideCanvas from "./SlideCanvas";
+import SlideCanvas, { type CanvasSelection } from "./SlideCanvas";
 import DesignerPanel from "./DesignerPanel";
 import Presenter from "./Presenter";
 import DeckChat from "./DeckChat";
@@ -22,7 +23,9 @@ import { getDecoration } from "@/lib/decorations";
 import { saveDeck, publishDeck, unpublishDeck } from "@/lib/decks";
 import { submitReview, REVIEW_LIMITS } from "@/lib/reviews";
 import { loadShareAnalytics, formatDwell, type ShareAnalytics } from "@/lib/analytics";
-import { stripHtml } from "@/lib/richText";
+import { stripHtml, applyWholeStyle, readWholeStyle } from "@/lib/richText";
+import { SLIDE_PATTERNS, PATTERN_OPACITY, patternToDataUri } from "@/lib/patterns";
+import { FONT_PRESETS, resolveFontFamily } from "@/lib/fonts";
 import type { AppUser } from "@/lib/auth";
 
 type Props = {
@@ -40,8 +43,13 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
   const [viewMode, setViewMode] = useState<"slides" | "outline">("slides");
   const [downloading, setDownloading] = useState(false);
   const [presenting, setPresenting] = useState(false);
-  const [decorOpen, setDecorOpen] = useState(false);
+  const [patternOpen, setPatternOpen] = useState(false);
   const [iconOpen, setIconOpen] = useState(false);
+  // Right "insert" sidebar: collapsed by default, opens to Add text / image.
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [placingText, setPlacingText] = useState(false);
+  const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
+  const [canvasSelection, setCanvasSelection] = useState<CanvasSelection>(null);
   const [renderForPdf, setRenderForPdf] = useState(false);
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -147,6 +155,22 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
       ...deck,
       slides: deck.slides.map((s, i) => (i === active ? { ...s, ...patch } : s)),
     });
+  };
+
+  // Apply a whole-element text format (bold/italic/color/font/etc.) to the
+  // currently selected fixed element, writing back to the right slide field.
+  const applyElementFormat = (id: string, prop: string, value: string) => {
+    const slide = deck.slides[active];
+    if (!slide) return;
+    if (id === "bullets") {
+      const next = (slide.bullets || []).map((b) => applyWholeStyle(b, prop, value));
+      updateActive({ bullets: next });
+      return;
+    }
+    const field = elementFieldName(id);
+    if (!field) return;
+    const cur = (slide as any)[field] as string | undefined;
+    updateActive({ [field]: applyWholeStyle(cur || "", prop, value) } as Partial<Slide>);
   };
 
   const replaceActive = (next: Slide) => {
@@ -324,16 +348,6 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
       )}
       {renderForPdf && <HiddenSlidesRenderer ref={hiddenRef} deck={deck} theme={theme} />}
       <DecorationDrawer
-        open={decorOpen}
-        theme={theme}
-        initialMode="graphics"
-        onClose={() => setDecorOpen(false)}
-        onPick={(pick) => {
-          if (pick.kind === "decoration") addDecoration(pick.id);
-          else if (pick.kind === "icon") addIcon(pick.iconId);
-        }}
-      />
-      <DecorationDrawer
         open={iconOpen}
         theme={theme}
         initialMode="icons"
@@ -342,6 +356,17 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
           if (pick.kind === "decoration") addDecoration(pick.id);
           else if (pick.kind === "icon") addIcon(pick.iconId);
         }}
+      />
+      <PatternPicker
+        open={patternOpen}
+        theme={theme}
+        current={deck.slides[active]?.pattern}
+        onClose={() => setPatternOpen(false)}
+        onApply={(p) => setDeck({
+          ...deck,
+          // Patterns are deck-wide: apply (or clear) on every slide at once.
+          slides: deck.slides.map((s) => ({ ...s, pattern: p })),
+        })}
       />
 
       <div className="mb-5 flex items-center justify-between gap-4">
@@ -404,11 +429,11 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
             <Undo2 size={14} /> Undo
           </button>
           <button
-            onClick={() => setDecorOpen(true)}
+            onClick={() => setPatternOpen(true)}
             className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
-            title="Add a graphic from the library"
+            title="Add a background pattern to this slide"
           >
-            <Shapes size={14} /> Add graphic
+            <Grid3x3 size={14} /> Add pattern
           </button>
           <button
             onClick={() => setIconOpen(true)}
@@ -481,6 +506,25 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
               onUpdate={updateActive}
               selectedImageId={selectedImageId}
               onSelectImage={setSelectedImageId}
+              placingText={placingText}
+              onPlaceText={(x, y) => {
+                const id = `tb_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+                const tb = { id, text: "Text", x: Math.max(0, x - 1), y: Math.max(0, y - 0.25), w: 3, fontSize: 18 };
+                updateActive({ textBoxes: [...(deck.slides[active]?.textBoxes || []), tb] });
+                setPlacingText(false);
+                setSelectedTextId(id);
+                setSidebarOpen(true);
+              }}
+              selectedTextId={selectedTextId}
+              onSelectText={(id) => {
+                setSelectedTextId(id);
+                if (id) { setCanvasSelection(null); setSidebarOpen(true); }
+              }}
+              canvasSelection={canvasSelection}
+              onCanvasSelect={(sel) => {
+                setCanvasSelection(sel);
+                if (sel) { setSelectedTextId(null); setSidebarOpen(true); }
+              }}
             />
           </div>
           <div className="mt-3 flex items-center justify-between">
@@ -556,6 +600,65 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
           onPick={applyTheme}
         />
       )}
+
+      {/* Right insert sidebar — add text / image, or edit a selected text box. */}
+      <InsertSidebar
+        open={sidebarOpen}
+        onToggle={() => setSidebarOpen((v) => !v)}
+        theme={theme}
+        placingText={placingText}
+        onStartPlaceText={() => { setPlacingText(true); setSelectedTextId(null); setCanvasSelection(null); }}
+        onAddImage={() => fileInputRef.current?.click()}
+        selectedText={selectedTextId ? (deck.slides[active]?.textBoxes || []).find((t) => t.id === selectedTextId) || null : null}
+        onUpdateText={(patch) => {
+          if (!selectedTextId) return;
+          updateActive({ textBoxes: (deck.slides[active]?.textBoxes || []).map((t) => t.id === selectedTextId ? { ...t, ...patch } : t) });
+        }}
+        onDeleteText={() => {
+          if (!selectedTextId) return;
+          updateActive({ textBoxes: (deck.slides[active]?.textBoxes || []).filter((t) => t.id !== selectedTextId) });
+          setSelectedTextId(null);
+        }}
+        onClearSelection={() => { setSelectedTextId(null); setCanvasSelection(null); }}
+        decoSelection={canvasSelection}
+        decoState={canvasSelection?.kind === "deco" ? (deck.slides[active]?.deco?.[canvasSelection.key] || {}) : null}
+        onUpdateDeco={(patch) => {
+          if (canvasSelection?.kind !== "deco") return;
+          const key = canvasSelection.key;
+          const cur = deck.slides[active]?.deco?.[key] || {};
+          updateActive({ deco: { ...(deck.slides[active]?.deco || {}), [key]: { ...cur, ...patch } } });
+        }}
+        onDeleteDeco={() => {
+          if (canvasSelection?.kind !== "deco") return;
+          const key = canvasSelection.key;
+          const cur = deck.slides[active]?.deco?.[key] || {};
+          updateActive({ deco: { ...(deck.slides[active]?.deco || {}), [key]: { ...cur, hidden: true } } });
+          setCanvasSelection(null);
+        }}
+        elementSelection={canvasSelection?.kind === "element" ? canvasSelection.id : null}
+        elementSize={canvasSelection?.kind === "element" ? (deck.slides[active]?.elementFontSizes?.[canvasSelection.id]) : undefined}
+        onUpdateElementSize={(size) => {
+          if (canvasSelection?.kind !== "element") return;
+          const id = canvasSelection.id;
+          updateActive({ elementFontSizes: { ...(deck.slides[active]?.elementFontSizes || {}), [id]: size as any } });
+        }}
+        elementText={canvasSelection?.kind === "element" ? elementFieldValue(deck.slides[active], canvasSelection.id) : null}
+        onFormatElement={(prop, value) => {
+          if (canvasSelection?.kind !== "element") return;
+          applyElementFormat(canvasSelection.id, prop, value);
+        }}
+        onResetElement={() => {
+          if (canvasSelection?.kind !== "element") return;
+          const id = canvasSelection.id;
+          updateActive({ elementOffsets: { ...(deck.slides[active]?.elementOffsets || {}), [id]: { dx: 0, dy: 0 } } });
+        }}
+        onDeleteElement={() => {
+          if (canvasSelection?.kind !== "element") return;
+          const id = canvasSelection.id;
+          updateActive({ elementHidden: { ...(deck.slides[active]?.elementHidden || {}), [id]: true } });
+          setCanvasSelection(null);
+        }}
+      />
 
       {/* Mandatory one-time review before the first export (free). */}
       <ReviewGate
@@ -997,4 +1100,688 @@ function ReviewGate({
       </div>
     </div>
   );
+}
+
+/* ----------------------- Pattern picker (per-slide) ----------------------- */
+
+/**
+ * Modal for adding / changing / removing a subtle background pattern on the
+ * current slide. Patterns tile the whole slide at low opacity so the text
+ * stays readable. The user can pick a pattern, recolor it, or remove it.
+ */
+function PatternPicker({
+  open, theme, current, onClose, onApply,
+}: {
+  open: boolean;
+  theme: Theme;
+  current?: { id: string; color?: string; opacity?: number };
+  onClose: () => void;
+  onApply: (p: { id: string; color?: string; opacity?: number } | undefined) => void;
+}) {
+  if (!open) return null;
+
+  const activeId = current?.id;
+  const activeColor = current?.color || theme.fg;
+  const activeOpacity = current?.opacity ?? PATTERN_OPACITY;
+  const SWATCHES = [theme.fg, theme.accent, theme.muted, "#F59E0B", "#EF4444", "#10B981", "#3B82F6", "#A855F7"];
+
+  return (
+    <div
+      className="fixed inset-0 z-[210] flex items-center justify-center bg-black/80 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Add background pattern"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        className="w-full max-w-2xl overflow-hidden rounded-2xl border"
+        style={{ background: "var(--ezd-bg-elev)", borderColor: "var(--ezd-divider)" }}
+      >
+        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid var(--ezd-divider)" }}>
+          <span className="inline-flex items-center gap-2 text-[13px] font-medium" style={{ color: "var(--ezd-fg-strong)" }}>
+            <Grid3x3 size={14} /> Background pattern
+          </span>
+          <button onClick={onClose} className="grid h-7 w-7 place-items-center rounded-full transition hover:bg-white/10" style={{ color: "var(--ezd-fg-muted)" }}>
+            <X size={14} />
+          </button>
+        </div>
+
+        <div className="max-h-[70vh] overflow-y-auto px-5 py-5">
+          {/* Color row */}
+          <div className="mb-4">
+            <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--ezd-fg-muted)" }}>
+              Color
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {SWATCHES.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => activeId && onApply({ id: activeId, color: c, opacity: activeOpacity })}
+                  className="h-7 w-7 rounded-full transition"
+                  style={{
+                    background: c,
+                    border: activeColor.toLowerCase() === c.toLowerCase() ? "2px solid var(--ezd-fg-strong)" : "1px solid var(--ezd-divider)",
+                    opacity: activeId ? 1 : 0.4,
+                    cursor: activeId ? "pointer" : "not-allowed",
+                  }}
+                  aria-label={`Pattern color ${c}`}
+                  disabled={!activeId}
+                />
+              ))}
+            </div>
+            {!activeId && (
+              <p className="mt-2 text-[11px]" style={{ color: "var(--ezd-fg-muted)" }}>
+                Pick a pattern first, then choose a color.
+              </p>
+            )}
+          </div>
+
+          {/* Opacity slider */}
+          <div className="mb-4">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--ezd-fg-muted)" }}>
+                Opacity
+              </span>
+              <span className="text-[11px] tabular-nums" style={{ color: "var(--ezd-fg-muted)" }}>
+                {Math.round(activeOpacity * 100)}%
+              </span>
+            </div>
+            <input
+              type="range"
+              min={2}
+              max={60}
+              value={Math.round(activeOpacity * 100)}
+              onChange={(e) => activeId && onApply({ id: activeId, color: current?.color, opacity: Number(e.target.value) / 100 })}
+              disabled={!activeId}
+              className="w-full accent-cyan-400 disabled:cursor-not-allowed disabled:opacity-40"
+            />
+          </div>
+
+          {/* Pattern grid */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {SLIDE_PATTERNS.map((p) => {
+              const selected = activeId === p.id;
+              const uri = patternToDataUri(p.render(activeColor));
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => onApply({ id: p.id, color: current?.color, opacity: current?.opacity })}
+                  className="group relative overflow-hidden rounded-xl border text-left transition"
+                  style={{
+                    borderColor: selected ? "var(--ezd-fg-strong)" : "var(--ezd-divider)",
+                    outline: selected ? "2px solid var(--ezd-fg-strong)" : "none",
+                  }}
+                >
+                  <div className="relative h-24 w-full" style={{ background: theme.bg }}>
+                    <div
+                      aria-hidden
+                      className="absolute inset-0"
+                      style={{
+                        backgroundImage: `url("${uri}")`,
+                        backgroundSize: "cover",
+                        opacity: Math.min(1, activeOpacity * 3.5), // boosted in the swatch so it's visible
+                      }}
+                    />
+                    <span className="absolute left-2 top-2 text-[11px] font-medium" style={{ color: theme.fg }}>
+                      Aa
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between px-3 py-2" style={{ background: "var(--ezd-bg-card)" }}>
+                    <span className="text-[11.5px]" style={{ color: "var(--ezd-fg-strong)" }}>{p.name}</span>
+                    {selected && <span className="text-[10px]" style={{ color: "var(--ezd-fg-muted)" }}>selected</span>}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-3 px-5 py-4" style={{ borderTop: "1px solid var(--ezd-divider)" }}>
+          <button
+            onClick={() => { onApply(undefined); }}
+            disabled={!activeId}
+            className="rounded-xl border px-4 py-2 text-[12.5px] transition disabled:cursor-not-allowed disabled:opacity-40"
+            style={{ borderColor: "var(--ezd-divider)", color: "var(--ezd-fg-muted)" }}
+          >
+            Remove pattern
+          </button>
+          <button
+            onClick={onClose}
+            className="rounded-xl px-5 py-2 text-[12.5px] font-semibold transition hover:brightness-110"
+            style={{ background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)" }}
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* --------------------------- Insert sidebar ------------------------------- */
+
+/**
+ * Right-edge collapsible "insert" panel. Collapsed by default with a small
+ * arrow tab pointing left. When open it shows insert options (Add text, Add
+ * image). When a free text box is selected it switches to text settings
+ * (size, bold/italic/underline, color, alignment, delete).
+ */
+function InsertSidebar({
+  open, onToggle, theme, placingText, onStartPlaceText, onAddImage,
+  selectedText, onUpdateText, onDeleteText, onClearSelection,
+  decoSelection, decoState, onUpdateDeco, onDeleteDeco,
+  elementSelection, elementSize, elementText, onUpdateElementSize, onFormatElement, onResetElement, onDeleteElement,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  theme: Theme;
+  placingText: boolean;
+  onStartPlaceText: () => void;
+  onAddImage: () => void;
+  selectedText: TextBox | null;
+  onUpdateText: (patch: Partial<TextBox>) => void;
+  onDeleteText: () => void;
+  onClearSelection: () => void;
+  decoSelection: CanvasSelection;
+  decoState: { dx?: number; dy?: number; scale?: number; color?: string; hidden?: boolean } | null;
+  onUpdateDeco: (patch: { scale?: number; color?: string; dx?: number; dy?: number }) => void;
+  onDeleteDeco: () => void;
+  elementSelection: string | null;
+  elementSize?: number;
+  elementText: string | null;
+  onUpdateElementSize: (size: number | undefined) => void;
+  onFormatElement: (prop: string, value: string) => void;
+  onResetElement: () => void;
+  onDeleteElement: () => void;
+}) {
+  const SIZES = [12, 14, 16, 18, 20, 24, 28, 32, 40, 54, 72];
+  const COLORS = ["", theme.fg, theme.accent, "#0F172A", "#FFFFFF", "#22D3EE", "#1D4ED8", "#DC2626", "#F59E0B", "#047857", "#7C3AED"];
+  const decoActive = decoSelection?.kind === "deco";
+  const elementActive = !!elementSelection;
+  const panelTitle = selectedText ? "Text settings" : decoActive ? "Element settings" : elementActive ? "Text settings" : "Insert";
+
+  return (
+    <>
+      {/* Arrow tab — always visible, pinned to the right edge mid-height. */}
+      <button
+        onClick={onToggle}
+        title={open ? "Close panel" : "Insert text or image"}
+        className="fixed right-0 top-1/2 z-[120] flex h-12 w-7 -translate-y-1/2 items-center justify-center rounded-l-lg border border-r-0 border-white/15 bg-zinc-900/90 shadow-lg backdrop-blur transition hover:bg-zinc-800"
+        style={{ transform: open ? "translate(-300px, -50%)" : "translateY(-50%)", transition: "transform 240ms ease", color: "#ffffff" }}
+      >
+        <span className={!open ? "ezd-arrow-beat grid place-items-center rounded-full" : "grid place-items-center"}>
+          {open ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
+        </span>
+      </button>
+
+      {/* Panel */}
+      <div
+        className="fixed right-0 top-0 z-[115] flex h-full w-[300px] flex-col border-l border-white/10 bg-zinc-950/95 backdrop-blur"
+        style={{ transform: open ? "translateX(0)" : "translateX(100%)", transition: "transform 240ms ease" }}
+      >
+        <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+          <span className="inline-flex items-center gap-2 text-[13px] font-semibold text-white">
+            <PanelRightOpen size={14} /> {panelTitle}
+          </span>
+          <button onClick={onToggle} className="grid h-7 w-7 place-items-center rounded-full text-white/55 transition hover:bg-white/10 hover:text-white">
+            <X size={14} />
+          </button>
+        </div>
+
+        <div key={elementActive ? `el-${elementSelection}` : decoActive ? `deco-${decoSelection?.kind === "deco" ? decoSelection.key : ""}` : selectedText ? "text" : "insert"} className="ezd-panel-pop flex-1 overflow-y-auto p-4">
+          {elementActive ? (
+            <ElementSettings
+              theme={theme}
+              size={elementSize}
+              text={elementText}
+              onSetSize={onUpdateElementSize}
+              onFormat={onFormatElement}
+              onReset={onResetElement}
+              onDelete={onDeleteElement}
+              onDone={onClearSelection}
+            />
+          ) : decoActive ? (
+            <DecoSettings
+              theme={theme}
+              state={decoState || {}}
+              onUpdate={onUpdateDeco}
+              onDelete={onDeleteDeco}
+              onDone={onClearSelection}
+            />
+          ) : !selectedText ? (
+            <div className="space-y-2.5">
+              <button
+                onClick={onStartPlaceText}
+                className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm transition ${
+                  placingText ? "border-cyan-300/50 bg-cyan-400/10 text-cyan-100" : "border-white/10 bg-white/[0.03] text-white/85 hover:bg-white/[0.06]"
+                }`}
+              >
+                <Type size={16} />
+                <span>
+                  <span className="block font-medium">{placingText ? "Click on the slide…" : "Add text"}</span>
+                  <span className="block text-[11px] text-white/45">{placingText ? "Pick where it goes" : "Drop a text box anywhere"}</span>
+                </span>
+              </button>
+              <button
+                onClick={onAddImage}
+                className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white/85 transition hover:bg-white/[0.06]"
+              >
+                <ImageIcon size={16} />
+                <span>
+                  <span className="block font-medium">Add image</span>
+                  <span className="block text-[11px] text-white/45">Upload a photo or logo</span>
+                </span>
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-5">
+              {/* Edit content */}
+              <div>
+                <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">Text</label>
+                <textarea
+                  value={stripHtml(selectedText.text)}
+                  onChange={(e) => onUpdateText({ text: e.target.value })}
+                  rows={2}
+                  className="w-full resize-none rounded-lg border border-white/12 bg-black/40 p-2.5 text-sm text-white outline-none focus:border-white/30"
+                />
+                <p className="mt-1.5 text-[11px] text-white/40">Tip: drag the box on the slide to position it.</p>
+              </div>
+
+              {/* Font family */}
+              <div>
+                <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">Font</label>
+                <FontDropdown
+                  value={selectedText.fontId}
+                  onChange={(id) => onUpdateText({ fontId: id })}
+                />
+              </div>
+
+              {/* Font size */}
+              <div>
+                <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">Font size</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {SIZES.map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => onUpdateText({ fontSize: s })}
+                      className={`rounded-md border px-2 py-1 text-[11px] tabular-nums transition ${
+                        selectedText.fontSize === s ? "border-white bg-white text-black" : "border-white/12 text-white/75 hover:bg-white/10"
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Style toggles */}
+              <div>
+                <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">Style</label>
+                <div className="flex gap-1.5">
+                  <ToggleBtn active={!!selectedText.bold} onClick={() => onUpdateText({ bold: !selectedText.bold })}><Bold size={14} /></ToggleBtn>
+                  <ToggleBtn active={!!selectedText.italic} onClick={() => onUpdateText({ italic: !selectedText.italic })}><Italic size={14} /></ToggleBtn>
+                  <ToggleBtn active={!!selectedText.underline} onClick={() => onUpdateText({ underline: !selectedText.underline })}><UnderlineIcon size={14} /></ToggleBtn>
+                  <span className="mx-1 w-px bg-white/10" />
+                  <ToggleBtn active={(selectedText.align || "left") === "left"} onClick={() => onUpdateText({ align: "left" })}><AlignLeft size={14} /></ToggleBtn>
+                  <ToggleBtn active={selectedText.align === "center"} onClick={() => onUpdateText({ align: "center" })}><AlignCenter size={14} /></ToggleBtn>
+                  <ToggleBtn active={selectedText.align === "right"} onClick={() => onUpdateText({ align: "right" })}><AlignRight size={14} /></ToggleBtn>
+                </div>
+              </div>
+
+              {/* Color */}
+              <div>
+                <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">Color</label>
+                <div className="flex flex-wrap gap-2">
+                  {COLORS.map((c) => {
+                    const isDefault = c === "";
+                    const active = (selectedText.color || "") === c;
+                    return (
+                      <button
+                        key={c || "default"}
+                        onClick={() => onUpdateText({ color: c || undefined })}
+                        className="h-7 w-7 rounded-full transition"
+                        style={{
+                          background: c || "transparent",
+                          backgroundImage: isDefault ? "linear-gradient(45deg, transparent 45%, rgba(255,255,255,0.4) 45%, rgba(255,255,255,0.4) 55%, transparent 55%)" : undefined,
+                          border: active ? "2px solid #fff" : "1px solid rgba(255,255,255,0.25)",
+                        }}
+                        title={isDefault ? "Default" : c}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-2 border-t border-white/10 pt-4">
+                <button
+                  onClick={onClearSelection}
+                  className="rounded-lg border border-white/12 bg-white/5 px-3 py-1.5 text-[12px] text-white/80 transition hover:bg-white/10"
+                >
+                  Done
+                </button>
+                <button
+                  onClick={onDeleteText}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-[12px] text-red-200 transition hover:bg-red-500/20"
+                >
+                  <Trash2 size={12} /> Delete
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function ToggleBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`grid h-8 w-8 place-items-center rounded-md border transition ${
+        active ? "border-white bg-white text-black" : "border-white/12 text-white/75 hover:bg-white/10"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+/* --------------------------- Font dropdown -------------------------------- */
+
+/**
+ * Custom font picker that renders each font's NAME in that font, so the
+ * user can see what they're choosing (native <select> options can't be
+ * individually styled cross-browser).
+ */
+function FontDropdown({
+  value, onChange,
+}: { value?: string; onChange: (id: string | undefined) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const current = FONT_PRESETS.find((f) => f.id === value);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between rounded-lg border border-white/12 bg-black/40 px-2.5 py-2 text-sm text-white outline-none transition focus:border-white/30"
+      >
+        <span style={{ fontFamily: current ? resolveFontFamily(current.id) : undefined }}>
+          {current ? current.name : "Theme default"}
+        </span>
+        <ChevronDown size={14} className="shrink-0 text-white/45" />
+      </button>
+      {open && (
+        <div className="absolute z-30 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-white/12 bg-zinc-950/98 p-1 shadow-2xl backdrop-blur">
+          <button
+            onClick={() => { onChange(undefined); setOpen(false); }}
+            className={`block w-full rounded-md px-2.5 py-1.5 text-left text-[13px] transition hover:bg-white/10 ${!value ? "text-white" : "text-white/70"}`}
+          >
+            Theme default
+          </button>
+          {FONT_PRESETS.map((f) => (
+            <button
+              key={f.id}
+              onClick={() => { onChange(f.id); setOpen(false); }}
+              className={`block w-full rounded-md px-2.5 py-1.5 text-left text-[15px] transition hover:bg-white/10 ${value === f.id ? "bg-white/10 text-white" : "text-white/80"}`}
+              style={{ fontFamily: resolveFontFamily(f.id) }}
+            >
+              {f.name}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ----------------------- Decorative element settings ---------------------- */
+
+/** Sidebar settings for a selected decorative element (line / bar / shape). */
+function DecoSettings({
+  theme, state, onUpdate, onDelete, onDone,
+}: {
+  theme: Theme;
+  state: { scale?: number; color?: string };
+  onUpdate: (patch: { scale?: number; color?: string; dx?: number; dy?: number }) => void;
+  onDelete: () => void;
+  onDone: () => void;
+}) {
+  const SCALES = [0.5, 0.75, 1, 1.5, 2];
+  const COLORS = [theme.accent, theme.fg, theme.muted, "#F59E0B", "#EF4444", "#10B981", "#3B82F6", "#A855F7"];
+  const curScale = state.scale ?? 1;
+  const curColor = (state.color || theme.accent).toLowerCase();
+
+  return (
+    <div className="space-y-5">
+      <p className="text-[12px] leading-relaxed text-white/55">
+        Drag the element on the slide to reposition it, or adjust its size and color here.
+      </p>
+
+      <div>
+        <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">Size</label>
+        <div className="flex flex-wrap gap-1.5">
+          {SCALES.map((m) => (
+            <button
+              key={m}
+              onClick={() => onUpdate({ scale: m })}
+              className={`rounded-md border px-2.5 py-1 text-[11px] tabular-nums transition ${
+                curScale === m ? "border-white bg-white text-black" : "border-white/12 text-white/75 hover:bg-white/10"
+              }`}
+            >
+              {m}×
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">Color</label>
+        <div className="flex flex-wrap gap-2">
+          {COLORS.map((c) => (
+            <button
+              key={c}
+              onClick={() => onUpdate({ color: c })}
+              className="h-7 w-7 rounded-full transition"
+              style={{ background: c, border: curColor === c.toLowerCase() ? "2px solid #fff" : "1px solid rgba(255,255,255,0.25)" }}
+              aria-label={`Color ${c}`}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between gap-2 border-t border-white/10 pt-4">
+        <button
+          onClick={() => onUpdate({ dx: 0, dy: 0, scale: 1 })}
+          className="rounded-lg border border-white/12 bg-white/5 px-3 py-1.5 text-[12px] text-white/80 transition hover:bg-white/10"
+        >
+          Reset
+        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={onDone}
+            className="rounded-lg border border-white/12 bg-white/5 px-3 py-1.5 text-[12px] text-white/80 transition hover:bg-white/10"
+          >
+            Done
+          </button>
+          <button
+            onClick={onDelete}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-[12px] text-red-200 transition hover:bg-red-500/20"
+          >
+            <Trash2 size={12} /> Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ----------------------- Fixed element (text) settings -------------------- */
+
+/** Full text-formatting controls for a selected AI-generated / fixed text
+ *  element. Formatting applies to the whole element via applyWholeStyle. */
+function ElementSettings({
+  theme, size, text, onSetSize, onFormat, onReset, onDelete, onDone,
+}: {
+  theme: Theme;
+  size?: number;
+  text: string | null;
+  onSetSize: (size: number | undefined) => void;
+  onFormat: (prop: string, value: string) => void;
+  onReset: () => void;
+  onDelete: () => void;
+  onDone: () => void;
+}) {
+  const SIZES = [10, 12, 14, 16, 18, 20, 24, 28, 32, 40, 54, 72];
+  const COLORS = ["", theme.fg, theme.accent, "#0F172A", "#FFFFFF", "#22D3EE", "#1D4ED8", "#DC2626", "#F59E0B", "#047857", "#7C3AED"];
+  const html = text || "";
+  const isBold = /font-weight:\s*(?:bold|[6-9]00)/.test(html) || /<(?:b|strong)\b/.test(html);
+  const isItalic = /font-style:\s*italic/.test(html) || /<(?:i|em)\b/.test(html);
+  const isUnderline = /text-decoration[^;"]*underline/.test(html) || /<u\b/.test(html);
+  const curColor = readWholeStyle(html, "color").toLowerCase();
+
+  return (
+    <div className="space-y-5">
+      <p className="text-[12px] leading-relaxed text-white/55">
+        Drag to move on the slide. Format the whole element below, or select
+        text inside it for partial formatting.
+      </p>
+
+      {/* Font family */}
+      <div>
+        <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">Font</label>
+        <FontDropdown
+          value={fontIdFromFamily(readWholeStyle(html, "font-family"))}
+          onChange={(id) => onFormat("font-family", id ? fontFamilyFor(id) : "")}
+        />
+      </div>
+
+      {/* Font size */}
+      <div>
+        <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">
+          Font size {size ? `(${size}pt)` : "(auto)"}
+        </label>
+        <div className="flex flex-wrap gap-1.5">
+          {SIZES.map((s) => (
+            <button
+              key={s}
+              onClick={() => onSetSize(s)}
+              className={`rounded-md border px-2 py-1 text-[11px] tabular-nums transition ${
+                size === s ? "border-white bg-white text-black" : "border-white/12 text-white/75 hover:bg-white/10"
+              }`}
+            >
+              {s}
+            </button>
+          ))}
+          <button
+            onClick={() => onSetSize(undefined)}
+            className={`rounded-md border px-2 py-1 text-[11px] transition ${
+              !size ? "border-white bg-white text-black" : "border-white/12 text-white/75 hover:bg-white/10"
+            }`}
+          >
+            Auto
+          </button>
+        </div>
+      </div>
+
+      {/* Style toggles */}
+      <div>
+        <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">Style</label>
+        <div className="flex gap-1.5">
+          <ToggleBtn active={isBold} onClick={() => onFormat("font-weight", isBold ? "" : "700")}><Bold size={14} /></ToggleBtn>
+          <ToggleBtn active={isItalic} onClick={() => onFormat("font-style", isItalic ? "" : "italic")}><Italic size={14} /></ToggleBtn>
+          <ToggleBtn active={isUnderline} onClick={() => onFormat("text-decoration", isUnderline ? "" : "underline")}><UnderlineIcon size={14} /></ToggleBtn>
+          <span className="mx-1 w-px bg-white/10" />
+          <ToggleBtn active={false} onClick={() => onFormat("text-align", "left")}><AlignLeft size={14} /></ToggleBtn>
+          <ToggleBtn active={false} onClick={() => onFormat("text-align", "center")}><AlignCenter size={14} /></ToggleBtn>
+          <ToggleBtn active={false} onClick={() => onFormat("text-align", "right")}><AlignRight size={14} /></ToggleBtn>
+        </div>
+      </div>
+
+      {/* Color */}
+      <div>
+        <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">Color</label>
+        <div className="flex flex-wrap gap-2">
+          {COLORS.map((c) => {
+            const isDefault = c === "";
+            const active = curColor === c.toLowerCase();
+            return (
+              <button
+                key={c || "default"}
+                onClick={() => onFormat("color", c)}
+                className="h-7 w-7 rounded-full transition"
+                style={{
+                  background: c || "transparent",
+                  backgroundImage: isDefault ? "linear-gradient(45deg, transparent 45%, rgba(255,255,255,0.4) 45%, rgba(255,255,255,0.4) 55%, transparent 55%)" : undefined,
+                  border: active ? "2px solid #fff" : "1px solid rgba(255,255,255,0.25)",
+                }}
+                title={isDefault ? "Default" : c}
+              />
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between gap-2 border-t border-white/10 pt-4">
+        <button
+          onClick={onReset}
+          className="rounded-lg border border-white/12 bg-white/5 px-3 py-1.5 text-[12px] text-white/80 transition hover:bg-white/10"
+        >
+          Reset position
+        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={onDone}
+            className="rounded-lg border border-white/12 bg-white/5 px-3 py-1.5 text-[12px] text-white/80 transition hover:bg-white/10"
+          >
+            Done
+          </button>
+          <button
+            onClick={onDelete}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-[12px] text-red-200 transition hover:bg-red-500/20"
+          >
+            <Trash2 size={12} /> Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Map a stored font-family string back to a preset id (best-effort). */
+function fontIdFromFamily(family: string): string | undefined {
+  if (!family) return undefined;
+  const f = FONT_PRESETS.find((p) => family.includes(p.name) || p.family === family);
+  return f?.id;
+}
+function fontFamilyFor(id: string): string {
+  return resolveFontFamily(id);
+}
+
+
+/* -------------------- element id <-> slide field mapping ------------------ */
+
+function elementFieldName(id: string): "title" | "subtitle" | "body" | "quote" | "kicker" | null {
+  if (id === "title") return "title";
+  if (id === "subtitle") return "subtitle";
+  if (id === "body") return "body";
+  if (id === "kicker") return "kicker";
+  if (id === "quote") return "body"; // quote layout stores its text in body
+  return null;
+}
+
+function elementFieldValue(slide: Slide | undefined, id: string): string {
+  if (!slide) return "";
+  if (id === "bullets") return (slide.bullets || [])[0] || "";
+  const field = elementFieldName(id);
+  if (!field) return "";
+  return ((slide as any)[field] as string) || "";
 }

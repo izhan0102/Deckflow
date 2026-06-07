@@ -58,6 +58,20 @@ export default function EditableText({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // When the editable element first appears (e.g. a read-only field flips
+  // to interactive on double-click), the empty-deps mount effect above has
+  // already run while ref.current was null, so seed the DOM here too.
+  useEffect(() => {
+    const el = ref.current;
+    if (!interactive || !el) return;
+    if (document.activeElement === el) return;
+    const next = sanitizeRichHtml(value || "");
+    if (lastWrittenRef.current === next && el.innerHTML !== "") return;
+    el.innerHTML = next;
+    lastWrittenRef.current = next;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [interactive]);
+
   // Subsequent value updates — only write if (a) the editable is not
   // focused (so we don't clobber the caret) and (b) the new value
   // genuinely differs from what we last wrote.
@@ -136,7 +150,6 @@ export default function EditableText({
       onPointerMove={stop}
       onPointerUp={stop}
       onMouseDown={stop}
-      onClick={stop}
       onDoubleClick={stop}
       onBlur={commit}
       onKeyDown={onKey}

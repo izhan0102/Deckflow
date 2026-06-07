@@ -442,6 +442,35 @@ textarea {
   to   { opacity: 1; transform: translateY(0); }
 }
 
+/* Heartbeat pulse for the insert-panel arrow tab — a gentle attention
+   cue plus an expanding ring so users notice the hidden side panel. */
+@keyframes ezd-heartbeat {
+  0%, 100% { transform: scale(1); }
+  15%      { transform: scale(1.18); }
+  30%      { transform: scale(1); }
+  45%      { transform: scale(1.12); }
+  60%      { transform: scale(1); }
+}
+@keyframes ezd-heartbeat-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.55); }
+  70%  { box-shadow: 0 0 0 10px rgba(34, 211, 238, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0); }
+}
+.ezd-arrow-beat {
+  animation: ezd-heartbeat 2.2s ease-in-out infinite, ezd-heartbeat-ring 2.2s ease-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ezd-arrow-beat { animation: none; }
+}
+
+/* Insert panel pop — a quick scale/settle when the sidebar opens. */
+@keyframes ezd-panel-pop {
+  0%   { transform: translateX(8px) scale(0.98); opacity: 0.4; }
+  60%  { transform: translateX(0) scale(1.01); opacity: 1; }
+  100% { transform: translateX(0) scale(1); opacity: 1; }
+}
+.ezd-panel-pop { animation: ezd-panel-pop 260ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+
 /* ============================================================
  * MONOCHROME ACCENT LAYER  (applies in BOTH themes)
  *

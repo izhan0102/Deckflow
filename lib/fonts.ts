@@ -44,6 +44,18 @@ export const FONT_PRESETS: FontPreset[] = [
   { id: "syne",          name: "Syne",                family: `"Syne", ui-sans-serif, sans-serif`,               category: "display", tagline: "Bold · distinctive",                  preview: "Make something memorable." },
   { id: "archivo",       name: "Archivo",             family: `"Archivo", ui-sans-serif, sans-serif`,            category: "sans",    tagline: "Wide · branded",                      preview: "Big idea, bigger letters." },
   { id: "jetbrains",     name: "JetBrains Mono",      family: `"JetBrains Mono", Consolas, monospace`,           category: "mono",    tagline: "Code · technical decks",              preview: "function present() { return wow; }" },
+
+  /* most-used PowerPoint / Google staples */
+  { id: "roboto",        name: "Roboto",              family: `"Roboto", ui-sans-serif, system-ui, sans-serif`,  category: "sans",    tagline: "Ubiquitous · neutral",                preview: "The default that just works." },
+  { id: "open-sans",     name: "Open Sans",           family: `"Open Sans", ui-sans-serif, system-ui, sans-serif`, category: "sans",  tagline: "Humanist · highly readable",          preview: "Read easily from the back row." },
+  { id: "lato",          name: "Lato",                family: `"Lato", ui-sans-serif, system-ui, sans-serif`,    category: "sans",    tagline: "Warm · corporate",                    preview: "Professional and approachable." },
+  { id: "montserrat",    name: "Montserrat",          family: `"Montserrat", ui-sans-serif, system-ui, sans-serif`, category: "sans", tagline: "Geometric · popular",                 preview: "A poster on every slide." },
+  { id: "poppins",       name: "Poppins",             family: `"Poppins", ui-sans-serif, system-ui, sans-serif`, category: "sans",    tagline: "Rounded · trendy",                    preview: "Friendly, bold, current." },
+  { id: "raleway",       name: "Raleway",             family: `"Raleway", ui-sans-serif, system-ui, sans-serif`, category: "sans",    tagline: "Elegant · thin",                      preview: "Refined and minimal." },
+  { id: "nunito",        name: "Nunito",              family: `"Nunito", ui-sans-serif, system-ui, sans-serif`,  category: "sans",    tagline: "Soft · rounded",                      preview: "Gentle on the eyes." },
+  { id: "pt-sans",       name: "PT Sans",             family: `"PT Sans", ui-sans-serif, system-ui, sans-serif`, category: "sans",    tagline: "Neutral · classic",                   preview: "Clean and dependable." },
+  { id: "oswald",        name: "Oswald",              family: `"Oswald", ui-sans-serif, system-ui, sans-serif`,  category: "display", tagline: "Condensed · impactful",               preview: "HEADLINES THAT HIT." },
+  { id: "roboto-slab",   name: "Roboto Slab",         family: `"Roboto Slab", Georgia, serif`,                   category: "serif",   tagline: "Slab · sturdy",                       preview: "Solid, grounded, confident." },
 ];
 
 export function getFont(id?: string): FontPreset | undefined {

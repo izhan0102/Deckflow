@@ -30,8 +30,21 @@ export type Annotation = {
 
 export type ContentDensity = "concise" | "balanced" | "detailed" | "comprehensive";
 
-export type ElementId = "title" | "subtitle" | "bullets" | "body" | "table" | "quote" | "chart" | "kicker";
+export type ElementId =
+  | "title" | "subtitle" | "bullets" | "body" | "table" | "quote" | "chart" | "kicker"
+  // Decorative elements that can be moved / resized / recolored / removed.
+  | "bigInitial" | "accentBar" | "titleRule" | "kickerTick";
 export type ElementOffset = { dx: number; dy: number };
+
+/** Override for a generic decorative element (line, bar, shape). All fields
+ *  optional — only what the user changed is stored. */
+export type DecoOverride = {
+  dx?: number;       // drag offset in slide inches
+  dy?: number;
+  scale?: number;    // size multiplier (default 1)
+  color?: string;    // override color
+  hidden?: boolean;  // removed by the user
+};
 
 export type TableData = {
   headers: string[];
@@ -80,8 +93,8 @@ export type Slide = {
    *  genuinely numeric/quantitative — never decoratively. */
   chart?: ChartSpec;
   references?: Reference[];
-  /** Optional variant for the title-hero layout: "centered" | "asymmetric" | "big-initial" | "numbered" | "underlined". */
-  titleVariant?: "centered" | "asymmetric" | "big-initial" | "numbered" | "underlined";
+  /** Optional variant for the title-hero layout. */
+  titleVariant?: "centered" | "asymmetric" | "big-initial" | "numbered" | "underlined" | "editorial-serif";
   /** Bullets layout style. */
   bulletsVariant?: "standard" | "numbered" | "cards" | "icon-check" | "dashed";
   /** Two-column layout style. */
@@ -112,9 +125,37 @@ export type Slide = {
   elementScales?: Partial<Record<ElementId, number>>;       // multiplier (legacy)
   elementFontSizes?: Partial<Record<ElementId, number>>;     // absolute pt size override
   elementHidden?: Partial<Record<ElementId, boolean>>;
+  /** Per-element color overrides (used by decorative bars/rules/big initial). */
+  elementColors?: Partial<Record<ElementId, string>>;
+  /** Per-element size multipliers for decorative elements (bars/rules/initial). */
+  elementSizeScale?: Partial<Record<ElementId, number>>;
+  /** Generic decorative-element overrides, keyed by an arbitrary string id
+   *  (e.g. "accentBar", "contentRule", "sectionDivider"). Lets ANY line /
+   *  bar / shape on ANY layout be moved, resized, recolored, or removed. */
+  deco?: Record<string, DecoOverride>;
 
   annotations?: Annotation[];
   uploadedImages?: UploadedImage[];
+  /** Optional per-slide background pattern (see lib/patterns.ts). */
+  pattern?: { id: string; color?: string; opacity?: number };
+  /** Free-floating text boxes the user adds via the side panel. */
+  textBoxes?: TextBox[];
+};
+
+/** A user-added, freely positioned text element. Position/size in slide inches. */
+export type TextBox = {
+  id: string;
+  text: string;
+  x: number;
+  y: number;
+  w: number;
+  fontSize: number;   // pt
+  fontId?: string;    // google-font preset id (see lib/fonts.ts)
+  color?: string;
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  align?: "left" | "center" | "right";
 };
 
 export type Deck = {

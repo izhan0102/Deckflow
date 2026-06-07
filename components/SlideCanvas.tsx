@@ -1,8 +1,8 @@
 "use client";
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, createContext, useContext } from "react";
 import type {
   Slide, Annotation, Anchor, ElementId, ElementOffset,
-  TableData, Reference, UploadedImage,
+  TableData, Reference, UploadedImage, TextBox,
 } from "@/lib/types";
 import type { Theme } from "@/lib/themes";
 import {
@@ -13,6 +13,7 @@ import {
 import EditableText from "./EditableText";
 import TextFormatBar from "./TextFormatBar";
 import { getGraphic, svgToDataUri } from "@/lib/graphics";
+import { getPattern, PATTERN_OPACITY } from "@/lib/patterns";
 import { decorationDataUri, applyDecorationOverrides } from "@/lib/decorations";
 import { resolveFontFamily } from "@/lib/fonts";
 import { iconifySvgUrl } from "@/lib/iconify";
@@ -24,6 +25,30 @@ const pt = (p: number) => `${p * PT}cqw`;
 const inches = (i: number) => `${i * IN}cqw`;
 function clamp(n: number, lo: number, hi: number) { return Math.max(lo, Math.min(hi, n)); }
 
+/* ------------------- Canvas element selection context --------------------- */
+
+/**
+ * A unified "what's currently selected on the canvas" channel so clicking
+ * any element (a decorative line/bar/the big initial, or a fixed element)
+ * can surface its settings in the right sidebar instead of floating menus.
+ *
+ * `kind` distinguishes the selectable types so the sidebar can render
+ * different controls. `key` identifies the specific element (decoKey or
+ * ElementId). The deco selection carries a live snapshot of the current
+ * override so the sidebar can show current size/color.
+ */
+export type CanvasSelection =
+  | { kind: "deco"; key: string; defaultColor: string }
+  | { kind: "element"; id: ElementId; defaultColor: string }
+  | null;
+
+type CanvasSelCtx = {
+  selection: CanvasSelection;
+  select: (sel: CanvasSelection) => void;
+};
+const CanvasSelectionContext = createContext<CanvasSelCtx>({ selection: null, select: () => {} });
+export function useCanvasSelection() { return useContext(CanvasSelectionContext); }
+
 export type SlideUpdater = (patch: Partial<Slide>) => void;
 export type ImageSelector = (id: string | null) => void;
 
@@ -33,6 +58,12 @@ export default function SlideCanvas({
   onUpdate,
   selectedImageId,
   onSelectImage,
+  placingText = false,
+  onPlaceText,
+  selectedTextId,
+  onSelectText,
+  canvasSelection,
+  onCanvasSelect,
 }: {
   slide: Slide;
   theme: Theme;
@@ -46,6 +77,18 @@ export default function SlideCanvas({
   onUpdate?: SlideUpdater;
   selectedImageId?: string | null;
   onSelectImage?: ImageSelector;
+  /** When true, the next click on the canvas drops a new text box. */
+  placingText?: boolean;
+  /** Called with slide-inch coordinates where the user clicked to place text. */
+  onPlaceText?: (x: number, y: number) => void;
+  /** Currently selected free text box id. */
+  selectedTextId?: string | null;
+  /** Select a free text box (or null to clear). */
+  onSelectText?: (id: string | null) => void;
+  /** Currently selected canvas element (deco / fixed), surfaced in the sidebar. */
+  canvasSelection?: CanvasSelection;
+  /** Select a canvas element (deco / fixed) for the sidebar. */
+  onCanvasSelect?: (sel: CanvasSelection) => void;
 }) {
   const font = effectiveFont(theme.font, slide);
   const themeFontFallback =
@@ -68,18 +111,37 @@ export default function SlideCanvas({
   const graphicTheme: Theme = graphicAccent ? { ...effective, accent: graphicAccent } : effective;
   const graphicSvgMarkup = graphic.id === "none" ? null : graphic.render(graphicTheme);
 
+  // Per-slide background pattern (subtle, tiled, low opacity).
+  const pattern = slide.pattern?.id ? getPattern(slide.pattern.id) : undefined;
+  const patternColor = slide.pattern?.color || effective.fg;
+  const patternOpacity = slide.pattern?.opacity ?? PATTERN_OPACITY;
+  const patternMarkup = pattern ? pattern.render(patternColor) : null;
+
+  const selectCtx: CanvasSelCtx = {
+    selection: canvasSelection ?? null,
+    select: (sel) => onCanvasSelect?.(sel),
+  };
+
   return (
+    <CanvasSelectionContext.Provider value={selectCtx}>
     <div
       ref={containerRef}
       className="relative w-full"
       onPointerDown={(e) => {
-        // Click on bare canvas (not an image / no-drag handle) deselects.
         const target = e.target as HTMLElement;
-        if (interactive && onSelectImage) {
-          // ImageBox calls onSelect on its own pointerdown; if we fire after,
-          // that selection still wins because it's set in the same tick.
-          // Only clear when click landed strictly on this container.
-          if (target === e.currentTarget) onSelectImage(null);
+        // Placement mode: drop a new text box where the user clicks.
+        if (interactive && placingText && onPlaceText && containerRef.current) {
+          const rect = containerRef.current.getBoundingClientRect();
+          const x = ((e.clientX - rect.left) / rect.width) * SLIDE_W_IN;
+          const y = ((e.clientY - rect.top) / rect.height) * SLIDE_H_IN;
+          onPlaceText(x, y);
+          return;
+        }
+        // Click on bare canvas (not an image / no-drag handle) deselects.
+        if (interactive && target === e.currentTarget) {
+          if (onSelectImage) onSelectImage(null);
+          if (onSelectText) onSelectText(null);
+          if (onCanvasSelect) onCanvasSelect(null);
         }
       }}
       style={{
@@ -89,12 +151,29 @@ export default function SlideCanvas({
         fontFamily,
         containerType: "inline-size",
         overflow: "hidden",
+        cursor: interactive && placingText ? "crosshair" : undefined,
       } as React.CSSProperties}
     >
       {/* Graphic background as an inline SVG block. The SVG itself uses
           preserveAspectRatio="xMidYMid slice" so it crops correctly whatever
           our pixel size is. Inline SVG is reliably handled by html2canvas
           for PDF capture, unlike CSS background-image of a data URI. */}
+      {patternMarkup && (
+        <div
+          aria-hidden
+          style={{
+            position: "absolute", inset: 0,
+            pointerEvents: "none", zIndex: 0, overflow: "hidden",
+            opacity: patternOpacity,
+          }}
+          dangerouslySetInnerHTML={{
+            __html: patternMarkup.replace(
+              /^<svg /,
+              `<svg style="display:block;width:100%;height:100%;" `,
+            ),
+          }}
+        />
+      )}
       {graphicSvgMarkup && (
         <div
           aria-hidden
@@ -125,12 +204,18 @@ export default function SlideCanvas({
         onSelectImage={onSelectImage}
       />
       <AnnotationLayer slide={slide} theme={effective} interactive={interactive} onUpdate={onUpdate} />
+      <FreeTextLayer
+        slide={slide} theme={effective} interactive={interactive} onUpdate={onUpdate}
+        canvasRef={containerRef}
+        selectedTextId={selectedTextId} onSelectText={onSelectText}
+      />
       {/* Floating selection toolbar — appears over highlighted text in
           any [data-editable] element on this canvas. Lives outside the
           canvas DOM (rendered into document.body via fixed positioning)
           so it can escape overflow:hidden boundaries. */}
       <TextFormatBar enabled={!!interactive} canvasRef={containerRef} />
     </div>
+    </CanvasSelectionContext.Provider>
   );
 }
 
@@ -149,7 +234,23 @@ function Inner(props: any) {
 
 /* ---------------------------- Static decorations --------------------------- */
 
-function AccentBar({ theme }: { theme: Theme }) {
+function AccentBar({ theme, slide, interactive, onUpdate, canvasRef }: any) {
+  // When rendered inside an interactive canvas, the left accent bar is a
+  // movable/resizable/recolorable/removable decoration. Falls back to a
+  // static bar when the editing context isn't available (e.g. thumbnails).
+  if (slide && canvasRef) {
+    return (
+      <Deco
+        decoKey="accentBar" slide={slide} theme={theme}
+        interactive={!!interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        defaultColor={theme.accent}
+        baseStyle={{ position: "absolute", left: 0, top: 0, height: "100%" }}
+        render={(color, scale) => (
+          <div style={{ width: pt(13 * scale), height: "100%", background: color }} />
+        )}
+      />
+    );
+  }
   return (
     <div style={{
       position: "absolute", left: 0, top: 0,
@@ -189,9 +290,8 @@ function Movable({
   baseStyle: React.CSSProperties;
   children: React.ReactNode;
 }) {
-  if (isHidden(slide, id)) return null;
   const offset = slide.elementOffsets?.[id] || { dx: 0, dy: 0 };
-  const [menuOpen, setMenuOpen] = useState(false);
+  const sel = useCanvasSelection();
   const [hover, setHover] = useState(false);
 
   // Direct ref to our wrapper element so the drag handler can mutate the
@@ -278,11 +378,124 @@ function Movable({
     });
   }, [onUpdate, offset.dx, offset.dy, slide.elementOffsets, id]);
 
-  const setSize = (size: number) => onUpdate?.({
-    elementFontSizes: { ...(slide.elementFontSizes || {}), [id]: size },
+  // Hidden elements render nothing — but only AFTER all hooks have run,
+  // so the hook count stays stable across show/hide (rules of hooks).
+  if (isHidden(slide, id)) return null;
+
+  const offsetTransform = `translate(${offset.dx * IN}cqw, ${offset.dy * IN}cqw)`;
+  const selected = sel.selection?.kind === "element" && sel.selection.id === id;
+  const showControls = interactive && (hover || selected);
+
+  return (
+    <div
+      ref={elRef}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+      onClick={(e) => {
+        if (!interactive || !onUpdate) return;
+        e.stopPropagation();
+        sel.select({ kind: "element", id, defaultColor: theme.accent });
+      }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      data-element-id={id}
+      style={{
+        ...baseStyle,
+        transform: [(baseStyle.transform || ""), offsetTransform].filter(Boolean).join(" ").trim(),
+        cursor: interactive ? "grab" : "default",
+        userSelect: interactive ? "text" : "auto",
+        outline: selected ? `1.5px solid ${theme.accent}` : showControls ? `1px dashed ${theme.accent}80` : "none",
+        outlineOffset: pt(4),
+        willChange: interactive ? "transform" : undefined,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/* ----------------------- Movable decorative element ----------------------- */
+
+/**
+ * Wraps a decorative (non-text) element — oversized initial, accent bars,
+ * underline rules — and makes it draggable, resizable, recolorable, and
+ * removable, mirroring uploaded images. State persists via elementOffsets /
+ * elementSizeScale / elementColors / elementHidden, keyed by ElementId.
+ */
+function MovableDeco({
+  id, slide, theme, interactive, onUpdate, canvasRef,
+  baseStyle, defaultColor, children,
+}: {
+  id: ElementId;
+  slide: Slide;
+  theme: Theme;
+  interactive: boolean;
+  onUpdate?: SlideUpdater;
+  canvasRef: React.RefObject<HTMLDivElement>;
+  baseStyle: React.CSSProperties;
+  defaultColor: string;
+  children: React.ReactNode;
+}) {
+  const offset = slide.elementOffsets?.[id] || { dx: 0, dy: 0 };
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [hover, setHover] = useState(false);
+  const elRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ startX: number; startY: number; startDx: number; startDy: number } | null>(null);
+  const dragInchesRef = useRef<{ dx: number; dy: number } | null>(null);
+  const rafRef = useRef<number | null>(null);
+
+  const onPointerDown = useCallback((e: React.PointerEvent) => {
+    if (!interactive || !onUpdate) return;
+    const target = e.target as HTMLElement;
+    if (target.closest("[data-no-drag]")) return;
+    e.preventDefault();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    dragRef.current = { startX: e.clientX, startY: e.clientY, startDx: offset.dx, startDy: offset.dy };
+    dragInchesRef.current = { dx: offset.dx, dy: offset.dy };
+    if (elRef.current) elRef.current.style.cursor = "grabbing";
+  }, [interactive, onUpdate, offset.dx, offset.dy]);
+
+  const onPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!dragRef.current || !canvasRef.current || !elRef.current) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const inPerPx = SLIDE_W_IN / rect.width;
+    const dx = clamp(dragRef.current.startDx + (e.clientX - dragRef.current.startX) * inPerPx, -SLIDE_W_IN, SLIDE_W_IN);
+    const dy = clamp(dragRef.current.startDy + (e.clientY - dragRef.current.startY) * inPerPx, -SLIDE_H_IN, SLIDE_H_IN);
+    dragInchesRef.current = { dx, dy };
+    if (rafRef.current != null) return;
+    rafRef.current = window.requestAnimationFrame(() => {
+      rafRef.current = null;
+      const node = elRef.current;
+      const cur = dragInchesRef.current;
+      if (!node || !cur) return;
+      const offsetTransform = `translate(${cur.dx * IN}cqw, ${cur.dy * IN}cqw)`;
+      const baseTransform = (baseStyle.transform || "").trim();
+      node.style.transform = [baseTransform, offsetTransform].filter(Boolean).join(" ");
+    });
+  }, [canvasRef, baseStyle.transform]);
+
+  const onPointerUp = useCallback((e: React.PointerEvent) => {
+    if (!dragRef.current) return;
+    const finalOffset = dragInchesRef.current;
+    (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    dragRef.current = null;
+    if (rafRef.current != null) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+    if (elRef.current) elRef.current.style.cursor = "grab";
+    if (!onUpdate || !finalOffset) return;
+    if (finalOffset.dx === offset.dx && finalOffset.dy === offset.dy) return;
+    onUpdate({ elementOffsets: { ...(slide.elementOffsets || {}), [id]: finalOffset } });
+  }, [onUpdate, offset.dx, offset.dy, slide.elementOffsets, id]);
+
+  // Hidden — render nothing, but only after hooks ran (rules of hooks).
+  if (isHidden(slide, id)) return null;
+
+  const setScale = (mult: number) => onUpdate?.({
+    elementSizeScale: { ...(slide.elementSizeScale || {}), [id]: mult },
   });
-  const clearSize = () => onUpdate?.({
-    elementFontSizes: { ...(slide.elementFontSizes || {}), [id]: undefined as any },
+  const setColor = (c: string) => onUpdate?.({
+    elementColors: { ...(slide.elementColors || {}), [id]: c },
   });
   const remove = () => onUpdate?.({
     elementHidden: { ...(slide.elementHidden || {}), [id]: true },
@@ -290,16 +503,17 @@ function Movable({
 
   const offsetTransform = `translate(${offset.dx * IN}cqw, ${offset.dy * IN}cqw)`;
   const showControls = interactive && (hover || menuOpen);
-  const currentSize = explicitFontSize(slide, id);
+  const curScale = slide.elementSizeScale?.[id] ?? 1;
+  const curColor = slide.elementColors?.[id] || defaultColor;
 
   const onContextMenu = (e: React.MouseEvent) => {
     if (!interactive || !onUpdate) return;
-    const target = e.target as HTMLElement;
-    if (target.isContentEditable) return;
     e.preventDefault();
     e.stopPropagation();
     setMenuOpen(true);
   };
+
+  const SWATCHES = [theme.accent, theme.fg, theme.muted, "#F59E0B", "#EF4444", "#10B981", "#3B82F6", "#A855F7"];
 
   return (
     <div
@@ -316,11 +530,8 @@ function Movable({
         ...baseStyle,
         transform: [(baseStyle.transform || ""), offsetTransform].filter(Boolean).join(" ").trim(),
         cursor: interactive ? "grab" : "default",
-        userSelect: interactive ? "text" : "auto",
         outline: showControls ? `1px dashed ${theme.accent}80` : "none",
-        outlineOffset: pt(4),
-        // Hint to the compositor that we'll be moving this element.
-        // Drops jank on Firefox especially.
+        outlineOffset: pt(3),
         willChange: interactive ? "transform" : undefined,
       }}
     >
@@ -331,26 +542,20 @@ function Movable({
           data-no-drag
           onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v); }}
           style={{
-            position: "absolute",
-            // Sit INSIDE the element box (top-right corner). Putting this
-            // outside (right: -22) gets clipped by the slide canvas's
-            // `overflow: hidden`, especially for elements near the right
-            // edge of the slide.
-            top: pt(2), right: pt(2),
-            width: pt(20), height: pt(20),
+            position: "absolute", top: pt(1), right: pt(1),
+            width: pt(18), height: pt(18),
             display: "grid", placeItems: "center",
             background: "rgba(20,20,22,0.85)",
             border: "1px solid rgba(255,255,255,0.18)",
             color: "#fff", borderRadius: "50%",
-            cursor: "pointer", fontSize: pt(14),
+            cursor: "pointer", fontSize: pt(12), lineHeight: 1,
             fontFamily: "ui-sans-serif, system-ui, sans-serif",
-            lineHeight: 1,
             opacity: showControls ? 1 : 0,
             transition: "opacity 120ms ease",
             pointerEvents: showControls ? "auto" : "none",
             zIndex: 10,
           }}
-          aria-label="Element options"
+          aria-label="Decoration options"
         >
           ⋮
         </button>
@@ -361,80 +566,180 @@ function Movable({
           data-no-drag
           onPointerDown={(e) => e.stopPropagation()}
           style={{
-            position: "absolute",
-            // Drop the menu just below the ⋮ button, anchored to the
-            // element's right edge so it stays inside the slide.
-            top: pt(26), right: pt(2),
-            background: "rgba(20,20,22,0.97)",
-            color: "#fff",
-            border: "1px solid rgba(255,255,255,0.12)",
-            borderRadius: pt(8),
-            padding: pt(8),
-            fontSize: pt(11),
+            position: "absolute", top: pt(22), right: pt(1),
+            background: "rgba(20,20,22,0.97)", color: "#fff",
+            border: "1px solid rgba(255,255,255,0.12)", borderRadius: pt(8),
+            padding: pt(8), fontSize: pt(11),
             fontFamily: "ui-sans-serif, system-ui, sans-serif",
             boxShadow: "0 12px 24px rgba(0,0,0,0.5)",
-            minWidth: pt(180),
-            zIndex: 50,
+            minWidth: pt(180), zIndex: 50,
           }}
         >
-          <div style={{ marginBottom: pt(6), opacity: 0.6, fontSize: pt(9), textTransform: "uppercase", letterSpacing: "0.05em" }}>
-            Font size {currentSize ? `(${currentSize}pt)` : "(auto)"}
+          <div style={{ marginBottom: pt(5), opacity: 0.6, fontSize: pt(9), textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            Size
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: pt(2), marginBottom: pt(8) }}>
-            {FONT_SIZE_PRESETS.map((sz) => (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: pt(2), marginBottom: pt(8) }}>
+            {[0.5, 0.75, 1, 1.5, 2].map((m) => (
               <button
-                key={sz}
-                onClick={() => setSize(sz)}
+                key={m}
+                onClick={() => setScale(m)}
                 style={{
                   padding: `${pt(4)} ${pt(2)}`,
-                  background: currentSize === sz ? "rgba(255,255,255,0.18)" : "transparent",
+                  background: curScale === m ? "rgba(255,255,255,0.18)" : "transparent",
                   border: "1px solid rgba(255,255,255,0.08)",
-                  color: "#fff", borderRadius: pt(4),
-                  cursor: "pointer", fontSize: pt(10),
+                  color: "#fff", borderRadius: pt(4), cursor: "pointer", fontSize: pt(10),
                 }}
               >
-                {sz}
+                {m}×
               </button>
             ))}
           </div>
+          <div style={{ marginBottom: pt(5), opacity: 0.6, fontSize: pt(9), textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            Color
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: pt(4), marginBottom: pt(8) }}>
+            {SWATCHES.map((c) => (
+              <button
+                key={c}
+                onClick={() => setColor(c)}
+                style={{
+                  width: pt(16), height: pt(16), borderRadius: "50%",
+                  background: c,
+                  border: curColor.toLowerCase() === c.toLowerCase() ? "2px solid #fff" : "1px solid rgba(255,255,255,0.25)",
+                  cursor: "pointer", padding: 0,
+                }}
+                aria-label={`Color ${c}`}
+              />
+            ))}
+          </div>
           <button
-            onClick={clearSize}
-            style={{
-              display: "block", width: "100%", textAlign: "left",
-              padding: `${pt(4)} ${pt(8)}`,
-              background: "transparent", border: "none",
-              color: "#fff", cursor: "pointer", borderRadius: pt(4),
-              fontSize: pt(11),
-            }}
+            onClick={() => { onUpdate({ elementOffsets: { ...(slide.elementOffsets || {}), [id]: { dx: 0, dy: 0 } }, elementSizeScale: { ...(slide.elementSizeScale || {}), [id]: 1 } }); setMenuOpen(false); }}
+            style={{ display: "block", width: "100%", textAlign: "left", padding: `${pt(4)} ${pt(8)}`, background: "transparent", border: "none", color: "#fff", cursor: "pointer", borderRadius: pt(4), fontSize: pt(11) }}
           >
-            Auto-size
-          </button>
-          <button
-            onClick={() => { onUpdate({ elementOffsets: { ...(slide.elementOffsets || {}), [id]: { dx: 0, dy: 0 } } }); setMenuOpen(false); }}
-            style={{
-              display: "block", width: "100%", textAlign: "left",
-              padding: `${pt(4)} ${pt(8)}`,
-              background: "transparent", border: "none",
-              color: "#fff", cursor: "pointer", borderRadius: pt(4),
-              fontSize: pt(11),
-            }}
-          >
-            Reset position
+            Reset
           </button>
           <button
             onClick={() => { remove(); setMenuOpen(false); }}
-            style={{
-              display: "block", width: "100%", textAlign: "left",
-              padding: `${pt(4)} ${pt(8)}`,
-              background: "transparent", border: "none",
-              color: "#fca5a5", cursor: "pointer", borderRadius: pt(4),
-              fontSize: pt(11),
-            }}
+            style={{ display: "block", width: "100%", textAlign: "left", padding: `${pt(4)} ${pt(8)}`, background: "transparent", border: "none", color: "#fca5a5", cursor: "pointer", borderRadius: pt(4), fontSize: pt(11) }}
           >
             Delete
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+/* ------------------- Generic decorative element (any key) ------------------ */
+
+/**
+ * Makes ANY decorative element (a line, bar, panel, ghost letter, divider)
+ * on ANY layout draggable, resizable, recolorable, and removable. Overrides
+ * are stored under slide.deco[decoKey] so they're independent of the fixed
+ * ElementId text slots. The render function receives the resolved color and
+ * scale so the decoration can apply them.
+ */
+function Deco({
+  decoKey, slide, theme, interactive, onUpdate, canvasRef,
+  baseStyle, defaultColor, render,
+}: {
+  decoKey: string;
+  slide: Slide;
+  theme: Theme;
+  interactive: boolean;
+  onUpdate?: SlideUpdater;
+  canvasRef: React.RefObject<HTMLDivElement>;
+  baseStyle: React.CSSProperties;
+  defaultColor: string;
+  render: (color: string, scale: number) => React.ReactNode;
+}) {
+  const ov = slide.deco?.[decoKey] || {};
+  const sel = useCanvasSelection();
+  const [hover, setHover] = useState(false);
+  const elRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ startX: number; startY: number; startDx: number; startDy: number } | null>(null);
+  const dragInchesRef = useRef<{ dx: number; dy: number } | null>(null);
+  const rafRef = useRef<number | null>(null);
+
+  const dx = ov.dx || 0;
+  const dy = ov.dy || 0;
+  const scale = ov.scale ?? 1;
+  const color = ov.color || defaultColor;
+
+  const patch = (next: Partial<typeof ov>) => onUpdate?.({
+    deco: { ...(slide.deco || {}), [decoKey]: { ...ov, ...next } },
+  });
+
+  const onPointerDown = useCallback((e: React.PointerEvent) => {
+    if (!interactive || !onUpdate) return;
+    const target = e.target as HTMLElement;
+    if (target.closest("[data-no-drag]")) return;
+    e.preventDefault();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    dragRef.current = { startX: e.clientX, startY: e.clientY, startDx: dx, startDy: dy };
+    dragInchesRef.current = { dx, dy };
+    if (elRef.current) elRef.current.style.cursor = "grabbing";
+  }, [interactive, onUpdate, dx, dy]);
+
+  const onPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!dragRef.current || !canvasRef.current || !elRef.current) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const inPerPx = SLIDE_W_IN / rect.width;
+    const ndx = clamp(dragRef.current.startDx + (e.clientX - dragRef.current.startX) * inPerPx, -SLIDE_W_IN, SLIDE_W_IN);
+    const ndy = clamp(dragRef.current.startDy + (e.clientY - dragRef.current.startY) * inPerPx, -SLIDE_H_IN, SLIDE_H_IN);
+    dragInchesRef.current = { dx: ndx, dy: ndy };
+    if (rafRef.current != null) return;
+    rafRef.current = window.requestAnimationFrame(() => {
+      rafRef.current = null;
+      const node = elRef.current;
+      const cur = dragInchesRef.current;
+      if (!node || !cur) return;
+      const offsetTransform = `translate(${cur.dx * IN}cqw, ${cur.dy * IN}cqw)`;
+      const baseTransform = (baseStyle.transform || "").trim();
+      node.style.transform = [baseTransform, offsetTransform].filter(Boolean).join(" ");
+    });
+  }, [canvasRef, baseStyle.transform]);
+
+  const onPointerUp = useCallback((e: React.PointerEvent) => {
+    if (!dragRef.current) return;
+    const finalOffset = dragInchesRef.current;
+    (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    dragRef.current = null;
+    if (rafRef.current != null) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+    if (elRef.current) elRef.current.style.cursor = "grab";
+    if (!onUpdate || !finalOffset) return;
+    if (finalOffset.dx === dx && finalOffset.dy === dy) return;
+    patch({ dx: finalOffset.dx, dy: finalOffset.dy });
+  }, [onUpdate, dx, dy, slide.deco, decoKey]);
+
+  // Hidden — render nothing, after hooks have run (rules of hooks).
+  if (ov.hidden) return null;
+
+  const selected = sel.selection?.kind === "deco" && sel.selection.key === decoKey;
+  const showControls = interactive && (hover || selected);
+  const offsetTransform = `translate(${dx * IN}cqw, ${dy * IN}cqw)`;
+
+  return (
+    <div
+      ref={elRef}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+      onClick={(e) => { if (interactive && onUpdate) { e.stopPropagation(); sel.select({ kind: "deco", key: decoKey, defaultColor }); } }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      data-deco-key={decoKey}
+      style={{
+        ...baseStyle,
+        transform: [(baseStyle.transform || ""), offsetTransform].filter(Boolean).join(" ").trim(),
+        cursor: interactive ? "grab" : "default",
+        outline: selected ? `1.5px solid ${theme.accent}` : showControls ? `1px dashed ${theme.accent}80` : "none",
+        outlineOffset: pt(3),
+        willChange: interactive ? "transform" : undefined,
+      }}
+    >
+      {render(color, scale)}
     </div>
   );
 }
@@ -448,6 +753,7 @@ function TitleHero(props: any) {
   if (variant === "big-initial") return <TitleHeroBigInitial {...props} />;
   if (variant === "numbered")    return <TitleHeroNumbered {...props} />;
   if (variant === "underlined")  return <TitleHeroUnderlined {...props} />;
+  if (variant === "editorial-serif") return <TitleHeroEditorial {...props} />;
   return <TitleHeroCentered {...props} />;
 }
 
@@ -457,8 +763,14 @@ function TitleHeroCentered({ slide, theme, deckTitle, interactive, onUpdate, can
   return (
     <>
       {/* Symmetric framing rules top & bottom */}
-      <div style={{ position: "absolute", left: "50%", top: "16%", transform: "translateX(-50%)", width: inches(0.9), height: pt(3), background: theme.accent, borderRadius: pt(2) }} />
-      <div style={{ position: "absolute", left: "50%", bottom: "14%", transform: "translateX(-50%)", width: inches(0.5), height: pt(3), background: theme.accent, opacity: 0.5, borderRadius: pt(2) }} />
+      <Deco decoKey="topRule" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef} defaultColor={theme.accent}
+        baseStyle={{ position: "absolute", left: "50%", top: "16%", transform: "translateX(-50%)" }}
+        render={(color, scale) => <div style={{ width: inches(0.9 * scale), height: pt(3), background: color, borderRadius: pt(2) }} />}
+      />
+      <Deco decoKey="bottomRule" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef} defaultColor={theme.accent}
+        baseStyle={{ position: "absolute", left: "50%", bottom: "14%", transform: "translateX(-50%)" }}
+        render={(color, scale) => <div style={{ width: inches(0.5 * scale), height: pt(3), background: color, opacity: 0.5, borderRadius: pt(2) }} />}
+      />
 
       <Movable id="kicker" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
         baseStyle={{ position: "absolute", left: "8%", right: "8%", top: "27%", textAlign: "center" }}
@@ -518,8 +830,14 @@ function TitleHeroAsymmetric({ slide, theme, deckTitle, interactive, onUpdate, c
   return (
     <>
       {/* Full-bleed accent panel with layered tonal blocks */}
-      <div style={{ position: "absolute", left: 0, top: 0, height: "100%", width: "40%", background: theme.accent }} />
-      <div style={{ position: "absolute", left: "28%", top: 0, height: "100%", width: "12%", background: theme.accent, opacity: 0.4 }} />
+      <Deco decoKey="panelMain" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef} defaultColor={theme.accent}
+        baseStyle={{ position: "absolute", left: 0, top: 0, height: "100%" }}
+        render={(color, scale) => <div style={{ height: "100%", width: `${40 * scale}cqw`, background: color }} />}
+      />
+      <Deco decoKey="panelAccent" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef} defaultColor={theme.accent}
+        baseStyle={{ position: "absolute", left: "28%", top: 0, height: "100%" }}
+        render={(color, scale) => <div style={{ height: "100%", width: `${12 * scale}cqw`, background: color, opacity: 0.4 }} />}
+      />
       {/* Vertical brand label on the panel */}
       <div style={{
         position: "absolute", left: inches(0.55), top: "50%",
@@ -563,7 +881,10 @@ function TitleHeroAsymmetric({ slide, theme, deckTitle, interactive, onUpdate, c
         </div>
       </Movable>
       {/* Short rule between title & subtitle */}
-      <div style={{ position: "absolute", left: "46%", top: "60%", width: inches(1.2), height: pt(4), background: theme.accent, borderRadius: pt(2) }} />
+      <Deco decoKey="titleRule" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef} defaultColor={theme.accent}
+        baseStyle={{ position: "absolute", left: "46%", top: "60%" }}
+        render={(color, scale) => <div style={{ width: inches(1.2 * scale), height: pt(4), background: color, borderRadius: pt(2) }} />}
+      />
       {sub && (
         <Movable id="subtitle" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
           baseStyle={{ position: "absolute", left: "46%", right: "6%", top: "65%" }}
@@ -587,16 +908,28 @@ function TitleHeroBigInitial({ slide, theme, deckTitle, interactive, onUpdate, c
   const initial = (title || "D").trim().charAt(0).toUpperCase();
   return (
     <>
-      {/* Massive ghost initial bleeding off the right edge */}
-      <div style={{
-        position: "absolute", right: "-4%", top: "-12%",
-        fontSize: pt(430), fontWeight: 900, lineHeight: 1,
-        color: theme.accent, opacity: 0.12, letterSpacing: "-0.04em",
-      }}>
-        {initial}
-      </div>
-      {/* Accent tab top-left */}
-      <div style={{ position: "absolute", left: "10%", top: "28%", width: inches(0.7), height: pt(5), background: theme.accent, borderRadius: pt(3) }} />
+      {/* Massive ghost initial, aligned LEFT. Click to edit in the sidebar. */}
+      <Deco decoKey="bigInitial" slide={slide} theme={theme} interactive={interactive}
+        onUpdate={onUpdate} canvasRef={canvasRef} defaultColor={theme.accent}
+        baseStyle={{ position: "absolute", left: "2%", top: "2%", lineHeight: 1 }}
+        render={(color, scale) => (
+          <div style={{
+            fontSize: pt(360 * scale), fontWeight: 900, lineHeight: 0.8,
+            color, opacity: 0.14, letterSpacing: "-0.04em", userSelect: "none",
+          }}>
+            {initial}
+          </div>
+        )}
+      />
+
+      {/* Accent tab */}
+      <Deco decoKey="keynoteTab" slide={slide} theme={theme} interactive={interactive}
+        onUpdate={onUpdate} canvasRef={canvasRef} defaultColor={theme.accent}
+        baseStyle={{ position: "absolute", left: "10%", top: "28%" }}
+        render={(color, scale) => (
+          <div style={{ width: inches(0.7 * scale), height: pt(5), background: color, borderRadius: pt(3) }} />
+        )}
+      />
 
       {slide.kicker && (
         <div style={{
@@ -611,7 +944,7 @@ function TitleHeroBigInitial({ slide, theme, deckTitle, interactive, onUpdate, c
         </div>
       )}
       <Movable id="title" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
-        baseStyle={{ position: "absolute", left: "10%", right: "22%", top: "42%" }}
+        baseStyle={{ position: "absolute", left: "10%", right: "12%", top: "42%" }}
       >
         <div style={{
           fontSize: pt(titleSize(title, "title-hero", slide)),
@@ -626,7 +959,7 @@ function TitleHeroBigInitial({ slide, theme, deckTitle, interactive, onUpdate, c
       </Movable>
       {sub && (
         <Movable id="subtitle" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
-          baseStyle={{ position: "absolute", left: "10%", right: "30%", top: "72%" }}
+          baseStyle={{ position: "absolute", left: "10%", right: "20%", top: "72%" }}
         >
           <div style={{ fontSize: pt(subtitleSize(sub, "title-hero", slide)), color: theme.muted, lineHeight: 1.45 }}>
             <EditableText
@@ -650,18 +983,24 @@ function TitleHeroNumbered({ slide, theme, deckTitle, interactive, onUpdate, can
   return (
     <>
       {/* Left accent spine */}
-      <div style={{ position: "absolute", left: "8%", top: "22%", bottom: "22%", width: pt(4), background: theme.accent, borderRadius: pt(2) }} />
+      <Deco decoKey="studentSpine" slide={slide} theme={theme} interactive={interactive}
+        onUpdate={onUpdate} canvasRef={canvasRef} defaultColor={theme.accent}
+        baseStyle={{ position: "absolute", left: "8%", top: "16%" }}
+        render={(color, scale) => (
+          <div style={{ width: pt(4), height: inches(3.4 * scale), background: color, borderRadius: pt(2) }} />
+        )}
+      />
 
-      {/* Oversized index number */}
+      {/* Oversized index number — sits higher now */}
       <div style={{
-        position: "absolute", left: "12%", top: "20%",
+        position: "absolute", left: "12%", top: "14%",
         fontSize: pt(116), fontWeight: 900, lineHeight: 1,
         color: theme.accent, letterSpacing: "-0.03em",
       }}>
         {big}
       </div>
       <div style={{
-        position: "absolute", left: "12%", top: "50%",
+        position: "absolute", left: "12%", top: "42%",
         fontSize: pt(11), letterSpacing: "0.22em", color: theme.muted, fontWeight: 600, textTransform: "uppercase",
       }}>
         <EditableText
@@ -671,7 +1010,7 @@ function TitleHeroNumbered({ slide, theme, deckTitle, interactive, onUpdate, can
         />
       </div>
       <Movable id="title" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
-        baseStyle={{ position: "absolute", left: "12%", right: "10%", top: "57%" }}
+        baseStyle={{ position: "absolute", left: "12%", right: "10%", top: "48%" }}
       >
         <div style={{
           fontSize: pt(titleSize(title, "title-hero", slide)),
@@ -686,7 +1025,7 @@ function TitleHeroNumbered({ slide, theme, deckTitle, interactive, onUpdate, can
       </Movable>
       {sub && (
         <Movable id="subtitle" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
-          baseStyle={{ position: "absolute", left: "12%", right: "10%", top: "83%" }}
+          baseStyle={{ position: "absolute", left: "12%", right: "10%", top: "72%" }}
         >
           <div style={{ fontSize: pt(subtitleSize(sub, "title-hero", slide)), color: theme.muted }}>
             <EditableText
@@ -715,7 +1054,13 @@ function TitleHeroUnderlined({ slide, theme, deckTitle, interactive, onUpdate, c
           display: "inline-flex", alignItems: "center", gap: pt(8),
           fontSize: pt(11), letterSpacing: "0.22em", color: theme.accent, fontWeight: 700, textTransform: "uppercase",
         }}>
-          <span style={{ width: pt(22), height: pt(3), background: theme.accent, borderRadius: pt(2), display: "inline-block" }} />
+          <Deco decoKey="ulKickerTick" slide={slide} theme={theme} interactive={interactive}
+            onUpdate={onUpdate} canvasRef={canvasRef} defaultColor={theme.accent}
+            baseStyle={{ position: "relative", display: "inline-block" }}
+            render={(color, scale) => (
+              <span style={{ width: pt(22 * scale), height: pt(3), background: color, borderRadius: pt(2), display: "inline-block" }} />
+            )}
+          />
           <EditableText
             value={slide.kicker}
             interactive={interactive}
@@ -737,12 +1082,14 @@ function TitleHeroUnderlined({ slide, theme, deckTitle, interactive, onUpdate, c
           />
         </div>
       </Movable>
-      {/* Heavy accent rule under the title */}
-      <div style={{
-        position: "absolute", left: "8%",
-        top: "62%", width: inches(2.5), height: pt(8),
-        background: theme.accent, borderRadius: pt(2),
-      }} />
+      {/* Heavy accent rule under the title — click to edit in the sidebar */}
+      <Deco decoKey="ulTitleRule" slide={slide} theme={theme} interactive={interactive}
+        onUpdate={onUpdate} canvasRef={canvasRef} defaultColor={theme.accent}
+        baseStyle={{ position: "absolute", left: "8%", top: "62%" }}
+        render={(color, scale) => (
+          <div style={{ width: inches(2.5 * scale), height: pt(8), background: color, borderRadius: pt(2) }} />
+        )}
+      />
       {sub && (
         <Movable id="subtitle" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
           baseStyle={{ position: "absolute", left: "8%", right: "8%", top: "70%" }}
@@ -760,14 +1107,89 @@ function TitleHeroUnderlined({ slide, theme, deckTitle, interactive, onUpdate, c
   );
 }
 
+function TitleHeroEditorial({ slide, theme, deckTitle, interactive, onUpdate, canvasRef }: any) {
+  const title = slide.title || deckTitle;
+  const sub = slide.subtitle || "";
+  return (
+    <>
+      {/* Thin framing rules top and bottom — editorial / masthead feel */}
+      <Deco decoKey="edTopRule" slide={slide} theme={theme} interactive={interactive}
+        onUpdate={onUpdate} canvasRef={canvasRef} defaultColor={theme.fg}
+        baseStyle={{ position: "absolute", left: "8%", top: "20%" }}
+        render={(color, scale) => (
+          <div style={{ width: inches(8.5 * scale), height: pt(1.5), background: color, opacity: 0.55 }} />
+        )}
+      />
+
+      {/* Kicker centered above the title */}
+      {slide.kicker && (
+        <div style={{
+          position: "absolute", left: "8%", right: "8%", top: "26%", textAlign: "center",
+          fontSize: pt(10.5), letterSpacing: "0.34em", color: theme.muted, fontWeight: 600, textTransform: "uppercase",
+        }}>
+          <EditableText
+            value={slide.kicker}
+            interactive={interactive}
+            onCommit={(v) => onUpdate?.({ kicker: v })}
+          />
+        </div>
+      )}
+
+      {/* Large serif-leaning, centered title in the accent color */}
+      <Movable id="title" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{ position: "absolute", left: "8%", right: "8%", top: "37%", textAlign: "center" }}
+      >
+        <div style={{
+          fontSize: pt(titleSize(title, "title-hero", slide)),
+          fontWeight: 700, lineHeight: 1.06, color: theme.accent, letterSpacing: "-0.01em",
+          fontStyle: "italic",
+        }}>
+          <EditableText
+            value={title}
+            interactive={interactive}
+            onCommit={(v) => onUpdate?.({ title: v })}
+          />
+        </div>
+      </Movable>
+
+      {sub && (
+        <Movable id="subtitle" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+          baseStyle={{ position: "absolute", left: "16%", right: "16%", top: "62%", textAlign: "center" }}
+        >
+          <div style={{ fontSize: pt(subtitleSize(sub, "title-hero", slide)), color: theme.muted, lineHeight: 1.5 }}>
+            <EditableText
+              value={sub}
+              interactive={interactive}
+              onCommit={(v) => onUpdate?.({ subtitle: v })}
+            />
+          </div>
+        </Movable>
+      )}
+
+      {/* Bottom framing rule */}
+      <Deco decoKey="edBottomRule" slide={slide} theme={theme} interactive={interactive}
+        onUpdate={onUpdate} canvasRef={canvasRef} defaultColor={theme.fg}
+        baseStyle={{ position: "absolute", left: "8%", top: "80%" }}
+        render={(color, scale) => (
+          <div style={{ width: inches(8.5 * scale), height: pt(1.5), background: color, opacity: 0.55 }} />
+        )}
+      />
+    </>
+  );
+}
+
 function ContentTitle({ slide, theme, interactive, onUpdate, canvasRef }: any) {
   return (
     <>
-      <div style={{
-        position: "absolute", left: inches(0.6), top: inches(0.85),
-        width: inches(0.6), height: pt(6),
-        background: theme.accent,
-      }} />
+      <Deco
+        decoKey="titleTab" slide={slide} theme={theme}
+        interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        defaultColor={theme.accent}
+        baseStyle={{ position: "absolute", left: inches(0.6), top: inches(0.85) }}
+        render={(color, scale) => (
+          <div style={{ width: inches(0.6 * scale), height: pt(6), background: color }} />
+        )}
+      />
       <Movable id="title" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
         baseStyle={{ position: "absolute", left: inches(0.6), top: inches(1.0), right: inches(0.6) }}
       >
@@ -816,7 +1238,7 @@ function BulletsStandard(props: any) {
   const { slide, theme, idx, total, deckTitle, interactive, onUpdate, canvasRef } = props;
   return (
     <>
-      <AccentBar theme={theme} />
+      <AccentBar theme={theme} slide={slide} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef} />
       <ContentTitle {...props} />
       <Movable id="bullets" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
         baseStyle={{ position: "absolute", left: inches(0.6), top: inches(2.6), right: inches(0.6) }}
@@ -845,7 +1267,7 @@ function BulletsNumbered(props: any) {
   const { slide, theme, idx, total, deckTitle, interactive, onUpdate, canvasRef } = props;
   return (
     <>
-      <AccentBar theme={theme} />
+      <AccentBar theme={theme} slide={slide} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef} />
       <ContentTitle {...props} />
       <Movable id="bullets" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
         baseStyle={{ position: "absolute", left: inches(0.6), top: inches(2.6), right: inches(0.6) }}
@@ -891,7 +1313,7 @@ function BulletsCards(props: any) {
   };
   return (
     <>
-      <AccentBar theme={theme} />
+      <AccentBar theme={theme} slide={slide} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef} />
       <ContentTitle {...props} />
       <Movable id="bullets" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
         baseStyle={{ position: "absolute", left: inches(0.6), top: inches(2.6), right: inches(0.6) }}
@@ -937,7 +1359,7 @@ function BulletsIconCheck(props: any) {
   const { slide, theme, idx, total, deckTitle, interactive, onUpdate, canvasRef } = props;
   return (
     <>
-      <AccentBar theme={theme} />
+      <AccentBar theme={theme} slide={slide} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef} />
       <ContentTitle {...props} />
       <Movable id="bullets" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
         baseStyle={{ position: "absolute", left: inches(0.6), top: inches(2.6), right: inches(0.6) }}
@@ -974,7 +1396,7 @@ function BulletsDashed(props: any) {
   const { slide, theme, idx, total, deckTitle, interactive, onUpdate, canvasRef } = props;
   return (
     <>
-      <AccentBar theme={theme} />
+      <AccentBar theme={theme} slide={slide} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef} />
       <ContentTitle {...props} />
       <Movable id="bullets" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
         baseStyle={{ position: "absolute", left: inches(0.6), top: inches(2.6), right: inches(0.6) }}
@@ -1063,7 +1485,7 @@ function TwoColumnClassic(props: any) {
 
   return (
     <>
-      <AccentBar theme={theme} />
+      <AccentBar theme={theme} slide={slide} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef} />
       <ContentTitle {...props} />
       <Movable id="bullets" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
         baseStyle={{
@@ -1111,14 +1533,18 @@ function TwoColumnDivider(props: any) {
   };
   return (
     <>
-      <AccentBar theme={theme} />
+      <AccentBar theme={theme} slide={slide} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef} />
       <ContentTitle {...props} />
-      {/* Vertical divider rule */}
-      <div style={{
-        position: "absolute", left: "50%", top: inches(2.7), bottom: inches(0.8),
-        width: pt(2), background: `${theme.accent}`,
-        opacity: 0.35,
-      }}/>
+      {/* Vertical divider rule — movable / resizable / recolorable / removable */}
+      <Deco
+        decoKey="colDivider" slide={slide} theme={theme}
+        interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        defaultColor={theme.accent}
+        baseStyle={{ position: "absolute", left: "50%", top: inches(2.7) }}
+        render={(color, scale) => (
+          <div style={{ width: pt(2 * scale), height: inches(7.5 - 2.7 - 0.8), background: color, opacity: 0.35 }} />
+        )}
+      />
       <Movable id="bullets" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
         baseStyle={{
           position: "absolute", left: inches(0.6), top: inches(2.6), right: inches(0.6),
@@ -1172,7 +1598,7 @@ function TwoColumnCards(props: any) {
   );
   return (
     <>
-      <AccentBar theme={theme} />
+      <AccentBar theme={theme} slide={slide} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef} />
       <ContentTitle {...props} />
       <Movable id="bullets" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
         baseStyle={{
@@ -1206,7 +1632,7 @@ function TwoColumnNumbered(props: any) {
   );
   return (
     <>
-      <AccentBar theme={theme} />
+      <AccentBar theme={theme} slide={slide} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef} />
       <ContentTitle {...props} />
       <Movable id="bullets" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
         baseStyle={{
@@ -1286,7 +1712,7 @@ function TwoColumnCompare(props: any) {
   };
   return (
     <>
-      <AccentBar theme={theme} />
+      <AccentBar theme={theme} slide={slide} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef} />
       <ContentTitle {...props} />
       <Movable id="bullets" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
         baseStyle={{
@@ -1330,7 +1756,7 @@ function TableLayout(props: any) {
 
   return (
     <>
-      <AccentBar theme={theme} />
+      <AccentBar theme={theme} slide={slide} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef} />
       <ContentTitle {...props} />
       <Movable id="table" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
         baseStyle={{ position: "absolute", left: inches(0.6), top: inches(2.7), right: inches(0.6) }}
@@ -1413,7 +1839,7 @@ function ChartLayout(props: any) {
     ? Math.max(0.6, Math.min(1.6, slide.chartScale)) : 1;
   return (
     <>
-      <AccentBar theme={theme} />
+      <AccentBar theme={theme} slide={slide} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef} />
       <ContentTitle {...props} />
       <Movable id="chart" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
         baseStyle={{ position: "absolute", left: inches(0.6), top: inches(2.5), right: inches(0.6), bottom: inches(0.9) }}
@@ -1631,10 +2057,10 @@ function QuoteEditorial(props: any) {
   return (
     <>
       {/* Left rule */}
-      <div style={{
-        position: "absolute", left: inches(0.6), top: inches(1.4), bottom: inches(1.4),
-        width: pt(4), background: theme.accent,
-      }}/>
+      <Deco decoKey="quoteRule" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef} defaultColor={theme.accent}
+        baseStyle={{ position: "absolute", left: inches(0.6), top: inches(1.4) }}
+        render={(color, scale) => <div style={{ width: pt(4 * scale), height: inches(7.5 - 1.4 - 1.4), background: color }} />}
+      />
       <Movable id="quote" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
         baseStyle={{ position: "absolute", left: inches(1.0), top: inches(1.6), right: inches(0.8) }}
       >
@@ -1744,7 +2170,10 @@ function SectionPanel({ slide, theme, interactive, onUpdate, canvasRef }: any) {
 function SectionSplit({ slide, theme, interactive, onUpdate, canvasRef }: any) {
   return (
     <>
-      <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "42%", background: theme.accent }} />
+      <Deco decoKey="sectionPanel" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef} defaultColor={theme.accent}
+        baseStyle={{ position: "absolute", left: 0, top: 0, bottom: 0 }}
+        render={(color, scale) => <div style={{ height: "100%", width: `${42 * scale}cqw`, background: color }} />}
+      />
       <Movable id="title" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
         baseStyle={{ position: "absolute", left: "46%", right: "8%", top: "32%" }}
       >
@@ -1789,10 +2218,10 @@ function SectionMinimal({ slide, theme, interactive, onUpdate, canvasRef }: any)
           <EditableText value={slide.title} interactive={interactive} onCommit={(v) => onUpdate?.({ title: v })}/>
         </div>
       </Movable>
-      <div style={{
-        position: "absolute", left: "10%", top: "60%", width: pt(36), height: pt(3),
-        background: theme.accent,
-      }}/>
+      <Deco decoKey="sectionRule" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef} defaultColor={theme.accent}
+        baseStyle={{ position: "absolute", left: "10%", top: "60%" }}
+        render={(color, scale) => <div style={{ width: pt(36 * scale), height: pt(3), background: color }} />}
+      />
       {slide.body && (
         <Movable id="body" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
           baseStyle={{ position: "absolute", left: "10%", right: "10%", top: "66%" }}
@@ -1867,10 +2296,10 @@ function SectionKickerHero({ slide, theme, interactive, onUpdate, canvasRef }: a
           <EditableText value={slide.title} interactive={interactive} onCommit={(v) => onUpdate?.({ title: v })}/>
         </div>
       </Movable>
-      <div style={{
-        position: "absolute", left: "8%", top: "70%", width: inches(2.2), height: pt(8),
-        background: theme.accent,
-      }}/>
+      <Deco decoKey="sectionRule" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef} defaultColor={theme.accent}
+        baseStyle={{ position: "absolute", left: "8%", top: "70%" }}
+        render={(color, scale) => <div style={{ width: inches(2.2 * scale), height: pt(8), background: color }} />}
+      />
       {slide.body && (
         <Movable id="body" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
           baseStyle={{ position: "absolute", left: "8%", right: "8%", top: "78%" }}
@@ -1894,7 +2323,7 @@ function ReferencesLayout(props: any) {
   };
   return (
     <>
-      <AccentBar theme={theme} />
+      <AccentBar theme={theme} slide={slide} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef} />
       <ContentTitle {...props} />
       <Movable id="bullets" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
         baseStyle={{ position: "absolute", left: inches(0.6), top: inches(2.6), right: inches(0.6) }}
@@ -2019,10 +2448,10 @@ function ClosingContact({ slide, theme, interactive, onUpdate, canvasRef }: any)
           <EditableText value={slide.title || "Stay in touch"} interactive={interactive} onCommit={(v) => onUpdate?.({ title: v })}/>
         </div>
       </Movable>
-      <div style={{
-        position: "absolute", left: "10%", top: "48%", width: pt(40), height: pt(3),
-        background: theme.accent,
-      }}/>
+      <Deco decoKey="closingRule" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef} defaultColor={theme.accent}
+        baseStyle={{ position: "absolute", left: "10%", top: "48%" }}
+        render={(color, scale) => <div style={{ width: pt(40 * scale), height: pt(3), background: color }} />}
+      />
       {slide.subtitle && (
         <Movable id="subtitle" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
           baseStyle={{ position: "absolute", left: "10%", right: "10%", top: "55%" }}
@@ -2361,4 +2790,129 @@ function alignFor(anchor: Anchor): "left" | "center" | "right" {
   if (anchor.endsWith("-center")) return "center";
   if (anchor.endsWith("-right")) return "right";
   return "left";
+}
+
+
+/* ---------------------------- Free text layer ----------------------------- */
+
+function FreeTextLayer({
+  slide, theme, interactive, onUpdate, canvasRef, selectedTextId, onSelectText,
+}: {
+  slide: Slide; theme: Theme; interactive?: boolean; onUpdate?: SlideUpdater;
+  canvasRef: React.RefObject<HTMLDivElement>;
+  selectedTextId?: string | null;
+  onSelectText?: (id: string | null) => void;
+}) {
+  const boxes = slide.textBoxes || [];
+  if (boxes.length === 0) return null;
+  return (
+    <>
+      {boxes.map((tb) => (
+        <FreeTextBox
+          key={tb.id} tb={tb} slide={slide} theme={theme}
+          interactive={!!interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+          selected={selectedTextId === tb.id} onSelect={onSelectText}
+        />
+      ))}
+    </>
+  );
+}
+
+function FreeTextBox({
+  tb, slide, theme, interactive, onUpdate, canvasRef, selected, onSelect,
+}: {
+  tb: TextBox; slide: Slide; theme: Theme; interactive: boolean;
+  onUpdate?: SlideUpdater; canvasRef: React.RefObject<HTMLDivElement>;
+  selected?: boolean; onSelect?: (id: string | null) => void;
+}) {
+  const [hover, setHover] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const dragRef = useRef<{ startX: number; startY: number; ox: number; oy: number; moved: boolean } | null>(null);
+
+  const update = (patch: Partial<TextBox>) => {
+    if (!onUpdate) return;
+    onUpdate({ textBoxes: (slide.textBoxes || []).map((x) => x.id === tb.id ? { ...x, ...patch } : x) });
+  };
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (!interactive || !onUpdate || editing) return;
+    e.preventDefault(); e.stopPropagation();
+    onSelect?.(tb.id);
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    dragRef.current = { startX: e.clientX, startY: e.clientY, ox: tb.x, oy: tb.y, moved: false };
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!dragRef.current || !canvasRef.current) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const inPerPx = SLIDE_W_IN / rect.width;
+    const dx = (e.clientX - dragRef.current.startX) * inPerPx;
+    const dy = (e.clientY - dragRef.current.startY) * inPerPx;
+    if (Math.abs(dx) > 0.02 || Math.abs(dy) > 0.02) dragRef.current.moved = true;
+    update({
+      x: clamp(dragRef.current.ox + dx, 0, SLIDE_W_IN - 0.5),
+      y: clamp(dragRef.current.oy + dy, 0, SLIDE_H_IN - 0.3),
+    });
+  };
+  const onPointerUp = (e: React.PointerEvent) => {
+    if (!dragRef.current) return;
+    (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    dragRef.current = null;
+  };
+
+  const showOutline = interactive && (hover || selected || editing);
+
+  return (
+    <div
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+      onDoubleClick={(e) => { if (interactive) { e.stopPropagation(); setEditing(true); } }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        position: "absolute",
+        left: inches(tb.x), top: inches(tb.y),
+        width: inches(tb.w),
+        cursor: interactive ? (editing ? "text" : "move") : "default",
+        outline: showOutline ? `1px solid ${theme.accent}` : "none",
+        outlineOffset: pt(3),
+        zIndex: 6,
+      }}
+    >
+      <EditableText
+        value={tb.text}
+        interactive={interactive && editing}
+        multiline
+        onCommit={(v) => { update({ text: v }); setEditing(false); }}
+        style={{
+          display: "block",
+          fontSize: pt(tb.fontSize),
+          fontFamily: tb.fontId ? resolveFontFamily(tb.fontId) : undefined,
+          fontWeight: tb.bold ? 800 : 400,
+          fontStyle: tb.italic ? "italic" : "normal",
+          textDecoration: tb.underline ? "underline" : "none",
+          color: tb.color || theme.fg,
+          textAlign: tb.align || "left",
+          lineHeight: 1.3,
+          outline: "none",
+          width: "100%",
+          pointerEvents: editing ? "auto" : "none",
+        }}
+      />
+      {/* Hint while selected but not editing */}
+      {interactive && selected && !editing && (
+        <div
+          data-no-drag
+          style={{
+            position: "absolute", left: 0, top: pt(-16),
+            fontSize: pt(8), color: theme.accent, whiteSpace: "nowrap",
+            fontFamily: "ui-sans-serif, system-ui, sans-serif", opacity: 0.85,
+          }}
+        >
+          drag to move · double-click to edit
+        </div>
+      )}
+    </div>
+  );
 }

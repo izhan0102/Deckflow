@@ -28,6 +28,7 @@ const TITLE_VARIANTS: Variant[] = [
   { id: "big-initial", label: "Big initial", apply: (s) => ({ ...s, titleVariant: "big-initial" }), current: (s) => s.titleVariant || "centered" },
   { id: "numbered",    label: "Numbered",    apply: (s) => ({ ...s, titleVariant: "numbered"    }), current: (s) => s.titleVariant || "centered" },
   { id: "underlined",  label: "Underlined",  apply: (s) => ({ ...s, titleVariant: "underlined"  }), current: (s) => s.titleVariant || "centered" },
+  { id: "editorial-serif", label: "Editorial", apply: (s) => ({ ...s, titleVariant: "editorial-serif" }), current: (s) => s.titleVariant || "centered" },
 ];
 
 const BULLETS_VARIANTS: Variant[] = [

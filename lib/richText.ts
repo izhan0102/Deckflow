@@ -23,8 +23,10 @@ const ALLOWED_STYLES = new Set([
   "text-decoration",
   "text-decoration-line",
   "font-size",
+  "font-family",
   "color",
   "background-color",
+  "text-align",
 ]);
 
 /**
@@ -123,4 +125,58 @@ function walk(node: Node) {
       child.parentNode?.removeChild(child);
     }
   }
+}
+
+/* ----------------------- whole-element formatting ------------------------ */
+
+/**
+ * Apply a single CSS style to the ENTIRE text of an html string by wrapping
+ * it in one outer <span style="prop: value">. Re-applying replaces the same
+ * property rather than nesting. Passing an empty value removes the property.
+ * Used by the sidebar to format a whole text element at once (vs. the
+ * floating toolbar which formats just the selection).
+ */
+export function applyWholeStyle(html: string, prop: string, value: string): string {
+  if (typeof window === "undefined" || typeof document === "undefined") return html;
+  const tpl = document.createElement("div");
+  tpl.innerHTML = sanitizeRichHtml(html || "");
+
+  // If the whole content is already a single wrapping span, edit it in place.
+  const onlyChild = tpl.childNodes.length === 1 && tpl.firstChild?.nodeType === Node.ELEMENT_NODE
+    ? (tpl.firstChild as HTMLElement)
+    : null;
+  const wrapper = onlyChild && onlyChild.tagName.toLowerCase() === "span" ? onlyChild : null;
+
+  if (wrapper) {
+    if (value) wrapper.style.setProperty(prop, value);
+    else wrapper.style.removeProperty(prop);
+    if (!wrapper.getAttribute("style")) {
+      // No styles left — unwrap.
+      const parent = wrapper.parentNode!;
+      while (wrapper.firstChild) parent.insertBefore(wrapper.firstChild, wrapper);
+      parent.removeChild(wrapper);
+    }
+    return sanitizeRichHtml(tpl.innerHTML);
+  }
+
+  // Otherwise wrap everything in a fresh span.
+  const span = document.createElement("span");
+  if (value) span.style.setProperty(prop, value);
+  while (tpl.firstChild) span.appendChild(tpl.firstChild);
+  tpl.appendChild(span);
+  return sanitizeRichHtml(tpl.innerHTML);
+}
+
+/** Read a whole-element style value if the content is a single wrapping span. */
+export function readWholeStyle(html: string, prop: string): string {
+  if (typeof window === "undefined" || typeof document === "undefined") return "";
+  const tpl = document.createElement("div");
+  tpl.innerHTML = sanitizeRichHtml(html || "");
+  const onlyChild = tpl.childNodes.length === 1 && tpl.firstChild?.nodeType === Node.ELEMENT_NODE
+    ? (tpl.firstChild as HTMLElement)
+    : null;
+  if (onlyChild && onlyChild.tagName.toLowerCase() === "span") {
+    return onlyChild.style.getPropertyValue(prop) || "";
+  }
+  return "";
 }

@@ -101,7 +101,7 @@ export const STYLE_BUNDLES: StyleBundle[] = [
     tagline: "Refined and literary. A magazine-style reading feel.",
     icon: "feather",
     variants: {
-      titleVariant: "underlined",
+      titleVariant: "editorial-serif",
       bulletsVariant: "dashed",
       twoColumnVariant: "divider",
       tableVariant: "minimal",
@@ -118,7 +118,7 @@ export const STYLE_BUNDLES: StyleBundle[] = [
     variants: {
       titleVariant: "asymmetric",
       bulletsVariant: "cards",
-      twoColumnVariant: "compare",
+      twoColumnVariant: "cards",
       tableVariant: "accent-header",
       quoteVariant: "stacked",
       sectionVariant: "panel",

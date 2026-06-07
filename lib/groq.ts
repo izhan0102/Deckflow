@@ -416,6 +416,7 @@ function mapRawSlide(s: any, i: number, total: number): Slide {
       s.titleVariant === "big-initial" ? "big-initial" :
       s.titleVariant === "numbered"    ? "numbered"    :
       s.titleVariant === "underlined"  ? "underlined"  :
+      s.titleVariant === "editorial-serif" ? "editorial-serif" :
       s.titleVariant === "centered"    ? "centered"    : undefined,
     bulletsVariant:
       ["standard", "numbered", "cards", "icon-check", "dashed"].includes(s.bulletsVariant)
