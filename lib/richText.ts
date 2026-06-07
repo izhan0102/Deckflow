@@ -82,12 +82,17 @@ function walk(node: Node) {
       const el = child as HTMLElement;
       const tag = el.tagName.toLowerCase();
 
+      // Recurse first (Post-Order Traversal). This is essential for the "unwrap" fix:
+      // we must sanitize the subtree before we decide to move its children to the parent level.
+      // This ensures that while we preserve nested formatting, those nested tags are still strictly sanitized themselves.
+      walk(el);
+
       if (!ALLOWED_TAGS.has(tag)) {
-        // Replace the element with its text content. This preserves
-        // user-typed text but drops the wrapping tag (e.g. <p>, <div>,
-        // pasted markup we don't recognize).
-        const replacement = document.createTextNode(el.textContent || "");
-        el.parentNode?.replaceChild(replacement, el);
+        // Unwrap disallowed element: move its children to the parent then remove the element itself.
+        // This preserves nested allowed tags (like <b>, <i>, etc.) that would otherwise be flattened.
+        const parent = el.parentNode;
+        while (el.firstChild) parent?.insertBefore(el.firstChild, el);
+        parent?.removeChild(el);
         continue;
       }
 
@@ -119,8 +124,6 @@ function walk(node: Node) {
         parent?.removeChild(el);
         continue;
       }
-
-      walk(el);
     } else if (child.nodeType === Node.COMMENT_NODE) {
       child.parentNode?.removeChild(child);
     }
