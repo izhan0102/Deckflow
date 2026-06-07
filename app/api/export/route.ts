@@ -7,6 +7,7 @@ import {
   tableFontSize, effectiveFont, isHidden,
 } from "@/lib/layoutMath";
 import { getGraphic, svgToDataUri } from "@/lib/graphics";
+import { getPattern, PATTERN_OPACITY } from "@/lib/patterns";
 import { decorationDataUri, applyDecorationOverrides } from "@/lib/decorations";
 import { iconifySvgUrl } from "@/lib/iconify";
 import { stripHtml } from "@/lib/richText";
@@ -88,7 +89,19 @@ function addContentTitle(s: PptxGenJS.Slide, slide: Slide, theme: Theme) {
 
 /* --------------------------------- Layouts -------------------------------- */
 
-function applyGraphicBg(s: PptxGenJS.Slide, theme: Theme, deck: Deck) {
+function applyGraphicBg(s: PptxGenJS.Slide, theme: Theme, deck: Deck, slide?: Slide) {
+  // Per-slide background pattern sits beneath the graphic and content.
+  if (slide?.pattern?.id) {
+    const pat = getPattern(slide.pattern.id);
+    if (pat) {
+      const color = slide.pattern.color || theme.fg;
+      const op = slide.pattern.opacity ?? PATTERN_OPACITY;
+      // Bake the opacity into the SVG via a wrapping group so it matches the
+      // editor's low-opacity look (pptx addImage has no opacity option).
+      const raw = pat.render(color).replace(/^<svg([^>]*)>/, `<svg$1><g opacity="${op}">`).replace(/<\/svg>$/, "</g></svg>");
+      s.addImage({ data: svgToDataUri(raw), x: 0, y: 0, w: W, h: H });
+    }
+  }
   const graphic = getGraphic(deck.graphic);
   if (graphic.id === "none") return;
   const graphicTheme: Theme = deck.graphicAccent
@@ -114,7 +127,7 @@ async function renderTitleCentered(
 ): Promise<PptxGenJS.Slide> {
   const s = pptx.addSlide();
   s.background = { color: hex(theme.bg) };
-  applyGraphicBg(s, theme, deck);
+  applyGraphicBg(s, theme, deck, slide);
 
   const title = slide.title || deck.title;
   const sub = slide.subtitle || deck.subtitle || "";
@@ -153,7 +166,7 @@ async function renderTitleAsymmetric(
 ): Promise<PptxGenJS.Slide> {
   const s = pptx.addSlide();
   s.background = { color: hex(theme.bg) };
-  applyGraphicBg(s, theme, deck);
+  applyGraphicBg(s, theme, deck, slide);
 
   const panelW = W * 0.42;
   s.addShape("rect", {
@@ -201,7 +214,7 @@ async function renderTitleBigInitial(
 ): Promise<PptxGenJS.Slide> {
   const s = pptx.addSlide();
   s.background = { color: hex(theme.bg) };
-  applyGraphicBg(s, theme, deck);
+  applyGraphicBg(s, theme, deck, slide);
 
   const title = slide.title || deck.title;
   const sub = slide.subtitle || deck.subtitle || "";
@@ -242,7 +255,7 @@ async function renderTitleNumbered(
 ): Promise<PptxGenJS.Slide> {
   const s = pptx.addSlide();
   s.background = { color: hex(theme.bg) };
-  applyGraphicBg(s, theme, deck);
+  applyGraphicBg(s, theme, deck, slide);
 
   const title = slide.title || deck.title;
   const sub = slide.subtitle || deck.subtitle || "";
@@ -283,7 +296,7 @@ async function renderTitleUnderlined(
 ): Promise<PptxGenJS.Slide> {
   const s = pptx.addSlide();
   s.background = { color: hex(theme.bg) };
-  applyGraphicBg(s, theme, deck);
+  applyGraphicBg(s, theme, deck, slide);
 
   const title = slide.title || deck.title;
   const sub = slide.subtitle || deck.subtitle || "";
@@ -321,7 +334,7 @@ async function renderBullets(
 ): Promise<PptxGenJS.Slide> {
   const s = pptx.addSlide();
   s.background = { color: hex(theme.bg) };
-  applyGraphicBg(s, theme, deck);
+  applyGraphicBg(s, theme, deck, slide);
   addAccentBar(s, theme);
   addContentTitle(s, slide, theme);
 
@@ -349,7 +362,7 @@ async function renderTwoColumn(
 ): Promise<PptxGenJS.Slide> {
   const s = pptx.addSlide();
   s.background = { color: hex(theme.bg) };
-  applyGraphicBg(s, theme, deck);
+  applyGraphicBg(s, theme, deck, slide);
   addAccentBar(s, theme);
   addContentTitle(s, slide, theme);
 
@@ -402,7 +415,7 @@ async function renderTable(
 ): Promise<PptxGenJS.Slide> {
   const s = pptx.addSlide();
   s.background = { color: hex(theme.bg) };
-  applyGraphicBg(s, theme, deck);
+  applyGraphicBg(s, theme, deck, slide);
   addAccentBar(s, theme);
   addContentTitle(s, slide, theme);
 
@@ -467,7 +480,7 @@ async function renderChart(
 ): Promise<PptxGenJS.Slide> {
   const s = pptx.addSlide();
   s.background = { color: hex(theme.bg) };
-  applyGraphicBg(s, theme, deck);
+  applyGraphicBg(s, theme, deck, slide);
   addAccentBar(s, theme);
   addContentTitle(s, slide, theme);
 
@@ -497,7 +510,7 @@ async function renderQuote(
 ): Promise<PptxGenJS.Slide> {
   const s = pptx.addSlide();
   s.background = { color: hex(theme.bg) };
-  applyGraphicBg(s, theme, deck);
+  applyGraphicBg(s, theme, deck, slide);
 
   s.addText("\u201C", {
     x: PAD, y: 0.6, w: 2.0, h: 2.0,
@@ -536,7 +549,7 @@ async function renderSection(
   const panel = overridden ? theme.bg : theme.accent;
   const textCol = overridden ? theme.fg : theme.bg;
   s.background = { color: hex(panel) };
-  applyGraphicBg(s, theme, deck);
+  applyGraphicBg(s, theme, deck, slide);
 
   if (!isHidden(slide, "title")) {
     const o = offset(slide, "title");
@@ -564,7 +577,7 @@ async function renderReferences(
 ): Promise<PptxGenJS.Slide> {
   const s = pptx.addSlide();
   s.background = { color: hex(theme.bg) };
-  applyGraphicBg(s, theme, deck);
+  applyGraphicBg(s, theme, deck, slide);
   addAccentBar(s, theme);
   addContentTitle(s, { ...slide, title: slide.title || "References" }, theme);
 
@@ -593,7 +606,7 @@ async function renderClosing(
 ): Promise<PptxGenJS.Slide> {
   const s = pptx.addSlide();
   s.background = { color: hex(theme.bg) };
-  applyGraphicBg(s, theme, deck);
+  applyGraphicBg(s, theme, deck, slide);
   addAccentBar(s, theme);
 
   if (!isHidden(slide, "title")) {
@@ -738,6 +751,7 @@ export async function POST(req: NextRequest) {
       // "send-to-back" so we apply via background image fallback below.
       await drawUploadedImages(s, slide, eff);
       drawAnnotations(s, eff, slide);
+      drawTextBoxes(s, raw, eff);
     }
 
     const buf = (await pptx.write({ outputType: "nodebuffer" })) as Buffer;
@@ -758,6 +772,48 @@ export async function POST(req: NextRequest) {
   }
 }
 
+
+/**
+ * Render user-added free text boxes. Position/size are in slide inches,
+ * matching the editor's coordinate space. Inline HTML is stripped to plain
+ * text; whole-element style (size/bold/italic/underline/color) is read off
+ * the box fields plus the wrapping span the sidebar may have written.
+ */
+function drawTextBoxes(s: PptxGenJS.Slide, slide: Slide, theme: Theme) {
+  const boxes = slide.textBoxes || [];
+  for (const tb of boxes) {
+    const text = stripHtml(tb.text || "");
+    if (!text.trim()) continue;
+    s.addText(text, {
+      x: tb.x, y: tb.y, w: tb.w, h: 1,
+      valign: "top",
+      align: tb.align || "left",
+      fontSize: tb.fontSize || 18,
+      bold: !!tb.bold,
+      italic: !!tb.italic,
+      underline: tb.underline ? { style: "sng" } : undefined,
+      color: hex(tb.color || theme.fg),
+      fontFace: fontFaceForFontId(tb.fontId) || fontFor(theme, slide),
+    });
+  }
+}
+
+/** Map a font preset id to a PowerPoint-safe font face name. */
+function fontFaceForFontId(id?: string): string | undefined {
+  if (!id) return undefined;
+  // The preset id is a slug; the human name is the actual font family.
+  const map: Record<string, string> = {
+    inter: "Inter", manrope: "Manrope", "dm-sans": "DM Sans", "work-sans": "Work Sans",
+    "plus-jakarta": "Plus Jakarta Sans", outfit: "Outfit", "space-grotesk": "Space Grotesk",
+    "ibm-plex-sans": "IBM Plex Sans", figtree: "Figtree", playfair: "Playfair Display",
+    lora: "Lora", merriweather: "Merriweather", fraunces: "Fraunces", "source-serif": "Source Serif Pro",
+    bricolage: "Bricolage Grotesque", syne: "Syne", archivo: "Archivo", jetbrains: "JetBrains Mono",
+    roboto: "Roboto", "open-sans": "Open Sans", lato: "Lato", montserrat: "Montserrat",
+    poppins: "Poppins", raleway: "Raleway", nunito: "Nunito", "pt-sans": "PT Sans",
+    oswald: "Oswald", "roboto-slab": "Roboto Slab",
+  };
+  return map[id];
+}
 
 async function drawUploadedImages(s: PptxGenJS.Slide, slide: Slide, theme: Theme) {
   const imgs = slide.uploadedImages || [];
@@ -785,3 +841,4 @@ async function drawUploadedImages(s: PptxGenJS.Slide, slide: Slide, theme: Theme
     s.addImage({ data, x: img.x, y: img.y, w: img.w, h: img.h });
   }
 }
+

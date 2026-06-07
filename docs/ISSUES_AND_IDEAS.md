@@ -5,7 +5,7 @@ Status: `todo` / `in-progress` / `done`
 
 ---
 
-## 1. PDF export: timeline step numbers not centered  ·  `todo`
+## 1. PDF export: timeline step numbers not centered  ·  `done`
 
 **Type:** Bug
 
@@ -29,7 +29,7 @@ the exported PDF, matching the on-screen preview.
 
 ---
 
-## 2. PDF export: chart slides render blank (chart not visible)  ·  `todo`
+## 2. PDF export: chart slides render blank (chart not visible)  ·  `done`
 
 **Type:** Bug
 

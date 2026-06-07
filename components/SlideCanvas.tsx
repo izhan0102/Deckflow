@@ -1286,8 +1286,9 @@ function BulletsNumbered(props: any) {
             <span style={{
               color: theme.bg, background: theme.accent,
               fontWeight: 800,
-              minWidth: pt(22), height: pt(22),
-              display: "inline-grid", placeItems: "center",
+              minWidth: pt(22), width: pt(22), height: pt(22),
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              textAlign: "center", lineHeight: 1,
               borderRadius: pt(11), fontSize: pt(11),
             }}>{String(i + 1).padStart(2, "0")}</span>
           )}
@@ -1376,8 +1377,9 @@ function BulletsIconCheck(props: any) {
           }}
           renderMarker={() => (
             <span style={{
-              minWidth: pt(18), height: pt(18),
-              display: "inline-grid", placeItems: "center",
+              minWidth: pt(18), width: pt(18), height: pt(18),
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              textAlign: "center",
               borderRadius: "50%",
               border: `1.5px solid ${theme.accent}`,
               color: theme.accent,
@@ -1625,8 +1627,9 @@ function TwoColumnNumbered(props: any) {
   const numberMarker = (n: number) => (
     <span style={{
       color: theme.bg, background: theme.accent,
-      minWidth: pt(20), height: pt(20),
-      display: "inline-grid", placeItems: "center",
+      minWidth: pt(20), width: pt(20), height: pt(20),
+      display: "inline-flex", alignItems: "center", justifyContent: "center",
+      textAlign: "center", lineHeight: 1,
       borderRadius: pt(10), fontSize: pt(10), fontWeight: 800,
     }}>{n}</span>
   );

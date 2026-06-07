@@ -173,7 +173,7 @@ function normalize(spec: ChartSpec): ChartSpec {
 /* -------------------------------- renderers ------------------------------- */
 
 function svgWrap(inner: string): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${VW} ${VH}" preserveAspectRatio="xMidYMid meet" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif">${inner}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${VW}" height="${VH}" viewBox="0 0 ${VW} ${VH}" preserveAspectRatio="xMidYMid meet" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif">${inner}</svg>`;
 }
 
 function titleBlock(spec: ChartSpec, theme: Theme): { svg: string; top: number } {
