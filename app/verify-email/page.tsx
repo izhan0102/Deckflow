@@ -1,6 +1,5 @@
 "use client";
 import { Suspense, useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CheckCircle2, Loader2, Mail, RefreshCw, LogOut } from "lucide-react";
 import {
@@ -28,7 +27,7 @@ export default function VerifyEmailPage() {
   return (
     <Suspense fallback={
       <main className="grid min-h-screen place-items-center text-sm text-white/60"
-            style={{ background: "var(--ezd-bg-page)" }}>
+        style={{ background: "var(--ezd-bg-page)" }}>
         Loading…
       </main>
     }>
@@ -118,11 +117,15 @@ function Inner() {
     await logout();
     router.replace("/");
   };
+  const onUseDifferentAccount = async () => {
+    await logout();
+    router.replace("/auth");
+  };
 
   if (!authReady) {
     return (
       <main className="grid min-h-screen place-items-center text-sm text-white/60"
-            style={{ background: "var(--ezd-bg-page)" }}>
+        style={{ background: "var(--ezd-bg-page)" }}>
         Loading…
       </main>
     );
@@ -154,6 +157,7 @@ function Inner() {
             resending={resending}
             resentAt={resentAt}
             error={error}
+            onUseDifferentAccount={onUseDifferentAccount}
           />
         )}
       </div>
@@ -176,13 +180,19 @@ function SuccessCard() {
 }
 
 function PendingCard({
-  email, onResend, resending, resentAt, error,
+  email,
+  onResend,
+  resending,
+  resentAt,
+  error,
+  onUseDifferentAccount,
 }: {
   email: string;
   onResend: () => void;
   resending: boolean;
   resentAt: number | null;
   error: string | null;
+  onUseDifferentAccount: () => void;
 }) {
   return (
     <>
@@ -223,9 +233,13 @@ function PendingCard({
         </button>
         <p className="mt-2 text-[11px] text-white/40">
           Wrong inbox?{" "}
-          <Link href="/auth" className="text-white/70 underline-offset-4 hover:underline">
+          <button
+            type="button"
+            onClick={onUseDifferentAccount}
+            className="text-white/70 underline-offset-4 hover:underline"
+          >
             Sign in with a different account
-          </Link>
+          </button>
         </p>
       </div>
     </>
