@@ -3,6 +3,8 @@ import { searchIconify } from "@/lib/iconify";
 import { authenticateRequest, AuthError } from "@/lib/firebaseAdmin";
 
 export const runtime = "nodejs";
+// Reads the Authorization header for auth, so it can't be statically rendered.
+export const dynamic = "force-dynamic";
 
 /**
  * Lightweight proxy to Iconify search. The browser hits this so we can
