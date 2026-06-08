@@ -206,3 +206,294 @@ lib/
 ## License
 
 All rights reserved. The code is published for transparency and portfolio purposes; please do not redistribute or build a competing product without permission.
+
+# API Documentation
+
+EZdeck uses Next.js API Routes as a lightweight backend layer. These routes handle AI generation, slide editing, icon search, and PowerPoint export while keeping API keys secure on the server.
+
+---
+
+## Base URL
+
+### Development
+
+```text
+http://localhost:3000/api
+```
+
+### Production
+
+```text
+https://deckflow-pi.vercel.app/api
+```
+
+---
+
+# Generate Presentation
+
+Create a complete presentation from a user prompt.
+
+## Endpoint
+
+```http
+POST /api/generate
+```
+
+## Request Body
+
+```json
+{
+  "prompt": "Create a presentation about Artificial Intelligence in Healthcare",
+  "theme": "Professional Blue",
+  "font": "Inter",
+  "graphicStyle": "Modern"
+}
+```
+
+## Success Response
+
+```json
+{
+  "success": true,
+  "deck": {
+    "title": "Artificial Intelligence in Healthcare",
+    "slides": [
+      {
+        "id": "slide-1",
+        "layout": "hero",
+        "title": "Introduction"
+      }
+    ]
+  }
+}
+```
+
+## Error Response
+
+```json
+{
+  "success": false,
+  "message": "Unable to generate presentation"
+}
+```
+
+---
+
+# Edit Slide
+
+Modify a single slide using AI.
+
+## Endpoint
+
+```http
+POST /api/edit-slide
+```
+
+## Request Body
+
+```json
+{
+  "slideId": "slide-4",
+  "instruction": "Make this slide more concise and professional"
+}
+```
+
+## Success Response
+
+```json
+{
+  "success": true,
+  "updatedSlide": {
+    "id": "slide-4",
+    "content": "Updated slide content"
+  }
+}
+```
+
+---
+
+# Export PowerPoint
+
+Generate a downloadable PPTX file.
+
+## Endpoint
+
+```http
+POST /api/export
+```
+
+## Request Body
+
+```json
+{
+  "deck": {
+    "title": "AI in Healthcare"
+  }
+}
+```
+
+## Response
+
+Returns a PowerPoint (.pptx) file download.
+
+---
+
+# Search Icons
+
+Search icons through the Iconify API.
+
+## Endpoint
+
+```http
+GET /api/icon-search?q=<keyword>
+```
+
+## Example
+
+```http
+GET /api/icon-search?q=healthcare
+```
+
+## Response
+
+```json
+{
+  "icons": [
+    {
+      "name": "mdi:medical-bag",
+      "url": "https://..."
+    }
+  ]
+}
+```
+
+---
+
+# Authentication
+
+Authentication is handled using Firebase Authentication.
+
+## Supported Providers
+
+* Email & Password
+* Google Sign-In
+
+## Protected Routes
+
+| Route | Authentication Required |
+| ----- | ----------------------- |
+| /app  | Yes                     |
+| /auth | No                      |
+| /     | No                      |
+
+---
+
+# Environment Variables
+
+## Server Variables
+
+```env
+GROQ_API_KEY=
+GROQ_API_KEY_FALLBACK=
+```
+
+These keys are used exclusively on the server and should never be exposed to the browser.
+
+---
+
+## Client Variables
+
+```env
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+NEXT_PUBLIC_FIREBASE_APP_ID=
+NEXT_PUBLIC_FIREBASE_DATABASE_URL=
+```
+
+These values are safe to expose because Firebase protects access through authentication and security rules.
+
+---
+
+# Architecture Overview
+
+```text
+User
+ │
+ ▼
+Next.js Frontend
+ │
+ ├── Firebase Authentication
+ │
+ ├── API Routes
+ │     ├── /generate
+ │     ├── /edit-slide
+ │     ├── /export
+ │     └── /icon-search
+ │
+ ▼
+Groq AI
+ │
+ ▼
+Generated Deck
+ │
+ ▼
+PDF / PPTX Export
+```
+
+---
+
+# Usage Example
+
+## Generate a Presentation
+
+1. Enter a topic prompt.
+2. Select a theme.
+3. Select a font.
+4. Select a graphic style.
+5. Generate the deck.
+
+Example Prompt:
+
+```text
+Create a professional investor presentation about renewable energy startups.
+```
+
+The system automatically:
+
+* Creates slide structure.
+* Chooses layouts.
+* Generates charts when relevant.
+* Applies the selected theme.
+* Produces an editable presentation.
+
+---
+
+# Developer Notes
+
+### Groq Key Security
+
+The Groq API key is never exposed to the client.
+
+All AI requests pass through:
+
+```text
+/api/generate
+/api/edit-slide
+```
+
+which act as secure server-side proxies.
+
+### Export Consistency
+
+The same SlideCanvas component is used for:
+
+* Editor
+* Present Mode
+* Thumbnail View
+* PDF Export
+
+This ensures visual consistency across all outputs.
+
