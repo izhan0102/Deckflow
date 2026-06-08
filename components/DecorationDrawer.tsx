@@ -7,6 +7,7 @@ import {
 } from "@/lib/decorations";
 import { iconifySvgUrl, type IconifyHit } from "@/lib/iconify";
 import { ChevronLeft, ChevronRight, Loader2, Shapes, X } from "lucide-react";
+import { getIdToken } from "@/lib/auth";
 
 const PAGE = 8;
 
@@ -237,7 +238,10 @@ function IconSearchPanel({
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`/api/icon-search?q=${encodeURIComponent(effectiveQuery)}&limit=48`);
+        const token = await getIdToken();
+        const res = await fetch(`/api/icon-search?q=${encodeURIComponent(effectiveQuery)}&limit=48`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         if (!res.ok) throw new Error("search failed");
         const data = await res.json();
         // Make sure we only apply results for the latest query.
