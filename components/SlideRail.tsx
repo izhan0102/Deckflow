@@ -171,8 +171,8 @@ export default function SlideRail({ deck, theme, active, setActive, onChange }: 
       {menu && (
         <div
           ref={menuRef}
-          style={{ position: "fixed", left: menu.x, top: menu.y, zIndex: 70 }}
-          className="min-w-[180px] rounded-lg border border-white/10 bg-zinc-900/95 p-1 text-xs text-white shadow-2xl backdrop-blur"
+          style={{ position: "fixed", left: menu.x, top: menu.y, zIndex: 70, background: "var(--ezd-bg-elev)", color: "var(--ezd-fg)", borderColor: "var(--ezd-hairline)" }}
+          className="min-w-[180px] rounded-lg border p-1 text-xs shadow-2xl backdrop-blur"
         >
           <MenuItem icon={<ArrowUp size={12} />} label="Move up"
             onClick={() => { move(menu.idx, menu.idx - 1); setMenu(null); }}
@@ -188,7 +188,7 @@ export default function SlideRail({ deck, theme, active, setActive, onChange }: 
           <MenuItem icon={<Plus size={12} />} label="Insert below"
             onClick={() => { insertAt(menu.idx + 1); setMenu(null); }}
           />
-          <div className="my-1 h-px bg-white/10" />
+          <div className="my-1 h-px" style={{ background: "var(--ezd-hairline)" }} />
           <MenuItem icon={<Trash2 size={12} />} label="Delete"
             onClick={() => { remove(menu.idx); setMenu(null); }}
             disabled={slides.length <= 1}
