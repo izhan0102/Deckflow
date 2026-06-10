@@ -36,14 +36,21 @@ export default function RefundPage() {
 
       <h2>3. Refunds</h2>
       <p>
-        Subscriptions give immediate access to a digital service, so payments
-        are generally non-refundable, including for partial billing periods
-        or unused allowance. We may, at our discretion, issue a refund where
-        the Service was materially unavailable due to a fault on our side, or
-        where required by applicable law (including statutory consumer
-        rights). To request a refund, email{" "}
+        If you are not satisfied, you may request a full refund within{" "}
+        <strong>14 days</strong> of your purchase. To request one, email{" "}
         <a href={`mailto:${LEGAL.SUPPORT_EMAIL}`}>{LEGAL.SUPPORT_EMAIL}</a>{" "}
-        within 7 days of the charge with your account email and the reason.
+        with your account email and order details, and we will process the
+        refund to your original payment method. This 14-day refund right
+        applies to subscription payments and is in addition to any statutory
+        consumer rights you may have.
+      </p>
+      <p>
+        Payments are processed by our reseller and Merchant of Record,
+        Paddle.com. Refunds are issued in line with Paddle&rsquo;s Buyer
+        Terms; you may also contact Paddle directly regarding any charge.
+        After the 14-day window, refunds for partial or unused billing
+        periods are at our discretion, for example where the Service was
+        materially unavailable due to a fault on our side.
       </p>
 
       <h2>4. Account and Data Deletion</h2>
