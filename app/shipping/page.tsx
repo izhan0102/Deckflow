@@ -10,22 +10,25 @@ export default function ShippingPage() {
 
       <h2>1. Nature of the Product</h2>
       <p>
-        EZdeck is a free, digital software-as-a-service product. We do not
-        sell or ship any physical goods. References to "delivery" refer to
-        electronic provisioning of files within your browser.
+        EZdeck is a digital software-as-a-service product offered on a free
+        plan and paid subscription plans. We do not sell or ship any physical
+        goods. References to "delivery" refer to electronic provisioning of
+        access and files within your browser.
       </p>
 
       <h2>2. Delivery Method</h2>
       <ul>
-        <li>Generation, editing, and preview of decks is delivered in real time within the EZdeck web application at no cost.</li>
-        <li>Downloadable Microsoft PowerPoint (<code>.pptx</code>) and PDF files are delivered instantly via direct browser download, free of charge.</li>
+        <li>Generation, editing, and preview of decks are delivered in real time within the EZdeck web application.</li>
+        <li>Downloadable Microsoft PowerPoint (<code>.pptx</code>) and PDF files are delivered instantly via direct browser download.</li>
+        <li>Paid plan features and increased limits are activated on your account immediately once a subscription is active.</li>
       </ul>
 
       <h2>3. Delivery Timeline</h2>
       <ul>
         <li>Decks are generated in about ten seconds and edits save automatically.</li>
         <li>File downloads start instantly when you choose to export.</li>
-        <li>If a download does not start, please email{" "}<a href={`mailto:${LEGAL.SUPPORT_EMAIL}`}>{LEGAL.SUPPORT_EMAIL}</a> and we will help.</li>
+        <li>Plan upgrades take effect immediately on successful subscription.</li>
+        <li>If a download does not start or a feature does not activate, please email{" "}<a href={`mailto:${LEGAL.SUPPORT_EMAIL}`}>{LEGAL.SUPPORT_EMAIL}</a> and we will help.</li>
       </ul>
 
       <h2>4. Geographical Availability</h2>

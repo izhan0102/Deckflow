@@ -14,21 +14,39 @@ export default function RefundPage() {
         It supplements our Terms &amp; Conditions.
       </p>
 
-      <h2>1. No Charges</h2>
+      <h2>1. Plans</h2>
       <p>
-        EZdeck is completely free. Generating, editing, previewing,
-        presenting, and downloading decks as PowerPoint (<code>.pptx</code>)
-        or PDF files costs nothing. We do not collect payments, store payment
-        details, or run any subscriptions.
+        EZdeck offers a free plan and paid subscription plans (Pro at
+        US$5/month and Pro Plus at US$10/month). The free plan lets you
+        generate, edit, present, and export decks within its monthly limits.
+        Paid plans raise those limits and unlock additional features.
+      </p>
+      <p>
+        Paid plans are not yet available for purchase. Until paid checkout
+        launches, every account is on the free plan and no payment is taken.
+        The terms below govern paid subscriptions once purchasing is enabled.
       </p>
 
-      <h2>2. Nothing to Refund or Cancel</h2>
+      <h2>2. Billing and Cancellation</h2>
+      <ul>
+        <li>Paid plans are billed monthly in advance and renew automatically until cancelled.</li>
+        <li>You can cancel anytime from your account or by emailing us. Cancellation stops future renewals; your plan stays active until the end of the current billing period, after which the account returns to the free plan.</li>
+        <li>We do not charge cancellation fees.</li>
+      </ul>
+
+      <h2>3. Refunds</h2>
       <p>
-        Because we never charge you, there is nothing to refund and no
-        billing to cancel. You can stop using the Service, or delete your
-        decks and account, at any time without any cost or penalty.
+        Subscriptions give immediate access to a digital service, so payments
+        are generally non-refundable, including for partial billing periods
+        or unused allowance. We may, at our discretion, issue a refund where
+        the Service was materially unavailable due to a fault on our side, or
+        where required by applicable law (including statutory consumer
+        rights). To request a refund, email{" "}
+        <a href={`mailto:${LEGAL.SUPPORT_EMAIL}`}>{LEGAL.SUPPORT_EMAIL}</a>{" "}
+        within 7 days of the charge with your account email and the reason.
       </p>
-      <h2>3. Account and Data Deletion</h2>
+
+      <h2>4. Account and Data Deletion</h2>
       <p>
         You may request deletion of your account and associated decks at any time.
         To do so, contact us at{" "}
@@ -51,16 +69,15 @@ export default function RefundPage() {
         required and handled in accordance with applicable laws.
       </p>
 
-      <h2>4. If You See a Charge</h2>
+      <h2>5. Unexpected Charges</h2>
       <p>
-        We have no payment system, so EZdeck cannot have charged you. If you
-        notice a charge that references EZdeck, it is not from us — please
-        contact your bank or card issuer, and feel free to email us at{" "}
-        <a href={`mailto:${LEGAL.SUPPORT_EMAIL}`}>{LEGAL.SUPPORT_EMAIL}</a> so
-        we can help you look into it.
+        If you see a charge referencing EZdeck that you do not recognise,
+        email us at{" "}
+        <a href={`mailto:${LEGAL.SUPPORT_EMAIL}`}>{LEGAL.SUPPORT_EMAIL}</a>{" "}
+        and we will help you look into it.
       </p>
 
-      <h2>5. Contact</h2>
+      <h2>6. Contact</h2>
       <p>
         {LEGAL.BUSINESS_NAME} (operated by {LEGAL.PROPRIETOR_NAME}) <br />
         {LEGAL.BUSINESS_ADDRESS} <br />

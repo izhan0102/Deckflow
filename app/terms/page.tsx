@@ -40,17 +40,18 @@ export default function TermsPage() {
       <p>
         EZdeck is a software-as-a-service product that uses generative AI
         to produce, edit, and export presentation files based on user
-        prompts and uploads. The Service is offered on an "as is" basis and
-        is free to use. Features may change; we will provide reasonable
-        notice of material changes.
+        prompts and uploads. The Service is offered on an "as is" basis with
+        a free plan and optional paid plans. Features may change; we will
+        provide reasonable notice of material changes.
       </p>
 
-      <h2>4. Pricing</h2>
+      <h2>4. Plans and Pricing</h2>
       <ul>
-        <li>EZdeck is free. Generating, editing, previewing, presenting, and downloading decks as PowerPoint (<code>.pptx</code>) or PDF files costs nothing.</li>
-        <li>There are no subscriptions, no per-file fees, and no payment details required to use any feature of the Service.</li>
-        <li>Before your first export we ask you to leave a short, one-time review of the product. This is feedback only — no payment is involved.</li>
-        <li>Daily generation quotas may apply to keep the Service available to everyone. These limits may change over time.</li>
+        <li>The free plan lets you generate, edit, present, and export decks as PowerPoint (<code>.pptx</code>) or PDF within a monthly deck limit. Free exports include a small "Made with EZdeck" watermark.</li>
+        <li>Paid plans — Pro (US$5/month) and Pro Plus (US$10/month) — raise the monthly deck limit and unlock features such as AI speaker notes, Q&amp;A prep, slide reordering, icons, watermark-free exports, and (on Pro Plus) deck translation and unlimited decks.</li>
+        <li>Paid plans are billed monthly and renew automatically until cancelled. Paid checkout is not yet available; until it launches every account is on the free plan and no payment is taken.</li>
+        <li>Refunds and cancellations are governed by our Refund &amp; Cancellation Policy.</li>
+        <li>Monthly generation quotas and feature limits apply per plan and may change over time.</li>
       </ul>
 
       <h2>5. Feedback and Reviews</h2>
