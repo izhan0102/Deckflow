@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, FileText, Plus, Trash2 } from "lucide-react";
@@ -14,6 +14,47 @@ export default function MyDecksPage() {
   const [authReady, setAuthReady] = useState(false);
   const [decks, setDecks] = useState<DeckListItem[]>([]);
   const [confirmId, setConfirmId] = useState<string | null>(null);
+
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+const modalRef = useRef<HTMLDivElement | null>(null);
+
+const openConfirm = useCallback((id: string, btn: HTMLButtonElement) => {
+  triggerRef.current = btn;
+  setConfirmId(id);
+}, []);
+
+const closeConfirm = useCallback(() => {
+  setConfirmId(null);
+  triggerRef.current?.focus();
+}, []);
+
+useEffect(() => {
+  if (!confirmId) return;
+  const modal = modalRef.current;
+  if (!modal) return;
+  const focusable = modal.querySelectorAll<HTMLElement>(
+    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+  );
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  first?.focus();
+
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (e.key === "Escape") { closeConfirm(); return; }
+    if (e.key !== "Tab") return;
+    if (focusable.length === 0) { e.preventDefault(); return; }
+    if (e.shiftKey) {
+      if (document.activeElement === first) { e.preventDefault(); last?.focus(); }
+    } else {
+      if (document.activeElement === last) { e.preventDefault(); first?.focus(); }
+    }
+  };
+
+  document.addEventListener("keydown", handleKeyDown);
+  return () => document.removeEventListener("keydown", handleKeyDown);
+}, [confirmId, closeConfirm]);
+
+
 
   useEffect(() => {
     const unsub = onAuthStateChange((u) => {
@@ -107,11 +148,11 @@ export default function MyDecksPage() {
                     </Link>
                   )}
                   <button
-                    onClick={() => setConfirmId(d.id)}
+                    onClick={(e) => openConfirm(d.id, e.currentTarget)}
                     className="rounded-lg border border-red-500/30 bg-red-500/10 px-2 py-1.5 text-xs text-red-200 hover:bg-red-500/20"
-                    title="Delete this deck"
+                    aria-label="Delete this deck"
                   >
-                    <Trash2 size={12} />
+                    <Trash2 size={12} aria-hidden="true" />
                   </button>
                 </div>
               </article>
@@ -121,15 +162,27 @@ export default function MyDecksPage() {
       </div>
 
       {confirmId && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="m-4 w-full max-w-sm rounded-2xl border border-white/10 bg-zinc-950 p-6 shadow-2xl">
-            <h3 className="text-lg font-semibold text-white">Delete this deck?</h3>
-            <p className="mt-2 text-sm text-white/65">
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          aria-hidden="true"
+        >
+          <div
+            ref={modalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-modal-title"
+            aria-describedby="delete-modal-desc"
+            className="m-4 w-full max-w-sm rounded-2xl border border-white/10 bg-zinc-950 p-6 shadow-2xl"
+          >
+            <h3 id="delete-modal-title" className="text-lg font-semibold text-white">
+              Delete this deck?
+            </h3>
+            <p id="delete-modal-desc" className="mt-2 text-sm text-white/65">
               This can't be undone. Any public share link will also stop working.
             </p>
             <div className="mt-5 flex items-center justify-end gap-2">
               <button
-                onClick={() => setConfirmId(null)}
+                onClick={closeConfirm}
                 className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/85 hover:bg-white/10"
               >
                 Cancel
@@ -139,7 +192,7 @@ export default function MyDecksPage() {
                   if (user && confirmId) {
                     try { await deleteDeck(user.uid, confirmId); } catch { /* ignore */ }
                   }
-                  setConfirmId(null);
+                  closeConfirm();
                 }}
                 className="rounded-xl bg-red-500/90 px-4 py-2 text-sm font-medium text-white hover:bg-red-500"
               >
