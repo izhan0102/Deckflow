@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Deck, Slide, SlideLayout } from "@/lib/types";
 import type { Theme } from "@/lib/themes";
 import SlideCanvas from "./SlideCanvas";
-import { Plus, Copy, Trash2, ArrowUp, ArrowDown, X } from "lucide-react";
+import { Plus, Copy, Trash2, ArrowUp, ArrowDown, X, Lock } from "lucide-react";
 import { stripHtml } from "@/lib/richText";
 
 const ADD_SLIDE_TIP_KEY = "deckflow_add_slide_tip_seen_v1";
@@ -14,6 +14,10 @@ type Props = {
   active: number;
   setActive: (i: number) => void;
   onChange: (slides: Slide[]) => void;
+  /** When false, drag-reorder and move up/down are locked (plan-gated). */
+  canReorder?: boolean;
+  /** Called when a locked reorder action is attempted. */
+  onLockedReorder?: () => void;
 };
 
 function emptySlide(layout: SlideLayout = "bullets"): Slide {
@@ -26,7 +30,7 @@ function emptySlide(layout: SlideLayout = "bullets"): Slide {
   };
 }
 
-export default function SlideRail({ deck, theme, active, setActive, onChange }: Props) {
+export default function SlideRail({ deck, theme, active, setActive, onChange, canReorder = true, onLockedReorder }: Props) {
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dropIdx, setDropIdx] = useState<number | null>(null);
   const [menu, setMenu] = useState<{ idx: number; x: number; y: number } | null>(null);
@@ -70,6 +74,7 @@ export default function SlideRail({ deck, theme, active, setActive, onChange }: 
 
   const slides = deck.slides;
   const move = (from: number, to: number) => {
+    if (!canReorder) { onLockedReorder?.(); return; }
     if (from === to || from < 0 || from >= slides.length) return;
     const target = Math.max(0, Math.min(slides.length - 1, to));
     const next = [...slides];
@@ -122,8 +127,9 @@ export default function SlideRail({ deck, theme, active, setActive, onChange }: 
           )}
 
           <button
-            draggable
+            draggable={canReorder}
             onDragStart={(e) => {
+              if (!canReorder) { e.preventDefault(); onLockedReorder?.(); return; }
               setDragIdx(i);
               e.dataTransfer.effectAllowed = "move";
               e.dataTransfer.setData("text/plain", String(i));
@@ -174,13 +180,13 @@ export default function SlideRail({ deck, theme, active, setActive, onChange }: 
           style={{ position: "fixed", left: menu.x, top: menu.y, zIndex: 70, background: "var(--ezd-bg-elev)", color: "var(--ezd-fg)", borderColor: "var(--ezd-hairline)" }}
           className="min-w-[180px] rounded-lg border p-1 text-xs shadow-2xl backdrop-blur"
         >
-          <MenuItem icon={<ArrowUp size={12} />} label="Move up"
+          <MenuItem icon={canReorder ? <ArrowUp size={12} /> : <Lock size={12} />} label="Move up"
             onClick={() => { move(menu.idx, menu.idx - 1); setMenu(null); }}
-            disabled={menu.idx === 0}
+            disabled={canReorder && menu.idx === 0}
           />
-          <MenuItem icon={<ArrowDown size={12} />} label="Move down"
+          <MenuItem icon={canReorder ? <ArrowDown size={12} /> : <Lock size={12} />} label="Move down"
             onClick={() => { move(menu.idx, menu.idx + 1); setMenu(null); }}
-            disabled={menu.idx === slides.length - 1}
+            disabled={canReorder && menu.idx === slides.length - 1}
           />
           <MenuItem icon={<Copy size={12} />} label="Duplicate"
             onClick={() => { duplicate(menu.idx); setMenu(null); }}

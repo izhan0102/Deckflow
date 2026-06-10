@@ -14,6 +14,7 @@ import {
 } from "@/lib/stats";
 import { isLoggedIn, logout, onAuthStateChange, type AppUser } from "@/lib/auth";
 import { FAQ, faqJsonLd } from "@/lib/seo";
+import PricingPlans from "@/components/PricingPlans";
 
 /**
  * Landing — center-stage variant.
@@ -116,6 +117,7 @@ export default function LandingPage() {
             ].join(" ")}
           >
             <a href="#how" className="transition hover:text-white">How it works</a>
+            <a href="#pricing" className="transition hover:text-white">Pricing</a>
             <a href="#faq" className="transition hover:text-white">FAQ</a>
             <Link href="/about" className="transition hover:text-white">Dev&rsquo;s note</Link>
           </div>
@@ -309,6 +311,17 @@ export default function LandingPage() {
             />
           </div>
         </div>
+      </section>
+
+      {/* ================== Pricing ================== */}
+      <section id="pricing" className="relative z-10 mx-auto max-w-5xl px-6 pb-20 pt-4">
+        <SectionLabel center kicker="Pricing" title="Start free. Upgrade when you present more." />
+        <div className="mx-auto mt-9 max-w-4xl">
+          <PricingPlans onUpgrade={() => router.push("/auth?redirect=/app")} />
+        </div>
+        <p className="mt-5 text-center text-[12px]" style={{ color: "var(--ezd-fg-quiet)" }}>
+          Paid plans are coming soon. Everyone starts on the free plan.
+        </p>
       </section>
 
       {/* ================== FAQ ================== */}

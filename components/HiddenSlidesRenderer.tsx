@@ -11,8 +11,8 @@ export type HiddenSlidesHandle = { getNodes: () => HTMLElement[] };
  * snapshot them with html2canvas for PDF export. Each slide is wrapped in
  * a fixed 1280x720 box (16:9) so the export quality is consistent.
  */
-const HiddenSlidesRenderer = forwardRef<HiddenSlidesHandle, { deck: Deck; theme: Theme }>(
-  function HiddenSlidesRenderer({ deck, theme }, ref) {
+const HiddenSlidesRenderer = forwardRef<HiddenSlidesHandle, { deck: Deck; theme: Theme; watermark?: boolean }>(
+  function HiddenSlidesRenderer({ deck, theme, watermark = false }, ref) {
     const wrapRef = useRef<HTMLDivElement>(null);
 
     useImperativeHandle(ref, () => ({
@@ -52,6 +52,7 @@ const HiddenSlidesRenderer = forwardRef<HiddenSlidesHandle, { deck: Deck; theme:
                 graphicId={deck.graphic}
               graphicAccent={deck.graphicAccent}
               fontId={deck.fontId}
+              watermark={watermark}
               />
             </div>
           );

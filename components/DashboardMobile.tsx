@@ -10,9 +10,10 @@ import { deleteDeck, watchDeckList, type DeckListItem } from "@/lib/decks";
 import DeckThumbnail from "./DeckThumbnail";
 import Logo from "./Logo";
 import ThemeToggle from "./ThemeToggle";
-import {
-  DAILY_GENERATION_LIMIT, formatRefillIn, watchTodayGenerations,
-} from "@/lib/usage";
+import UpgradeDialog from "./UpgradeDialog";
+import { watchMonthlyGenerations, formatMonthlyResetIn } from "@/lib/usage";
+import { watchUserPlan, getUserPlan } from "@/lib/plan";
+import { type PlanId, planDeckLimit, getPlan } from "@/lib/plans";
 
 /**
  * Mobile-first dashboard. Same data + actions as the desktop Dashboard, but
@@ -36,8 +37,24 @@ export default function DashboardMobile({
   const [loading, setLoading] = useState(true);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [todayGenerations, setTodayGenerations] = useState(0);
+  const [monthGenerations, setMonthGenerations] = useState(0);
+  const [plan, setPlan] = useState<PlanId>("free");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [upgradeReason, setUpgradeReason] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    let cancelled = false;
+    getUserPlan(user.uid).then((p) => {
+      if (!cancelled && p === "free") setUpgradeOpen(true);
+    });
+    return () => { cancelled = true; };
+  }, [user.uid]);
+
+  useEffect(() => {
+    const unsub = watchUserPlan(user.uid, setPlan);
+    return () => unsub();
+  }, [user.uid]);
 
   useEffect(() => {
     const unsub = watchDeckList(user.uid, (items) => { setDecks(items); setLoading(false); });
@@ -45,7 +62,7 @@ export default function DashboardMobile({
   }, [user.uid]);
 
   useEffect(() => {
-    const unsub = watchTodayGenerations(user.uid, setTodayGenerations);
+    const unsub = watchMonthlyGenerations(user.uid, setMonthGenerations);
     return () => unsub();
   }, [user.uid]);
 
@@ -63,8 +80,19 @@ export default function DashboardMobile({
     );
   }, [decks, query]);
 
-  const remaining = Math.max(0, DAILY_GENERATION_LIMIT - todayGenerations);
-  const quotaExhausted = remaining === 0;
+  const deckLimit = planDeckLimit(plan);
+  const unlimited = deckLimit === Infinity;
+  const remaining = unlimited ? Infinity : Math.max(0, deckLimit - monthGenerations);
+  const quotaExhausted = !unlimited && remaining === 0;
+
+  const openUpgrade = (reason?: string) => { setUpgradeReason(reason); setUpgradeOpen(true); };
+  const onNewDeck = () => {
+    if (quotaExhausted) {
+      openUpgrade(`You've used all ${deckLimit} decks on the ${getPlan(plan).name} plan this month.`);
+      return;
+    }
+    onStartFromScratch();
+  };
 
   return (
     <div className="min-h-screen" style={{ background: "var(--ezd-bg-page)" }}>
@@ -100,6 +128,12 @@ export default function DashboardMobile({
             <Link href="/app/decks" className="block rounded-lg px-3 py-2 text-sm text-white/85 hover:bg-white/10">My decks</Link>
             <Link href="/about" className="block rounded-lg px-3 py-2 text-sm text-white/85 hover:bg-white/10">About / Dev&rsquo;s note</Link>
             <button
+              onClick={() => { setMenuOpen(false); openUpgrade(); }}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-white/85 hover:bg-white/10"
+            >
+              <Zap size={14} /> {plan === "proplus" ? "View plans" : "Upgrade plan"}
+            </button>
+            <button
               onClick={() => { setMenuOpen(false); onSwitchToDesktop(); }}
               className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-white/85 hover:bg-white/10"
             >
@@ -125,17 +159,18 @@ export default function DashboardMobile({
         </h1>
         <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/5 px-3 py-1 text-[12px] text-white/70">
           <Zap size={12} className={quotaExhausted ? "text-red-300" : "text-cyan-300"} />
-          {quotaExhausted
-            ? `Quota used · resets in ${formatRefillIn()}`
-            : `${remaining} of ${DAILY_GENERATION_LIMIT} generations left today`}
+          {unlimited
+            ? `${getPlan(plan).name} · unlimited decks`
+            : quotaExhausted
+              ? `Limit used · resets in ${formatMonthlyResetIn()}`
+              : `${remaining} of ${deckLimit} decks left this month`}
         </div>
 
         {/* ---------- Primary actions ---------- */}
         <div className="mt-5 grid grid-cols-2 gap-2.5">
           <button
-            onClick={onStartFromScratch}
-            disabled={quotaExhausted}
-            className="flex items-center justify-center gap-1.5 rounded-2xl bg-white px-4 py-3.5 text-[14px] font-semibold text-[#03070F] transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={onNewDeck}
+            className="flex items-center justify-center gap-1.5 rounded-2xl bg-white px-4 py-3.5 text-[14px] font-semibold text-[#03070F] transition active:scale-[0.98]"
           >
             <Wand2 size={15} /> New deck
           </button>
@@ -216,6 +251,15 @@ export default function DashboardMobile({
           )}
         </div>
       </main>
+
+      {/* Pricing / upgrade modal — shown on every visit and on limits */}
+      {upgradeOpen && (
+        <UpgradeDialog
+          currentPlan={plan}
+          reason={upgradeReason}
+          onClose={() => setUpgradeOpen(false)}
+        />
+      )}
 
       {/* Delete confirm */}
       {confirmId && (

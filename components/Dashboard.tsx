@@ -10,9 +10,10 @@ import { deleteDeck, watchDeckList, type DeckListItem } from "@/lib/decks";
 import DeckThumbnail from "./DeckThumbnail";
 import Logo from "./Logo";
 import ThemeToggle from "./ThemeToggle";
-import {
-  DAILY_GENERATION_LIMIT, formatRefillIn, watchTodayGenerations,
-} from "@/lib/usage";
+import UpgradeDialog from "./UpgradeDialog";
+import { watchMonthlyGenerations, formatMonthlyResetIn } from "@/lib/usage";
+import { watchUserPlan, getUserPlan } from "@/lib/plan";
+import { type PlanId, planDeckLimit, getPlan } from "@/lib/plans";
 
 /**
  * Dashboard shown on /app.
@@ -45,20 +46,33 @@ export default function Dashboard({
   const [loading, setLoading] = useState(true);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [todayGenerations, setTodayGenerations] = useState(0);
+  const [monthGenerations, setMonthGenerations] = useState(0);
+  const [plan, setPlan] = useState<PlanId>("free");
 
-  // "EZdeck is now free" announcement. Shows on every visit (session-only
-  // dismiss) until the user opts out via the "Don't show again" checkbox,
-  // which persists to localStorage. This is intentionally not finalised
-  // yet, so the default is to keep reminding people.
-  const [freeBanner, setFreeBanner] = useState(false);
+  // Upgrade/pricing modal. Shown on every dashboard visit (per the product
+  // decision) and whenever the user hits a plan limit or a locked feature.
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [upgradeReason, setUpgradeReason] = useState<string | undefined>(undefined);
+
+  // Show the pricing modal once per dashboard mount — only for free users.
+  // Resolve the real plan first so paid users never see the auto-popup (the
+  // live watcher emits "free" before the real tier loads).
   useEffect(() => {
-    try {
-      if (window.localStorage.getItem("ezdeck_free_banner_off") !== "1") {
-        setFreeBanner(true);
+    let cancelled = false;
+    getUserPlan(user.uid).then((p) => {
+      if (!cancelled && p === "free") {
+        setUpgradeReason(undefined);
+        setUpgradeOpen(true);
       }
-    } catch { setFreeBanner(true); }
-  }, []);
+    });
+    return () => { cancelled = true; };
+  }, [user.uid]);
+
+  // Live plan.
+  useEffect(() => {
+    const unsub = watchUserPlan(user.uid, setPlan);
+    return () => unsub();
+  }, [user.uid]);
 
   // Live deck list.
   useEffect(() => {
@@ -69,13 +83,29 @@ export default function Dashboard({
     return () => unsub();
   }, [user.uid]);
 
-  // Live daily generation count.
+  // Live monthly generation count.
   useEffect(() => {
-    const unsub = watchTodayGenerations(user.uid, setTodayGenerations);
+    const unsub = watchMonthlyGenerations(user.uid, setMonthGenerations);
     return () => unsub();
   }, [user.uid]);
 
   /* ----------------------------- derived ----------------------------- */
+
+  const deckLimit = planDeckLimit(plan);
+  const limitReached = monthGenerations >= deckLimit;
+
+  const openUpgrade = (reason?: string) => {
+    setUpgradeReason(reason);
+    setUpgradeOpen(true);
+  };
+
+  const onNewDeck = () => {
+    if (limitReached) {
+      openUpgrade(`You've used all ${deckLimit} decks on the ${getPlan(plan).name} plan this month.`);
+      return;
+    }
+    onStartFromScratch();
+  };
 
   const recentDeck = useMemo(() => {
     // "Continue working" rule: most-recent deck if updated within 7 days.
@@ -127,23 +157,29 @@ export default function Dashboard({
           />
         </nav>
 
-        {/* Quick links */}
+        {/* Plan card */}
         <div className="mt-6 rounded-xl border border-white/8 bg-white/[0.025] p-3 text-[11px] text-white/55">
           <div className="font-semibold uppercase tracking-[0.22em] text-white/40">
-            Heads up
+            {getPlan(plan).name} plan
           </div>
           <p className="mt-1.5 leading-relaxed">
-            Everything is free — generate, edit, present, and download as
-            many decks as you like.
+            {plan === "free"
+              ? "Upgrade to unlock speaker notes, Q&A prep, icons, and more decks."
+              : plan === "pro"
+                ? "You've unlocked Pro features. Go Pro Plus for unlimited decks and translation."
+                : "You're on Pro Plus — everything unlocked."}
           </p>
+          <button
+            onClick={() => openUpgrade()}
+            className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-[12px] text-white/85 transition hover:bg-white/10"
+          >
+            <Sparkles size={12} /> {plan === "proplus" ? "View plans" : "Upgrade"}
+          </button>
         </div>
 
-        {/* Bottom-anchored stack: daily quota meter + user card. The
-            mt-auto on the wrapper pushes both to the foot of the
-            sidebar so they stay glued to the bottom regardless of nav
-            length. */}
+        {/* Bottom-anchored stack: monthly quota meter + user card. */}
         <div className="mt-auto space-y-2.5">
-          <SidebarQuota used={todayGenerations} />
+          <SidebarQuota used={monthGenerations} plan={plan} onUpgrade={() => openUpgrade()} />
 
           {/* User card */}
           <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-3">
@@ -170,14 +206,12 @@ export default function Dashboard({
 
       {/* ============== Main ============== */}
       <main className="px-4 py-8 sm:px-8 lg:px-12 lg:py-10">
-        {/* "Now free" announcement */}
-        {freeBanner && (
-          <FreeBanner
-            onClose={() => setFreeBanner(false)}
-            onNeverShow={() => {
-              try { window.localStorage.setItem("ezdeck_free_banner_off", "1"); } catch { /* ignore */ }
-              setFreeBanner(false);
-            }}
+        {/* Pricing / upgrade modal — shown on every visit and on limits */}
+        {upgradeOpen && (
+          <UpgradeDialog
+            currentPlan={plan}
+            reason={upgradeReason}
+            onClose={() => setUpgradeOpen(false)}
           />
         )}
 
@@ -213,13 +247,12 @@ export default function Dashboard({
 
           <div className="flex flex-wrap items-center gap-2">
             <button
-              onClick={onStartFromScratch}
+              onClick={onNewDeck}
               data-tour="start-from-scratch"
-              disabled={todayGenerations >= DAILY_GENERATION_LIMIT}
-              className="inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-[12.5px] font-semibold text-[#03070F] transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-[12.5px] font-semibold text-[#03070F] transition hover:bg-white/90"
               title={
-                todayGenerations >= DAILY_GENERATION_LIMIT
-                  ? `Daily quota used. Resets in ${formatRefillIn()}.`
+                limitReached
+                  ? `Monthly limit reached. Resets in ${formatMonthlyResetIn()}.`
                   : "Start from a one-line brief"
               }
             >
@@ -500,15 +533,17 @@ function ContinueCard({ deck }: { deck: DeckListItem }) {
  * Refill clock ticks every minute so the copy stays fresh while users
  * sit on the dashboard.
  */
-function SidebarQuota({ used }: { used: number }) {
-  const remaining = Math.max(0, DAILY_GENERATION_LIMIT - used);
-  const pct = Math.min(100, (used / DAILY_GENERATION_LIMIT) * 100);
-  const exhausted = remaining === 0;
-  const last = remaining === 1;
+function SidebarQuota({ used, plan, onUpgrade }: { used: number; plan: PlanId; onUpgrade: () => void }) {
+  const limit = planDeckLimit(plan);
+  const unlimited = limit === Infinity;
+  const remaining = unlimited ? Infinity : Math.max(0, limit - used);
+  const pct = unlimited ? Math.min(100, used > 0 ? 12 : 0) : Math.min(100, (used / limit) * 100);
+  const exhausted = !unlimited && remaining === 0;
+  const last = !unlimited && remaining === 1;
 
-  const [refillIn, setRefillIn] = useState(formatRefillIn());
+  const [resetIn, setResetIn] = useState(formatMonthlyResetIn());
   useEffect(() => {
-    const id = window.setInterval(() => setRefillIn(formatRefillIn()), 60_000);
+    const id = window.setInterval(() => setResetIn(formatMonthlyResetIn()), 60_000);
     return () => window.clearInterval(id);
   }, []);
 
@@ -523,32 +558,44 @@ function SidebarQuota({ used }: { used: number }) {
         <div className="flex items-center gap-1.5">
           <Zap size={11} className={tone.text} />
           <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/55">
-            Daily plan
+            {getPlan(plan).name} plan
           </span>
         </div>
         <span className={`text-[12px] font-semibold tabular-nums ${tone.text}`}>
-          {used} / {DAILY_GENERATION_LIMIT}
+          {unlimited ? `${used} / ∞` : `${used} / ${limit}`}
         </span>
       </div>
 
       <div className="mt-2 text-[11px] leading-snug text-white/65">
-        {exhausted
-          ? "All generations used"
-          : last
-            ? "Last generation today"
-            : `${remaining} generation${remaining === 1 ? "" : "s"} left`}
+        {unlimited
+          ? "Unlimited decks"
+          : exhausted
+            ? "All decks used this month"
+            : last
+              ? "Last deck this month"
+              : `${remaining} deck${remaining === 1 ? "" : "s"} left this month`}
       </div>
-      <div className="mt-0.5 text-[10px] text-white/40">
-        Resets in {refillIn}
-      </div>
+      {!unlimited && (
+        <div className="mt-0.5 text-[10px] text-white/40">
+          Resets in {resetIn}
+        </div>
+      )}
 
-      {/* Slim progress bar */}
       <div className="mt-2 h-[3px] w-full overflow-hidden rounded-full bg-white/8">
         <div
           className={`h-full rounded-full transition-all duration-500 ${tone.fill}`}
           style={{ width: `${pct}%` }}
         />
       </div>
+
+      {exhausted && (
+        <button
+          onClick={onUpgrade}
+          className="mt-2.5 w-full rounded-lg bg-white px-3 py-1.5 text-[11px] font-semibold text-black transition hover:bg-white/90"
+        >
+          Upgrade for more
+        </button>
+      )}
     </div>
   );
 }

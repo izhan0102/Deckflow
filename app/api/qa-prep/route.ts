@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { Deck } from "@/lib/types";
 import { generateQAPrep, answerDeckQuestion } from "@/lib/groq";
 import { authenticateRequest, AuthError } from "@/lib/firebaseAdmin";
+import { requireFeature, PlanLimitError } from "@/lib/planServer";
 import { rateLimitResponse } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
@@ -22,7 +23,8 @@ export async function POST(req: NextRequest) {
   const limited = rateLimitResponse("qa-prep");
   if (limited) return limited;
   try {
-    await authenticateRequest(req);
+    const uid = await authenticateRequest(req);
+    await requireFeature(uid, "qaPrep");
     const { deck, question, audience, tone } = (await req.json()) as {
       deck: Deck;
       question?: string;
@@ -42,6 +44,9 @@ export async function POST(req: NextRequest) {
     const items = await generateQAPrep({ deck, audience, tone });
     return NextResponse.json({ items });
   } catch (err: any) {
+    if (err instanceof PlanLimitError) {
+      return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
+    }
     if (err instanceof AuthError) {
       return NextResponse.json({ error: err.message }, { status: err.status });
     }

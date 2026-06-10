@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { Deck } from "@/lib/types";
 import { translateDeck } from "@/lib/groq";
 import { authenticateRequest, AuthError } from "@/lib/firebaseAdmin";
+import { requireFeature, PlanLimitError } from "@/lib/planServer";
 import { rateLimitResponse } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
@@ -17,7 +18,8 @@ export async function POST(req: NextRequest) {
   const limited = rateLimitResponse("translate");
   if (limited) return limited;
   try {
-    await authenticateRequest(req);
+    const uid = await authenticateRequest(req);
+    await requireFeature(uid, "translate");
     const { deck, targetLanguage } = (await req.json()) as {
       deck: Deck;
       targetLanguage: string;
@@ -33,6 +35,9 @@ export async function POST(req: NextRequest) {
     const translated = await translateDeck({ deck, targetLanguage: targetLanguage.trim() });
     return NextResponse.json({ deck: translated });
   } catch (err: any) {
+    if (err instanceof PlanLimitError) {
+      return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
+    }
     if (err instanceof AuthError) {
       return NextResponse.json({ error: err.message }, { status: err.status });
     }

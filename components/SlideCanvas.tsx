@@ -71,6 +71,8 @@ export default function SlideCanvas({
   onSelectText,
   canvasSelection,
   onCanvasSelect,
+  watermark = false,
+  onWatermarkClick,
 }: {
   slide: Slide;
   theme: Theme;
@@ -96,6 +98,10 @@ export default function SlideCanvas({
   canvasSelection?: CanvasSelection;
   /** Select a canvas element (deco / fixed) for the sidebar. */
   onCanvasSelect?: (sel: CanvasSelection) => void;
+  /** Show the "Made with EZdeck" free-plan watermark on the slide. */
+  watermark?: boolean;
+  /** Click handler for the watermark (e.g. open the upgrade modal). */
+  onWatermarkClick?: () => void;
 }) {
   const font = effectiveFont(theme.font, slide);
   const themeFontFallback =
@@ -221,6 +227,9 @@ export default function SlideCanvas({
           canvas DOM (rendered into document.body via fixed positioning)
           so it can escape overflow:hidden boundaries. */}
       <TextFormatBar enabled={!!interactive} canvasRef={containerRef} />
+      {watermark && (
+        <WatermarkBadge interactive={interactive} onClick={onWatermarkClick} />
+      )}
     </div>
     </CanvasSelectionContext.Provider>
   );
@@ -2735,6 +2744,53 @@ function ImageBox({
         </>
       )}
     </div>
+  );
+}
+
+/* ----------------------------- Watermark badge ---------------------------- */
+
+/**
+ * Bold "Made with EZdeck" badge shown on free-plan slides (editor canvas,
+ * PDF export via the hidden renderer). Clickable in the editor to prompt an
+ * upgrade. Uses container query units so it scales with the slide.
+ */
+function WatermarkBadge({
+  interactive, onClick,
+}: { interactive: boolean; onClick?: () => void }) {
+  const clickable = interactive && !!onClick;
+  return (
+    <button
+      type="button"
+      onClick={clickable ? (e) => { e.stopPropagation(); onClick!(); } : undefined}
+      aria-label="Made with EZdeck — upgrade to remove"
+      title={clickable ? "Upgrade to remove this watermark" : "Made with EZdeck"}
+      style={{
+        position: "absolute",
+        right: "2.2cqw",
+        bottom: "2.6cqw",
+        zIndex: 40,
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "0.6cqw",
+        padding: "0.8cqw 1.6cqw",
+        borderRadius: "999px",
+        border: "none",
+        background: "rgba(0,0,0,0.55)",
+        color: "#ffffff",
+        fontWeight: 800,
+        fontSize: "2.4cqw",
+        letterSpacing: "0.02em",
+        lineHeight: 1,
+        cursor: clickable ? "pointer" : "default",
+        pointerEvents: clickable ? "auto" : "none",
+        backdropFilter: "blur(2px)",
+        boxShadow: "0 1px 6px rgba(0,0,0,0.25)",
+        whiteSpace: "nowrap",
+      }}
+    >
+      <span aria-hidden style={{ fontSize: "2.6cqw" }}>✦</span>
+      Made with EZdeck
+    </button>
   );
 }
 

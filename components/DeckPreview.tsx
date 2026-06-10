@@ -6,7 +6,7 @@ import { PRESET_THEMES } from "@/lib/themes";
 import {
   BarChart3, ChevronDown, ChevronLeft, ChevronRight, Eye, Grid3x3, Image as ImageIcon, LayoutGrid, Link as LinkIcon, List, Loader2, NotebookText, Play, RotateCcw, Smile, Star, Undo2, X,
   Type, Bold, Italic, Underline as UnderlineIcon, Trash2, AlignLeft, AlignCenter, AlignRight, PanelRightOpen,
-  Users, Plus, Minus, Languages, MessageCircleQuestion, Send,
+  Users, Plus, Minus, Languages, MessageCircleQuestion, Send, Lock,
 } from "lucide-react";
 import SlideCanvas, { type CanvasSelection } from "./SlideCanvas";
 import DesignerPanel from "./DesignerPanel";
@@ -29,6 +29,9 @@ import { SLIDE_PATTERNS, PATTERN_OPACITY, patternToDataUri } from "@/lib/pattern
 import { FONT_PRESETS, resolveFontFamily } from "@/lib/fonts";
 import type { AppUser } from "@/lib/auth";
 import { getIdToken } from "@/lib/auth";
+import { watchUserPlan } from "@/lib/plan";
+import { type PlanId, planHasFeature, planShowsWatermark } from "@/lib/plans";
+import UpgradeDialog from "./UpgradeDialog";
 
 type Props = {
   deck: Deck;
@@ -52,6 +55,26 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
   const [translateOpen, setTranslateOpen] = useState(false);
   const [translating, setTranslating] = useState(false);
   const [qaOpen, setQaOpen] = useState(false);
+  const [plan, setPlan] = useState<PlanId>("free");
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [upgradeReason, setUpgradeReason] = useState<string | undefined>(undefined);
+
+  // Live plan so feature locks reflect upgrades immediately.
+  useEffect(() => {
+    if (!user) return;
+    const unsub = watchUserPlan(user.uid, setPlan);
+    return () => unsub();
+  }, [user]);
+
+  const requireFeatureOrUpgrade = (
+    feature: "speakerNotes" | "qaPrep" | "translate" | "icons" | "reorder",
+    reason: string,
+    run: () => void,
+  ) => {
+    if (planHasFeature(plan, feature)) { run(); return; }
+    setUpgradeReason(reason);
+    setUpgradeOpen(true);
+  };
   const [patternOpen, setPatternOpen] = useState(false);
   const [iconOpen, setIconOpen] = useState(false);
   // Right "insert" sidebar: collapsed by default, opens to Add text / image.
@@ -350,9 +373,13 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
   };
 
   const downloadPptx = async () => {
+    const token = await getIdToken();
     const res = await fetch("/api/export", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body: JSON.stringify({ deck, theme }),
     });
     if (!res.ok) throw new Error(await res.text());
@@ -469,7 +496,14 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
       {qaOpen && (
         <QAPrepModal deck={deck} onClose={() => setQaOpen(false)} />
       )}
-      {renderForPdf && <HiddenSlidesRenderer ref={hiddenRef} deck={deck} theme={theme} />}
+      {upgradeOpen && (
+        <UpgradeDialog
+          currentPlan={plan}
+          reason={upgradeReason}
+          onClose={() => setUpgradeOpen(false)}
+        />
+      )}
+      {renderForPdf && <HiddenSlidesRenderer ref={hiddenRef} deck={deck} theme={theme} watermark={planShowsWatermark(plan)} />}
       <DecorationDrawer
         open={iconOpen}
         theme={theme}
@@ -552,11 +586,12 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
             <Grid3x3 size={14} /> Add pattern
           </button>
           <button
-            onClick={() => setIconOpen(true)}
+            onClick={() => requireFeatureOrUpgrade("icons", "Adding icons is a Pro feature. Upgrade to use the icon library.", () => setIconOpen(true))}
             className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
             title="Search 200,000+ icons from Iconify"
           >
             <Smile size={14} /> Add icon
+            {!planHasFeature(plan, "icons") && <Lock size={12} className="opacity-60" />}
           </button>
           {setTheme && (
             <button
@@ -584,7 +619,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
             <button
               onClick={() => {
                 if (hasNotes) { setNotesViewOpen(true); return; }
-                setNotesMenuOpen(true);
+                requireFeatureOrUpgrade("speakerNotes", "Speaker notes are a Pro feature. Upgrade to generate them.", () => setNotesMenuOpen(true));
               }}
               disabled={notesState === "loading"}
               className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 disabled:opacity-60"
@@ -597,7 +632,11 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
                 : notesState === "error" ? "Try again"
                 : hasNotes ? "Show notes"
                 : "Generate notes"}
-              {!hasNotes && notesState !== "loading" && <ChevronDown size={13} className="opacity-60" />}
+              {!hasNotes && notesState !== "loading" && (
+                planHasFeature(plan, "speakerNotes")
+                  ? <ChevronDown size={13} className="opacity-60" />
+                  : <Lock size={12} className="opacity-60" />
+              )}
             </button>
           </div>
           <button
@@ -625,6 +664,8 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
           deck={deck} theme={theme}
           active={active} setActive={setActive}
           onChange={(slides) => setDeck({ ...deck, slides })}
+          canReorder={planHasFeature(plan, "reorder")}
+          onLockedReorder={() => requireFeatureOrUpgrade("reorder", "Reordering slides is a Pro feature. Upgrade to rearrange your deck.", () => {})}
         />
 
         <div className="min-w-0">
@@ -661,6 +702,8 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
                 setCanvasSelection(sel);
                 if (sel) { setSelectedTextId(null); setSidebarOpen(true); }
               }}
+              watermark={planShowsWatermark(plan)}
+              onWatermarkClick={() => { setUpgradeReason("Upgrade to remove the \u201CMade with EZdeck\u201D watermark from your slides and exports."); setUpgradeOpen(true); }}
             />
           </div>
           <div className="mt-3 flex items-center justify-between">
@@ -794,9 +837,11 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
           updateActive({ elementHidden: { ...(deck.slides[active]?.elementHidden || {}), [id]: true } });
           setCanvasSelection(null);
         }}
-        onTranslate={() => setTranslateOpen(true)}
+        onTranslate={() => requireFeatureOrUpgrade("translate", "Translation is a Pro Plus feature. Upgrade to translate decks.", () => setTranslateOpen(true))}
         translating={translating}
-        onQAPrep={() => setQaOpen(true)}
+        onQAPrep={() => requireFeatureOrUpgrade("qaPrep", "Q&A prep is a Pro feature. Upgrade to use it.", () => setQaOpen(true))}
+        translateLocked={!planHasFeature(plan, "translate")}
+        qaLocked={!planHasFeature(plan, "qaPrep")}
       />
 
       {/* Mandatory one-time review before the first export (free). */}
@@ -1411,7 +1456,7 @@ function InsertSidebar({
   decoSelection, decoState, onUpdateDeco, onDeleteDeco,
   elementSelection, elementSize, elementText, onUpdateElementSize, onFormatElement, onResetElement, onDeleteElement,
   onTranslate, translating,
-  onQAPrep,
+  onQAPrep, translateLocked, qaLocked,
 }: {
   open: boolean;
   onToggle: () => void;
@@ -1437,6 +1482,8 @@ function InsertSidebar({
   onTranslate: () => void;
   translating: boolean;
   onQAPrep: () => void;
+  translateLocked: boolean;
+  qaLocked: boolean;
 }) {
   const SIZES = [12, 14, 16, 18, 20, 24, 28, 32, 40, 54, 72];
   const COLORS = ["", theme.fg, theme.accent, "#0F172A", "#FFFFFF", "#22D3EE", "#1D4ED8", "#DC2626", "#F59E0B", "#047857", "#7C3AED"];
@@ -1522,20 +1569,22 @@ function InsertSidebar({
                 className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white/85 transition hover:bg-white/[0.06] disabled:opacity-60"
               >
                 {translating ? <Loader2 size={16} className="animate-spin" /> : <Languages size={16} />}
-                <span>
+                <span className="flex-1">
                   <span className="block font-medium">{translating ? "Translating…" : "Translate deck"}</span>
                   <span className="block text-[11px] text-white/45">Rewrite every slide in another language</span>
                 </span>
+                {translateLocked && !translating && <Lock size={14} className="text-white/40" />}
               </button>
               <button
                 onClick={onQAPrep}
                 className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white/85 transition hover:bg-white/[0.06]"
               >
                 <MessageCircleQuestion size={16} />
-                <span>
+                <span className="flex-1">
                   <span className="block font-medium">Prep for Q&amp;A</span>
                   <span className="block text-[11px] text-white/45">Likely questions, answers, and ask your own</span>
                 </span>
+                {qaLocked && <Lock size={14} className="text-white/40" />}
               </button>
             </div>
           ) : (

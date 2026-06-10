@@ -26,9 +26,11 @@ import { createDeck, loadDeck } from "@/lib/decks";
 import { logout, onAuthStateChange, getIdToken, reloadUser, type AppUser } from "@/lib/auth";
 import { trackEvent } from "@/lib/stats";
 import {
-  DAILY_GENERATION_LIMIT, formatRefillIn,
-  getTodayGenerations, incrementTodayGenerations,
+  formatMonthlyResetIn,
+  getMonthlyGenerations,
 } from "@/lib/usage";
+import { getUserPlan } from "@/lib/plan";
+import { planDeckLimit } from "@/lib/plans";
 import { ArrowLeft } from "lucide-react";
 
 type Step = "dashboard" | "prompt" | "theme" | "font" | "graphic" | "style" | "deck";
@@ -160,8 +162,11 @@ function PageInner() {
   const [lastDirectives, setLastDirectives] = useState("");
   const requestGenerate = async () => {
     if (user) {
-      const used = await getTodayGenerations(user.uid);
-      if (used >= DAILY_GENERATION_LIMIT) {
+      const [plan, used] = await Promise.all([
+        getUserPlan(user.uid),
+        getMonthlyGenerations(user.uid),
+      ]);
+      if (used >= planDeckLimit(plan)) {
         setQuotaModal(true);
         return;
       }
@@ -196,8 +201,11 @@ const retryGenerate = () => {
     // round-trip after success keep the count honest, but a determined
     // user could still bypass via direct curl. Catches casual abuse.
     if (user) {
-      const used = await getTodayGenerations(user.uid);
-      if (used >= DAILY_GENERATION_LIMIT) {
+      const [plan, used] = await Promise.all([
+        getUserPlan(user.uid),
+        getMonthlyGenerations(user.uid),
+      ]);
+      if (used >= planDeckLimit(plan)) {
         setQuotaModal(true);
         generatingRef.current = false;
         return;
@@ -290,12 +298,8 @@ const retryGenerate = () => {
       // from continuing to work on the deck — but we want to know loudly so
       // we can react with a visible error.
       if (user) {
-        // Quota: bump today's count atomically. Done after the deck is
-        // generated, not before, so failed generations don't burn quota.
-        // Fire-and-forget — the dashboard's onValue listener will pick up
-        // the new value live.
-        incrementTodayGenerations(user.uid).catch(() => {});
-
+        // Quota is counted server-side in /api/generate (non-bypassable).
+        // The dashboard's live watcher picks up the new monthly value.
         try {
           const id = await createDeck(user.uid, deckWithExtras, effectiveTheme);
           setDeckId(id);
@@ -599,12 +603,12 @@ const retryGenerate = () => {
           >
             <div className="mx-auto mb-4 text-4xl" aria-hidden>🫠</div>
             <h3 className="text-[18px] font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>
-              you maxed out the free runs
+              you&rsquo;ve hit your monthly limit
             </h3>
             <p className="mx-auto mt-2 max-w-[19rem] text-[13.5px] leading-relaxed" style={{ color: "var(--ezd-fg-muted)" }}>
-              real ones know the grind. you&rsquo;ve used all {DAILY_GENERATION_LIMIT} of
-              today&rsquo;s free generations. take a breather and come back &mdash; it
-              refills in <span className="font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>{formatRefillIn()}</span>. no cap.
+              you&rsquo;ve used all your decks for this month on the free plan.
+              it resets in <span className="font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>{formatMonthlyResetIn()}</span>,
+              or upgrade from the dashboard for more.
             </p>
             <button
               onClick={() => setQuotaModal(false)}

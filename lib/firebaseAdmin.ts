@@ -21,11 +21,19 @@ function getAdminApp(): App {
     const serviceAccount = JSON.parse(
       Buffer.from(encoded, "base64").toString("utf-8")
     );
-    _app = initializeApp({ credential: cert(serviceAccount as any) });
+    _app = initializeApp({
+      credential: cert(serviceAccount as any),
+      databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
+    });
     return _app;
   } catch {
     throw new Error("Invalid FIREBASE_SERVICE_ACCOUNT_KEY.");
   }
+}
+
+/** Exposed so server-only helpers (plan/usage enforcement) can reach RTDB. */
+export function getAdminAppOrThrow(): App {
+  return getAdminApp();
 }
 
 // Verifies Bearer token and returns the user's uid

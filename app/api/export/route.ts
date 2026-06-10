@@ -13,6 +13,9 @@ import { iconifySvgUrl } from "@/lib/iconify";
 import { stripHtml } from "@/lib/richText";
 import { renderChartSvg } from "@/lib/charts";
 import { rateLimitResponse } from "@/lib/rateLimit";
+import { authenticateRequest } from "@/lib/firebaseAdmin";
+import { getUserPlanServer } from "@/lib/planServer";
+import { planShowsWatermark } from "@/lib/plans";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -690,7 +693,6 @@ function drawAnnotations(s: PptxGenJS.Slide, theme: Theme, slide: Slide) {
 }
 
 /* ------------------------------ Color helper ------------------------------ */
-
 function mix(a: string, b: string, t: number): string {
   // simple hex blend
   const pa = parseHex(a), pb = parseHex(b);
@@ -710,10 +712,39 @@ function parseHex(s: string) {
 
 /* ----------------------------------- POST ---------------------------------- */
 
+/** Bold "Made with EZdeck" badge baked into the bottom-right of free-plan
+ *  exports. Drawn as a filled rounded shape with text on top. */
+function drawWatermark(s: PptxGenJS.Slide) {
+  const wmW = 2.45, wmH = 0.4;
+  const x = W - wmW - 0.3, y = H - wmH - 0.3;
+  s.addShape("roundRect", {
+    x, y, w: wmW, h: wmH,
+    rectRadius: 0.2,
+    fill: { color: "000000", transparency: 35 },
+    line: { type: "none" },
+  } as any);
+  s.addText("\u2726 Made with EZdeck", {
+    x, y, w: wmW, h: wmH,
+    align: "center", valign: "middle",
+    fontSize: 11, bold: true, color: "FFFFFF",
+  });
+}
+
 export async function POST(req: NextRequest) {
   const limited = rateLimitResponse("export");
   if (limited) return limited;
   try {
+    // Resolve the user's plan (optional auth). Free plans get a watermark
+    // baked into every slide; paid plans export clean.
+    let showWatermark = true;
+    try {
+      const uid = await authenticateRequest(req);
+      showWatermark = planShowsWatermark(await getUserPlanServer(uid));
+    } catch {
+      // No/invalid token — treat as free (watermarked).
+      showWatermark = true;
+    }
+
     const { deck, theme } = (await req.json()) as { deck: Deck; theme: Theme };
     if (!deck || !theme) {
       return NextResponse.json({ error: "Missing deck or theme." }, { status: 400 });
@@ -761,6 +792,7 @@ export async function POST(req: NextRequest) {
       await drawUploadedImages(s, slide, eff);
       drawAnnotations(s, eff, slide);
       drawTextBoxes(s, raw, eff);
+      if (showWatermark) drawWatermark(s);
     }
 
     const buf = (await pptx.write({ outputType: "nodebuffer" })) as Buffer;

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateDeck, generateDeckFromContent } from "@/lib/groq";
 import { authenticateRequest, AuthError } from "@/lib/firebaseAdmin";
+import { requireDeckAllowance, incrementMonthlyGenerationsServer, PlanLimitError } from "@/lib/planServer";
 import { rateLimitResponse } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
@@ -11,6 +12,9 @@ export async function POST(req: NextRequest) {
   if (limited) return limited;
   try {
     const uid = await authenticateRequest(req);
+    // Hard, non-bypassable monthly deck limit by plan. Throws PlanLimitError
+    // (402) when the allowance is used up.
+    await requireDeckAllowance(uid);
     const body = await req.json();
     const { prompt, slideCount, audience, tone, density, includeReferences, directives, sourceText } = body || {};
 
@@ -58,13 +62,19 @@ export async function POST(req: NextRequest) {
     deck.tone = tone;
     deck.density = density;
 
+    // Count the successful generation against the monthly allowance.
+    // Server-side so it can't be skipped by a crafted client.
+    incrementMonthlyGenerationsServer(uid).catch(() => {});
+
     return NextResponse.json({ deck });
   } catch (err: any) {
     console.error("[/api/generate] error:", err);
     const status = Number(err?.status || err?.statusCode || 0);
     const msg = String(err?.message || err?.error?.message || "Generation failed.").trim();
     let code = "unknown";
-    if (err instanceof AuthError) {
+    if (err instanceof PlanLimitError) {
+      return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
+    } else if (err instanceof AuthError) {
       code = "user_auth";
     } else if (status === 429 || /rate.?limit|quota/i.test(msg)) {
       code = "rate_limit";

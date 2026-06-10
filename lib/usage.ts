@@ -1,26 +1,20 @@
 /**
- * Per-user daily generation quota.
+ * Per-user MONTHLY generation usage.
+ *
+ * Plans are billed/limited per calendar month, so usage is counted per
+ * month (UTC). The monthly allowance itself lives in lib/plans.ts and is
+ * resolved from the user's plan — this module only counts.
  *
  * Storage strategy:
- *   1. **localStorage** is the primary source of truth (always works,
- *      independent of Firebase rules). Per-browser, but that's fine —
- *      this is a soft rate-limit, not a billing system.
- *   2. **Firebase Realtime DB** at `usage/{uid}/{YYYY-MM-DD}/generations`
- *      is a best-effort sync so the count survives across browsers /
- *      devices when the rules allow it. We read the max(local, remote)
- *      so neither side ever undercounts.
+ *   1. **localStorage** is the immediate, always-works source so the gate
+ *      is responsive even if Firebase is slow/blocked.
+ *   2. **Firebase Realtime DB** at `usage/{uid}/{YYYY-MM}/generations` is a
+ *      best-effort sync so the count survives across browsers/devices.
+ *      We read max(local, remote) so neither side undercounts.
  *
- * Required DB rules to make Firebase sync work:
- *
- *   "usage": {
- *     "$uid": {
- *       ".read":  "auth != null && auth.uid === $uid",
- *       ".write": "auth != null && auth.uid === $uid"
- *     }
- *   }
- *
- * Without those rules, the writes get rejected and we silently fall
- * back to localStorage-only behavior.
+ * IMPORTANT: this client counter is for UX (meters, soft gating). The
+ * hard, non-bypassable limit is enforced server-side in /api/generate
+ * via firebase-admin (see lib/firebaseAdmin.ts).
  */
 
 import {
@@ -28,24 +22,19 @@ import {
 } from "firebase/database";
 import { getFirebaseDb } from "./firebase";
 
-/** How many decks a user can generate per day. */
-export const DAILY_GENERATION_LIMIT = 3;
-
-/** YYYY-MM-DD in UTC so the day flips at the same global instant for
- *  everyone and rate-limits don't depend on user timezone. */
-function todayKey(d = new Date()): string {
-  return d.toISOString().slice(0, 10);
+/** YYYY-MM in UTC so the month flips at the same instant for everyone. */
+export function monthKey(d = new Date()): string {
+  return d.toISOString().slice(0, 7);
 }
 
-/** Path of the per-day generations counter for a user. */
-function usagePath(uid: string, day = todayKey()): string {
-  return `usage/${uid}/${day}/generations`;
+/** Path of the per-month generations counter for a user. */
+function usagePath(uid: string, month = monthKey()): string {
+  return `usage/${uid}/${month}/generations`;
 }
 
-/** localStorage key — namespaced by uid + day so multiple sign-ins on
- *  the same browser don't share a counter. */
-function localKey(uid: string, day = todayKey()): string {
-  return `ezdeck_usage_${uid}_${day}`;
+/** localStorage key — namespaced by uid + month. */
+function localKey(uid: string, month = monthKey()): string {
+  return `ezdeck_usage_${uid}_${month}`;
 }
 
 function readLocal(uid: string): number {
@@ -61,22 +50,14 @@ function writeLocal(uid: string, value: number) {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(localKey(uid), String(value));
-    // localStorage's `storage` event only fires in OTHER tabs, so we
-    // emit a same-tab custom event here too. The watcher below listens
-    // to both.
     window.dispatchEvent(new CustomEvent("ezdeck:usage-changed", {
-      detail: { uid, day: todayKey(), value },
+      detail: { uid, month: monthKey(), value },
     }));
   } catch { /* private mode etc. */ }
 }
 
-/**
- * Read today's count. Returns the max of (localStorage, Firebase).
- *
- * If either source has a higher count we trust it — better to over-count
- * than miss a generation and let someone exceed the quota.
- */
-export async function getTodayGenerations(uid: string): Promise<number> {
+/** Read this month's count — max(localStorage, Firebase). */
+export async function getMonthlyGenerations(uid: string): Promise<number> {
   const local = readLocal(uid);
   const db = getFirebaseDb();
   if (!db) return local;
@@ -91,81 +72,48 @@ export async function getTodayGenerations(uid: string): Promise<number> {
   }
 }
 
-/**
- * Atomically bump today's count by 1.
- *
- * Local first (so the gate is reliable), then a best-effort Firebase
- * transaction. If the remote write succeeds and lands at a higher
- * number than our local copy (e.g. because another tab wrote first),
- * we adopt the remote value and write it back to localStorage.
- *
- * Returns the new committed value.
- */
-export async function incrementTodayGenerations(uid: string): Promise<number> {
-  // 1) Bump locally and immediately reflect.
+/** Atomically bump this month's count by 1; returns the new value. */
+export async function incrementMonthlyGenerations(uid: string): Promise<number> {
   const localBefore = readLocal(uid);
   const localAfter = localBefore + 1;
   writeLocal(uid, localAfter);
 
-  // 2) Best-effort remote sync.
   const db = getFirebaseDb();
   if (!db) return localAfter;
   try {
     const node = ref(db, usagePath(uid));
     const result = await runTransaction(node, (current) => {
       const cur = typeof current === "number" && isFinite(current) ? current : 0;
-      // Settle on the higher of (local, remote+1) so we never undercount
-      // if a concurrent tab also incremented.
       return Math.max(cur + 1, localAfter);
     });
     if (result.committed && typeof result.snapshot.val() === "number") {
       const committed = result.snapshot.val() as number;
       if (committed > localAfter) writeLocal(uid, committed);
-      // Stamp last-used so the dashboard could show "next refill" later.
-      update(ref(db, `usage/${uid}/${todayKey()}`), {
+      update(ref(db, `usage/${uid}/${monthKey()}`), {
         lastAt: serverTimestamp(),
       }).catch(() => {});
       return committed;
     }
   } catch (err) {
-    // Surface so the developer can see when Firebase rules aren't set
-    // up. Counter still works thanks to the local write above.
     // eslint-disable-next-line no-console
     console.warn("[usage] remote increment failed; using local count", err);
   }
   return localAfter;
 }
 
-/**
- * Live-watch today's count.
- *
- * Fires immediately with the localStorage value, then continues to
- * fire whenever the remote node changes. If the remote ever has a
- * lower value than local (because remote writes are blocked) we keep
- * reporting the local value.
- *
- * Also re-emits on the `storage` event so a generation in another tab
- * updates the meter live.
- */
-export function watchTodayGenerations(
+/** Live-watch this month's count. */
+export function watchMonthlyGenerations(
   uid: string,
   cb: (count: number) => void,
 ): () => void {
-  // Emit local right away so the UI never starts at 0 incorrectly.
   let lastLocal = readLocal(uid);
   let lastRemote = 0;
   const emit = () => cb(Math.max(lastLocal, lastRemote));
   emit();
 
-  // Cross-tab updates via the `storage` event.
   const onStorage = (e: StorageEvent) => {
-    if (e.key === localKey(uid)) {
-      lastLocal = readLocal(uid);
-      emit();
-    }
+    if (e.key === localKey(uid)) { lastLocal = readLocal(uid); emit(); }
   };
-  // Same-tab updates via our custom event, since `storage` only fires
-  // in other tabs.
   const onSameTab = (e: Event) => {
     const detail = (e as CustomEvent).detail as { uid?: string } | undefined;
     if (detail?.uid && detail.uid !== uid) return;
@@ -177,7 +125,6 @@ export function watchTodayGenerations(
     window.addEventListener("ezdeck:usage-changed", onSameTab);
   }
 
-  // Firebase live watcher.
   let unsubFb: (() => void) | null = null;
   const db = getFirebaseDb();
   if (db) {
@@ -199,22 +146,19 @@ export function watchTodayGenerations(
   };
 }
 
-/** UTC midnight of the next day — used to render "refills in X" copy. */
-export function nextRefillAt(now = new Date()): Date {
-  const d = new Date(Date.UTC(
-    now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1,
-    0, 0, 0, 0,
-  ));
-  return d;
+/** First instant (UTC) of next month — when the monthly allowance resets. */
+export function nextMonthlyResetAt(now = new Date()): Date {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 0, 0, 0, 0));
 }
 
-/** Human-readable "in 3h 12m" for the next refill. */
-export function formatRefillIn(now = new Date()): string {
-  const ms = nextRefillAt(now).getTime() - now.getTime();
+/** Human-readable "in 12 days" / "in 3h" until the monthly reset. */
+export function formatMonthlyResetIn(now = new Date()): string {
+  const ms = nextMonthlyResetAt(now).getTime() - now.getTime();
   if (ms <= 0) return "soon";
+  const days = Math.floor(ms / 86_400_000);
+  if (days >= 1) return `${days} day${days === 1 ? "" : "s"}`;
   const hours = Math.floor(ms / 3_600_000);
-  const minutes = Math.floor((ms % 3_600_000) / 60_000);
-  if (hours <= 0) return `${minutes} min`;
-  if (hours <= 1) return `${hours}h ${minutes}m`;
-  return `${hours}h`;
+  if (hours >= 1) return `${hours}h`;
+  const minutes = Math.floor(ms / 60_000);
+  return `${minutes} min`;
 }
