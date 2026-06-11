@@ -111,7 +111,11 @@ export function useTheme(): [Theme, (next: Theme) => void, () => void] {
     applyTheme(next);
     setTheme(next);
   };
-  const toggle = () => set(theme === "light" ? "dark" : "light");
+  // Read the live applied theme from the DOM at click time rather than the
+  // React state, which can lag for one render right after mount (the state
+  // starts at "light" and syncs in useEffect). Without this, a quick click
+  // before the sync could flip the wrong way.
+  const toggle = () => set(readCurrent() === "light" ? "dark" : "light");
 
   return [theme, set, toggle];
 }
