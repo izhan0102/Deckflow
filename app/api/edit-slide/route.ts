@@ -415,7 +415,6 @@ function cleanList(arr: any): string[] {
   if (!Array.isArray(arr)) return [];
   return arr
     .map((x) => cleanText(x))
-    .map((s) => s.replace(/[.,;:!?\s]+$/g, "").trim())
     .filter((s) => s.length > 0 && s.length < 400);
 }
 function isHex(s: any): s is string {
