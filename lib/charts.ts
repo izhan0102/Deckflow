@@ -154,7 +154,7 @@ function fmt(v: number, unit?: string): string {
   let s: string;
   if (Math.abs(v) >= 1000) s = (Math.round(v / 100) / 10).toString() + "k";
   else s = (Math.round(v * 10) / 10).toString();
-  return unit ? `${s}${unit}` : s;
+  return unit ? `${s}${esc(unit)}` : s;
 }
 
 /* ------------------------------ normalization ----------------------------- */
