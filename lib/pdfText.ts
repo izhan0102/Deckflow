@@ -77,12 +77,16 @@ export async function extractPdfText(
       const worker = await createWorker("eng");
       try {
         for (const n of ocrPages) {
-          onProgress?.({ phase: "ocr", page: n, total });
-          const dataUrl = await renderPageToDataUrl(doc, n);
-          if (!dataUrl) continue;
-          const { data } = await worker.recognize(dataUrl);
-          const ocrText = (data.text || "").replace(/\s+/g, " ").trim();
-          if (ocrText) pageTexts[n - 1] = ocrText;
+          try {
+            onProgress?.({ phase: "ocr", page: n, total });
+            const dataUrl = await renderPageToDataUrl(doc, n);
+            if (!dataUrl) continue;
+            const { data } = await worker.recognize(dataUrl);
+            const ocrText = (data.text || "").replace(/\s+/g, " ").trim();
+            if (ocrText) pageTexts[n - 1] = ocrText;
+          } catch (pageErr) {
+            console.warn(`[pdfText] OCR failed on page ${n}:`, pageErr);
+          }
         }
       } finally {
         await worker.terminate();
