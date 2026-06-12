@@ -960,7 +960,7 @@ function Footer({ dauToday }: { dauToday: number }) {
   return (
     <footer className="relative z-10 border-t border-white/8">
       <div className="mx-auto max-w-5xl px-6 py-10">
-        <div className="grid grid-cols-2 gap-8 md:grid-cols-5">
+        <div className="grid grid-cols-2 gap-8 md:grid-cols-6">
           {/* Brand block */}
           <div className="col-span-2">
             <Logo size="sm" />
@@ -1002,6 +1002,17 @@ function Footer({ dauToday }: { dauToday: number }) {
               { label: "Leave a review", href: "/feedback" },
               { label: "Contact", href: "/contact" },
               { label: "Sign in", href: "/auth" },
+            ]}
+          />
+          <FooterCol
+            title="Make a PPT"
+            items={[
+              { label: "Free PPT maker", href: "/free-ppt-maker" },
+              { label: "AI presentation maker", href: "/ai-presentation-maker" },
+              { label: "AI PPT maker", href: "/ai-ppt-maker" },
+              { label: "Text to PPT", href: "/text-to-ppt" },
+              { label: "PowerPoint generator", href: "/powerpoint-generator" },
+              { label: "Blog", href: "/blog" },
             ]}
           />
           <FooterCol

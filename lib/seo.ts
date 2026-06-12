@@ -151,3 +151,94 @@ export function faqJsonLd() {
     })),
   };
 }
+
+/* -------------------------------------------------------------------------- */
+/*  Structured-data helpers for content pages (landing + blog).               */
+/* -------------------------------------------------------------------------- */
+
+/** Breadcrumb trail — improves how the URL renders in search results. */
+export function breadcrumbJsonLd(items: { name: string; path: string }[]) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: items.map((it, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: it.name,
+      item: `${SITE_URL}${it.path}`,
+    })),
+  };
+}
+
+/** FAQPage JSON-LD from an arbitrary list (used by landing pages). */
+export function faqListJsonLd(faq: { q: string; a: string }[]) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faq.map((f) => ({
+      "@type": "Question",
+      name: f.q,
+      acceptedAnswer: { "@type": "Answer", text: f.a },
+    })),
+  };
+}
+
+/** Article JSON-LD for a blog post. */
+export function articleJsonLd(post: {
+  title: string;
+  description: string;
+  path: string;
+  datePublished: string;
+  dateModified?: string;
+}) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: post.title,
+    description: post.description,
+    url: `${SITE_URL}${post.path}`,
+    mainEntityOfPage: `${SITE_URL}${post.path}`,
+    datePublished: post.datePublished,
+    dateModified: post.dateModified || post.datePublished,
+    author: { "@type": "Person", name: "Muhammad Izhan" },
+    publisher: {
+      "@type": "Organization",
+      name: BRAND,
+      logo: { "@type": "ImageObject", url: `${SITE_URL}/icon` },
+    },
+  };
+}
+
+/** HowTo JSON-LD — eligible for the rich "steps" result in Google. */
+export function howToJsonLd(input: {
+  name: string;
+  description: string;
+  steps: { name: string; text: string }[];
+}) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    name: input.name,
+    description: input.description,
+    step: input.steps.map((s, i) => ({
+      "@type": "HowToStep",
+      position: i + 1,
+      name: s.name,
+      text: s.text,
+    })),
+  };
+}
+
+/** SoftwareApplication JSON-LD scoped to a specific landing keyword. */
+export function landingSoftwareJsonLd(name: string, description: string, path: string) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name,
+    url: `${SITE_URL}${path}`,
+    applicationCategory: "BusinessApplication",
+    operatingSystem: "Web",
+    description,
+    offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+  };
+}
