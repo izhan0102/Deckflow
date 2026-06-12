@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withGroqClient } from "@/lib/groqClient";
 import { authenticateRequest, AuthError } from "@/lib/firebaseAdmin";
+import { rateLimitResponse } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -153,6 +154,9 @@ function fallbackQuestions(): Question[] {
 }
 
 export async function POST(req: NextRequest) {
+  const limited = rateLimitResponse("clarify");
+  if (limited) return limited;
+
   try {
     await authenticateRequest(req);
     const { prompt, audience, tone, slideCount, sourceText } = (await req.json()) as {
