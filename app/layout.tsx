@@ -1,5 +1,6 @@
 import "./globals.css";
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import MobileGate from "@/components/MobileGate";
 import { THEME_BOOT_SCRIPT } from "@/lib/theme";
 import {
@@ -126,6 +127,7 @@ export default function RootLayout({
       <body>
         {children}
         <MobileGate />
+        <Analytics />
       </body>
     </html>
   );

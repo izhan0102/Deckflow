@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@vercel/analytics": "^2.0.1",
     "firebase": "^12.13.0",
     "firebase-admin": "^13.10.0",
     "groq-sdk": "^0.7.0",
