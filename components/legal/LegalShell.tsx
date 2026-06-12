@@ -15,7 +15,7 @@ export default function LegalShell({
             className="border-b-2 pb-0.5"
             style={{ borderColor: "var(--ezd-fg-strong)", color: "var(--ezd-fg-strong)" }}
           >
-            EZdeck
+            EXdeck
           </span>
         </Link>
         <Link

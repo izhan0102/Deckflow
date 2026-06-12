@@ -2,7 +2,7 @@
 import Link from "next/link";
 
 /**
- * EZdeck brand mark. A rounded gradient tile with the "EZ" wordmark
+ * EXdeck brand mark. A rounded gradient tile with the "EX" wordmark
  * stacked tightly inside, paired with the wordmark in display weight.
  *
  * Use the `compact` variant for sidebars / tight headers, `full` for
@@ -38,7 +38,7 @@ export default function Logo({
     <span
       className={`inline-flex items-center ${className}`}
       style={{ gap: cfg.gap }}
-      aria-label="EZdeck"
+      aria-label="EXdeck"
     >
       <Mark size={cfg.mark} fontSize={cfg.markText} />
       {variant === "full" && (
@@ -46,7 +46,7 @@ export default function Logo({
           className={`${cfg.word} font-semibold tracking-tight`}
           style={{ color: white ? "#fff" : "var(--ezd-fg-strong)" }}
         >
-          EZ<span style={{ opacity: 0.7 }}>deck</span>
+          EX<span style={{ opacity: 0.7 }}>deck</span>
         </span>
       )}
     </span>
@@ -56,7 +56,7 @@ export default function Logo({
   return <Link href={href} className="inline-flex items-center">{inner}</Link>;
 }
 
-/* The "EZ" tile. SVG so it scales crisply at any size. Monochrome: the
+/* The "EX" tile. SVG so it scales crisply at any size. Monochrome: the
    tile fills with the theme foreground (white on black, black on white)
    and the letters punch through in the page background color. */
 function Mark({ size, fontSize }: { size: number; fontSize: number }) {
@@ -85,9 +85,9 @@ function Mark({ size, fontSize }: { size: number; fontSize: number }) {
         <line x1="14" y1="42" x2="34" y2="42" />
       </g>
 
-      {/* "Z" — diagonal, same cut-out treatment. */}
+      {/* "X" — two crossing diagonals, same cut-out treatment. */}
       <path
-        d="M 38 22 L 50 22 L 38 42 L 50 42"
+        d="M 38 22 L 50 42 M 50 22 L 38 42"
         fill="none"
         stroke="var(--ezd-bg-page)"
         strokeWidth="5.5"

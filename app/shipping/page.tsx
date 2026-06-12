@@ -1,7 +1,7 @@
 import LegalShell from "@/components/legal/LegalShell";
 import { LEGAL } from "@/lib/legal";
 
-export const metadata = { title: "Shipping & Delivery Policy · EZdeck" };
+export const metadata = { title: "Shipping & Delivery Policy · EXdeck" };
 
 export default function ShippingPage() {
   return (
@@ -10,7 +10,7 @@ export default function ShippingPage() {
 
       <h2>1. Nature of the Product</h2>
       <p>
-        EZdeck is a digital software-as-a-service product offered on a free
+        EXdeck is a digital software-as-a-service product offered on a free
         plan and paid subscription plans. We do not sell or ship any physical
         goods. References to "delivery" refer to electronic provisioning of
         access and files within your browser.
@@ -18,7 +18,7 @@ export default function ShippingPage() {
 
       <h2>2. Delivery Method</h2>
       <ul>
-        <li>Generation, editing, and preview of decks are delivered in real time within the EZdeck web application.</li>
+        <li>Generation, editing, and preview of decks are delivered in real time within the EXdeck web application.</li>
         <li>Downloadable Microsoft PowerPoint (<code>.pptx</code>) and PDF files are delivered instantly via direct browser download.</li>
         <li>Paid plan features and increased limits are activated on your account immediately once a subscription is active.</li>
       </ul>
@@ -33,7 +33,7 @@ export default function ShippingPage() {
 
       <h2>4. Geographical Availability</h2>
       <p>
-        EZdeck is offered worldwide subject to applicable export controls
+        EXdeck is offered worldwide subject to applicable export controls
         and local regulations. We reserve the right to restrict access from
         specific jurisdictions where required by law.
       </p>

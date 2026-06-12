@@ -146,7 +146,7 @@ export default function ShareViewer({ params }: { params: { id: string } }) {
             This link may have been taken down by the owner, or it never existed.
           </p>
           <Link href="/" className="mt-6 inline-flex items-center gap-2 rounded-full bg-white px-5 py-2 text-sm font-semibold text-[#03070F] hover:bg-white/90">
-            Go to EZdeck
+            Go to EXdeck
           </Link>
         </div>
       </main>
@@ -341,7 +341,7 @@ export default function ShareViewer({ params }: { params: { id: string } }) {
             <span className="text-[12.5px] text-white/65">
               This deck was made with{" "}
               <Link href="/" className="font-semibold text-white underline-offset-4 hover:underline">
-                EZdeck
+                EXdeck
               </Link>
               {" "}— AI deck builder. Free to try.
             </span>

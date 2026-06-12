@@ -1,7 +1,7 @@
 import LegalShell from "@/components/legal/LegalShell";
 import { LEGAL } from "@/lib/legal";
 
-export const metadata = { title: "Privacy Policy · EZdeck" };
+export const metadata = { title: "Privacy Policy · EXdeck" };
 
 export default function PrivacyPage() {
   return (
@@ -9,11 +9,11 @@ export default function PrivacyPage() {
       <p className="meta">Last updated: {LEGAL.LAST_UPDATED}</p>
 
       <p>
-        This Privacy Policy describes how {LEGAL.BUSINESS_NAME} ("EZdeck",
+        This Privacy Policy describes how {LEGAL.BUSINESS_NAME} ("EXdeck",
         "we", "our", "us") collects, uses, discloses, and safeguards your
         information when you visit, register an account on, or use the
         services available at {LEGAL.DOMAIN} (collectively, the "Service").
-        EZdeck is operated by {LEGAL.PROPRIETOR_NAME} from{" "}
+        EXdeck is operated by {LEGAL.PROPRIETOR_NAME} from{" "}
         {LEGAL.JURISDICTION_CITY}, {LEGAL.JURISDICTION_STATE}, India. By
         using the Service you agree to the practices described in this
         policy.
@@ -53,7 +53,7 @@ export default function PrivacyPage() {
 
       <h2>3. AI Processing and Third-Party Models</h2>
       <p>
-        The text you submit through EZdeck's prompt and chat features is
+        The text you submit through EXdeck's prompt and chat features is
         sent to our AI inference provider for the sole purpose of generating
         a response. Your prompts are not used to train our or our provider's
         foundation models. Where the provider has a separate privacy policy,
@@ -100,7 +100,7 @@ export default function PrivacyPage() {
 
       <h2>8. Children</h2>
       <p>
-        EZdeck is not directed to children under 13 (or 16 in
+        EXdeck is not directed to children under 13 (or 16 in
         jurisdictions where that is the minimum age of digital consent), and
         we do not knowingly collect personal information from them. If we
         learn that we have collected such information, we will delete it

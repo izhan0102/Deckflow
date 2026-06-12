@@ -213,7 +213,7 @@ async function renderTitleAsymmetric(
       valign: "top",
     });
   }
-  s.addText("EZDECK", {
+  s.addText("EXDECK", {
     x: 0.6, y: H - 0.7, w: panelW - 1, h: 0.4,
     fontSize: 10, bold: true, color: hex(theme.bg),
     charSpacing: 5, fontFace: fontFor(theme, slide),
@@ -766,7 +766,7 @@ function parseHex(s: string) {
 
 /* ----------------------------------- POST ---------------------------------- */
 
-/** Bold "Made with EZdeck" badge baked into the bottom-right of free-plan
+/** Bold "Made with EXdeck" badge baked into the bottom-right of free-plan
  *  exports. Drawn as a filled rounded shape with text on top. */
 function drawWatermark(s: PptxGenJS.Slide) {
   const wmW = 2.45, wmH = 0.4;
@@ -777,7 +777,7 @@ function drawWatermark(s: PptxGenJS.Slide) {
     fill: { color: "000000", transparency: 35 },
     line: { type: "none" },
   } as any);
-  s.addText("\u2726 Made with EZdeck", {
+  s.addText("\u2726 Made with EXdeck", {
     x, y, w: wmW, h: wmH,
     align: "center", valign: "middle",
     fontSize: 11, bold: true, color: "FFFFFF",

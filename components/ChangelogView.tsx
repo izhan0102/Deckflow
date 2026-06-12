@@ -215,7 +215,7 @@ export default function ChangelogView({ groups }: { groups: ReleaseGroup[] }) {
               That&rsquo;s the story so far.
             </div>
             <p className="mt-4 text-[13.5px] leading-relaxed text-white/55">
-              EZdeck is open source and ships often. Read the full commit
+              EXdeck is open source and ships often. Read the full commit
               history on{" "}
               <a
                 href="https://github.com/izhan0102/Deckflow/commits"
@@ -451,7 +451,7 @@ function BigType() {
           letterSpacing: "-0.05em",
         }}
       >
-        EZ
+        EX
       </span>
     </span>
   );

@@ -6,16 +6,16 @@
  * structured data.
  *
  * When you buy a domain, set NEXT_PUBLIC_SITE_URL in the environment
- * (e.g. NEXT_PUBLIC_SITE_URL=https://ezdeck.app) and EVERYTHING — canonical
+ * (e.g. NEXT_PUBLIC_SITE_URL=https://exdeck.xyz) and EVERYTHING — canonical
  * URLs, sitemap, OpenGraph, structured data — updates automatically. No
  * code change needed.
  */
 
 export const SITE_URL = (
-  process.env.NEXT_PUBLIC_SITE_URL || "https://deckflow-pi.vercel.app"
+  process.env.NEXT_PUBLIC_SITE_URL || "https://exdeck.xyz"
 ).replace(/\/$/, "");
 
-export const BRAND = "EZdeck";
+export const BRAND = "EXdeck";
 
 /**
  * The terms real users type. People do NOT search "deck builder" — they
@@ -52,9 +52,9 @@ export const KEYWORDS = [
 ];
 
 export const DEFAULT_TITLE =
-  "EZdeck — Free AI PPT Maker | Make PowerPoint Presentations from Text";
+  "EXdeck — Free AI PPT Maker | Make PowerPoint Presentations from Text";
 
-export const TITLE_TEMPLATE = "%s | EZdeck — AI PPT Maker";
+export const TITLE_TEMPLATE = "%s | EXdeck — AI PPT Maker";
 
 export const DEFAULT_DESCRIPTION =
   "AI PPT maker with a free plan. Type a topic and get an editable PowerPoint presentation in seconds — real charts, themes, and one-click PPTX and PDF export. The fastest online AI presentation generator. No template wrestling, free to start.";
@@ -66,24 +66,24 @@ export const SHORT_DESCRIPTION =
  *  Written around the exact questions people search. */
 export const FAQ: { q: string; a: string }[] = [
   {
-    q: "Is EZdeck free to use?",
+    q: "Is EXdeck free to use?",
     a: "Yes, there's a free plan. You can generate, edit, preview, present, and export decks to PowerPoint (.pptx) and PDF on the free plan within a monthly deck limit (free exports carry a small watermark). Paid plans, Pro and Pro Plus, raise the limits and unlock more features.",
   },
   {
     q: "How do I make a PowerPoint presentation from text?",
-    a: "Type a one-line brief describing your topic, answer a few quick questions about what you want, and EZdeck's AI writes and designs a full slide deck in seconds. You can then edit every slide and export it to PowerPoint or PDF.",
+    a: "Type a one-line brief describing your topic, answer a few quick questions about what you want, and EXdeck's AI writes and designs a full slide deck in seconds. You can then edit every slide and export it to PowerPoint or PDF.",
   },
   {
     q: "Can I export to real PowerPoint (PPTX)?",
-    a: "Yes. EZdeck exports a real Microsoft PowerPoint (.pptx) file that opens and edits in PowerPoint, Keynote, and Google Slides, plus a high-resolution PDF. Your text, charts, themes, and images are preserved.",
+    a: "Yes. EXdeck exports a real Microsoft PowerPoint (.pptx) file that opens and edits in PowerPoint, Keynote, and Google Slides, plus a high-resolution PDF. Your text, charts, themes, and images are preserved.",
   },
   {
     q: "Does the AI create charts and graphs?",
-    a: "Yes. When your topic has real data, EZdeck generates clean bar, line, pie, and donut charts directly on the slides, colored to match your theme. If a topic has no real numbers, it stays text-only instead of inventing data.",
+    a: "Yes. When your topic has real data, EXdeck generates clean bar, line, pie, and donut charts directly on the slides, colored to match your theme. If a topic has no real numbers, it stays text-only instead of inventing data.",
   },
   {
-    q: "Is EZdeck better than other AI presentation makers?",
-    a: "EZdeck gives you a real inline editor (not a one-shot generator), genuine PowerPoint and PDF export with no lock-in, a free plan plus affordable Pro plans, and an AI that asks what you want before building. Generation takes about ten seconds.",
+    q: "Is EXdeck better than other AI presentation makers?",
+    a: "EXdeck gives you a real inline editor (not a one-shot generator), genuine PowerPoint and PDF export with no lock-in, a free plan plus affordable Pro plans, and an AI that asks what you want before building. Generation takes about ten seconds.",
   },
   {
     q: "How long does it take to make a presentation?",
@@ -96,8 +96,8 @@ export function softwareJsonLd() {
   return {
     "@context": "https://schema.org",
     "@type": "WebApplication",
-    name: "EZdeck",
-    alternateName: ["EZdeck AI PPT Maker", "EZdeck Presentation Maker"],
+    name: "EXdeck",
+    alternateName: ["EXdeck AI PPT Maker", "EXdeck Presentation Maker"],
     url: SITE_URL,
     applicationCategory: "BusinessApplication",
     operatingSystem: "Web",

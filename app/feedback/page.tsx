@@ -65,7 +65,7 @@ export default function FeedbackPage() {
           Tell us what you think
         </h1>
         <p className="mt-3 max-w-md text-[14px] leading-relaxed text-white/55">
-          Tried EZdeck? Drop an honest review. The good ones get featured on
+          Tried EXdeck? Drop an honest review. The good ones get featured on
           the homepage with your name and what you do.
         </p>
 
@@ -80,7 +80,7 @@ export default function FeedbackPage() {
             <h2 className="mt-4 text-[18px] font-semibold text-white">Thank you, truly.</h2>
             <p className="mx-auto mt-2 max-w-sm text-[13.5px] leading-relaxed text-white/55">
               Your review is in. If it&rsquo;s featured, you&rsquo;ll spot your name
-              on the homepage. This kind of feedback keeps EZdeck improving.
+              on the homepage. This kind of feedback keeps EXdeck improving.
             </p>
             <div className="mt-6 flex items-center justify-center gap-2.5">
               <Link

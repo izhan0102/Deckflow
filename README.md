@@ -1,4 +1,4 @@
-# EZdeck
+# EXdeck
 
 AI presentation builder. Type a short prompt, pick a theme, get an editable deck in seconds. Drag text boxes, edit them inline, swap colors, drop in charts and icons, ask the chat to rewrite a slide, and export to PowerPoint or PDF.
 

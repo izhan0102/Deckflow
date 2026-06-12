@@ -10,7 +10,7 @@ import { ImageResponse } from "next/og";
  */
 
 export const runtime = "edge";
-export const alt = "EZdeck — Free AI PPT Maker. Make PowerPoint presentations from text.";
+export const alt = "EXdeck — Free AI PPT Maker. Make PowerPoint presentations from text.";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -57,10 +57,10 @@ export default async function OG() {
               fontWeight: 800,
             }}
           >
-            EZ
+            EX
           </div>
           <span>
-            EZ<span style={{ opacity: 0.85 }}>deck</span>
+            EX<span style={{ opacity: 0.85 }}>deck</span>
           </span>
         </div>
 
@@ -185,7 +185,7 @@ export default async function OG() {
           <span>·</span>
           <span>Real PPTX & PDF export</span>
           <span>·</span>
-          <span>ezdeck.app</span>
+          <span>exdeck.xyz</span>
         </div>
       </div>
     ),

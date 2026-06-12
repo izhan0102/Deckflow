@@ -1,5 +1,5 @@
 name: Bug report
-description: Something isn't working right in EZdeck
+description: Something isn't working right in EXdeck
 labels: ["bug"]
 body:
   - type: markdown
@@ -11,7 +11,7 @@ body:
     id: area
     attributes:
       label: Where did it break?
-      description: Pick the part of EZdeck where you hit the problem.
+      description: Pick the part of EXdeck where you hit the problem.
       options:
         - Landing page
         - Generator / editor (/app)

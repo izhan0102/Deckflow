@@ -725,7 +725,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
                 if (sel) { setSelectedTextId(null); setSidebarOpen(true); }
               }}
               watermark={planShowsWatermark(plan)}
-              onWatermarkClick={() => { setUpgradeReason("Upgrade to remove the \u201CMade with EZdeck\u201D watermark from your slides and exports."); setUpgradeOpen(true); }}
+              onWatermarkClick={() => { setUpgradeReason("Upgrade to remove the \u201CMade with EXdeck\u201D watermark from your slides and exports."); setUpgradeOpen(true); }}
             />
           </div>
           <div className="mt-3 flex items-center justify-between">
@@ -1184,7 +1184,7 @@ function slugify(s: string) {
 /* ----------------------- Review gate (pre-export) ----------------------- */
 
 /**
- * Shown once before a user's first export. EZdeck is free — instead of
+ * Shown once before a user's first export. EXdeck is free — instead of
  * payment, we ask for a quick honest review. On submit we record it (and
  * remember in localStorage so we never block again) and let the export run.
  */

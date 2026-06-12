@@ -98,7 +98,7 @@ export default function SlideCanvas({
   canvasSelection?: CanvasSelection;
   /** Select a canvas element (deco / fixed) for the sidebar. */
   onCanvasSelect?: (sel: CanvasSelection) => void;
-  /** Show the "Made with EZdeck" free-plan watermark on the slide. */
+  /** Show the "Made with EXdeck" free-plan watermark on the slide. */
   watermark?: boolean;
   /** Click handler for the watermark (e.g. open the upgrade modal). */
   onWatermarkClick?: () => void;
@@ -872,7 +872,7 @@ function TitleHeroAsymmetric({ slide, theme, deckTitle, interactive, onUpdate, c
         transform: "translateY(-50%) rotate(180deg)", writingMode: "vertical-rl",
         fontSize: pt(10), color: theme.bg, opacity: 0.9, letterSpacing: "0.3em", fontWeight: 700,
       }}>
-        EZDECK
+        EXDECK
       </div>
       {/* Big quiet number on the panel */}
       <div style={{
@@ -2750,7 +2750,7 @@ function ImageBox({
 /* ----------------------------- Watermark badge ---------------------------- */
 
 /**
- * Bold "Made with EZdeck" badge shown on free-plan slides (editor canvas,
+ * Bold "Made with EXdeck" badge shown on free-plan slides (editor canvas,
  * PDF export via the hidden renderer). Clickable in the editor to prompt an
  * upgrade. Uses container query units so it scales with the slide.
  */
@@ -2762,8 +2762,8 @@ function WatermarkBadge({
     <button
       type="button"
       onClick={clickable ? (e) => { e.stopPropagation(); onClick!(); } : undefined}
-      aria-label="Made with EZdeck — upgrade to remove"
-      title={clickable ? "Upgrade to remove this watermark" : "Made with EZdeck"}
+      aria-label="Made with EXdeck — upgrade to remove"
+      title={clickable ? "Upgrade to remove this watermark" : "Made with EXdeck"}
       style={{
         position: "absolute",
         right: "2.2cqw",
@@ -2789,7 +2789,7 @@ function WatermarkBadge({
       }}
     >
       <span aria-hidden style={{ fontSize: "2.6cqw" }}>✦</span>
-      Made with EZdeck
+      Made with EXdeck
     </button>
   );
 }

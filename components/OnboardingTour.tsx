@@ -48,7 +48,7 @@ const ALL_STEPS: Step[] = [
   {
     id: "start-from-scratch",
     title: "Make your first deck",
-    body: "Type a one-line brief — topic, audience, tone — and EZdeck assembles a polished deck in about ten seconds.",
+    body: "Type a one-line brief — topic, audience, tone — and EXdeck assembles a polished deck in about ten seconds.",
     target: "start-from-scratch",
     placement: "bottom",
   },

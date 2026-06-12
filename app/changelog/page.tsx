@@ -8,7 +8,7 @@ import { fetchChangelog } from "@/lib/changelog";
 export const metadata: Metadata = {
   title: "Changelog",
   description:
-    "Every update to EZdeck, the free AI PPT maker — pulled live from the public GitHub history. New features, fixes, and improvements by release.",
+    "Every update to EXdeck, the free AI PPT maker — pulled live from the public GitHub history. New features, fixes, and improvements by release.",
   alternates: { canonical: "/changelog" },
 };
 

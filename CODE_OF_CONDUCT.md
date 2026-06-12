@@ -2,7 +2,7 @@
 
 ## Our pledge
 
-EZdeck is an open project, and we want it to stay a welcoming place for everyone who wants to contribute, regardless of age, background, body size, disability, ethnicity, gender identity, level of experience, nationality, personal appearance, race, religion, or sexual orientation.
+EXdeck is an open project, and we want it to stay a welcoming place for everyone who wants to contribute, regardless of age, background, body size, disability, ethnicity, gender identity, level of experience, nationality, personal appearance, race, religion, or sexual orientation.
 
 We pledge to make participation in this project a harassment-free experience for everyone.
 
@@ -24,7 +24,7 @@ We pledge to make participation in this project a harassment-free experience for
 
 ## Scope
 
-This Code of Conduct applies in all project spaces — GitHub issues, pull requests, discussions, and any other forum where EZdeck is represented.
+This Code of Conduct applies in all project spaces — GitHub issues, pull requests, discussions, and any other forum where EXdeck is represented.
 
 ## Enforcement
 
@@ -36,4 +36,4 @@ This Code of Conduct is adapted from the [Contributor Covenant](https://www.cont
 
 ---
 
-EZdeck is released under the [MIT License](LICENSE). Contributing to the project means your contributions are covered by the same license.
+EXdeck is released under the [MIT License](LICENSE). Contributing to the project means your contributions are covered by the same license.

@@ -1,8 +1,8 @@
 import { ImageResponse } from "next/og";
 
 /**
- * Dynamic favicon. Renders an EZ-mark tile that matches the brand logo
- * — minimal monochrome, black tile with white "EZ". Picked up
+ * Dynamic favicon. Renders an EX-mark tile that matches the brand logo
+ * — minimal monochrome, black tile with white "EX". Picked up
  * automatically by Next.js as the site icon.
  */
 
@@ -29,7 +29,7 @@ export default function Icon() {
           borderRadius: 7,
         }}
       >
-        EZ
+        EX
       </div>
     ),
     size,

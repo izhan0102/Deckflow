@@ -259,7 +259,7 @@ export async function loginWithGoogle(): Promise<AppUser> {
   if (!auth) {
     const fake: AppUser = {
       uid: "local_google_demo", email: "you@example.com",
-      name: "EZdeck user", provider: "local",
+      name: "EXdeck user", provider: "local",
       emailVerified: true,
     };
     writeLocal(fake);

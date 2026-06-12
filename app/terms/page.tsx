@@ -1,7 +1,7 @@
 import LegalShell from "@/components/legal/LegalShell";
 import { LEGAL } from "@/lib/legal";
 
-export const metadata = { title: "Terms & Conditions · EZdeck" };
+export const metadata = { title: "Terms & Conditions · EXdeck" };
 
 export default function TermsPage() {
   return (
@@ -10,9 +10,9 @@ export default function TermsPage() {
 
       <p>
         These Terms & Conditions ("Terms") form a binding agreement between
-        you ("user", "you") and {LEGAL.BUSINESS_NAME} ("EZdeck", "we",
+        you ("user", "you") and {LEGAL.BUSINESS_NAME} ("EXdeck", "we",
         "our", "us") governing your access to and use of the website at{" "}
-        {LEGAL.DOMAIN} and all related services (the "Service"). EZdeck is
+        {LEGAL.DOMAIN} and all related services (the "Service"). EXdeck is
         operated by {LEGAL.PROPRIETOR_NAME} as a sole-proprietor independent
         project. By creating an account or using the Service, you accept
         these Terms in full. If you do not accept them, do not use the
@@ -38,7 +38,7 @@ export default function TermsPage() {
 
       <h2>3. Description of Service</h2>
       <p>
-        EZdeck is a software-as-a-service product that uses generative AI
+        EXdeck is a software-as-a-service product that uses generative AI
         to produce, edit, and export presentation files based on user
         prompts and uploads. The Service is offered on an "as is" basis with
         a free plan and optional paid plans. Features may change; we will
@@ -47,7 +47,7 @@ export default function TermsPage() {
 
       <h2>4. Plans and Pricing</h2>
       <ul>
-        <li>The free plan lets you generate, edit, present, and export decks as PowerPoint (<code>.pptx</code>) or PDF within a monthly deck limit. Free exports include a small "Made with EZdeck" watermark.</li>
+        <li>The free plan lets you generate, edit, present, and export decks as PowerPoint (<code>.pptx</code>) or PDF within a monthly deck limit. Free exports include a small "Made with EXdeck" watermark.</li>
         <li>Paid plans — Pro (US$5/month) and Pro Plus (US$10/month) — raise the monthly deck limit and unlock features such as AI speaker notes, Q&amp;A prep, slide reordering, icons, watermark-free exports, and (on Pro Plus) deck translation and unlimited decks.</li>
         <li>Paid plans are billed monthly and renew automatically until cancelled. Paid checkout is not yet available; until it launches every account is on the free plan and no payment is taken.</li>
         <li>Refunds and cancellations are governed by our Refund &amp; Cancellation Policy.</li>

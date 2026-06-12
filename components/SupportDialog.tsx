@@ -64,7 +64,7 @@ export function SupportDialog({
           style={{ borderBottom: "1px solid var(--ezd-divider)" }}
         >
           <span className="inline-flex items-center gap-2 text-[13px] font-medium" style={{ color: "var(--ezd-fg-strong)" }}>
-            <Heart size={13} /> Support EZdeck
+            <Heart size={13} /> Support EXdeck
           </span>
           <button
             onClick={onClose}
@@ -87,7 +87,7 @@ export function SupportDialog({
                 <Heart size={20} />
               </div>
               <h3 className="mt-4 text-[17px] font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>
-                Keep EZdeck free and open
+                Keep EXdeck free and open
               </h3>
               <p className="mx-auto mt-2 max-w-[18rem] text-[13px] leading-relaxed" style={{ color: "var(--ezd-fg-muted)" }}>
                 It&rsquo;s built and maintained by one person, in the open.
@@ -159,7 +159,7 @@ export function SupportDialog({
                 Thank you, truly.
               </h3>
               <p className="mx-auto mt-2 max-w-[18rem] text-[13px] leading-relaxed" style={{ color: "var(--ezd-fg-muted)" }}>
-                This kind of support is exactly what keeps EZdeck free, open,
+                This kind of support is exactly what keeps EXdeck free, open,
                 and improving. It means a lot. Now go make something great.
               </p>
               <button

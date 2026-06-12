@@ -160,7 +160,7 @@ export default function GenerateOverlay({
           {/* Brand pill */}
         <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] font-medium text-white/80 backdrop-blur">
           <Sparkles size={11} className="text-cyan-300" />
-          EZdeck · cooking up your presentation
+          EXdeck · cooking up your presentation
         </div>
 
         {/* Headline */}

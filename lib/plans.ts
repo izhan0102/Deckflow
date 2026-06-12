@@ -135,7 +135,7 @@ export function deckLimitLabel(id: PlanId): string {
   return n === Infinity ? "Unlimited" : String(n);
 }
 
-/** Free plans carry the "Made with EZdeck" watermark on slides/exports. */
+/** Free plans carry the "Made with EXdeck" watermark on slides/exports. */
 export function planShowsWatermark(id: PlanId): boolean {
   return normalizePlan(id) === "free";
 }

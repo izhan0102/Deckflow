@@ -80,12 +80,12 @@ export default function DeveloperNote() {
               </div>
               <div className="min-w-0">
                 <div className="text-sm font-semibold text-white">Muhammad Izhan</div>
-                <div className="text-xs text-white/55">Designer · Developer of EZdeck</div>
+                <div className="text-xs text-white/55">Designer · Developer of EXdeck</div>
               </div>
             </div>
 
             <p className="mt-4 text-[13px] leading-relaxed text-white/75">
-              Hey, I'm Izhan — built EZdeck because I wanted slides to stop feeling
+              Hey, I'm Izhan — built EXdeck because I wanted slides to stop feeling
               like work. If something here is broken or could be better, I'd genuinely
               love to hear it.
             </p>

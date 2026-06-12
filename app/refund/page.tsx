@@ -1,7 +1,7 @@
 import LegalShell from "@/components/legal/LegalShell";
 import { LEGAL } from "@/lib/legal";
 
-export const metadata = { title: "Refund & Cancellation Policy · EZdeck" };
+export const metadata = { title: "Refund & Cancellation Policy · EXdeck" };
 
 export default function RefundPage() {
   return (
@@ -9,14 +9,14 @@ export default function RefundPage() {
       <p className="meta">Last updated: {LEGAL.LAST_UPDATED}</p>
 
       <p>
-        This policy explains how {LEGAL.BUSINESS_NAME} ("EZdeck", "we")
+        This policy explains how {LEGAL.BUSINESS_NAME} ("EXdeck", "we")
         handles refunds and cancellations for the Service at {LEGAL.DOMAIN}.
         It supplements our Terms &amp; Conditions.
       </p>
 
       <h2>1. Plans</h2>
       <p>
-        EZdeck offers a free plan and paid subscription plans (Pro at
+        EXdeck offers a free plan and paid subscription plans (Pro at
         US$5/month and Pro Plus at US$10/month). The free plan lets you
         generate, edit, present, and export decks within its monthly limits.
         Paid plans raise those limits and unlock additional features.
@@ -78,7 +78,7 @@ export default function RefundPage() {
 
       <h2>5. Unexpected Charges</h2>
       <p>
-        If you see a charge referencing EZdeck that you do not recognise,
+        If you see a charge referencing EXdeck that you do not recognise,
         email us at{" "}
         <a href={`mailto:${LEGAL.SUPPORT_EMAIL}`}>{LEGAL.SUPPORT_EMAIL}</a>{" "}
         and we will help you look into it.

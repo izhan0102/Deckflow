@@ -1,5 +1,5 @@
 name: Feature request
-description: Suggest an idea or improvement for EZdeck
+description: Suggest an idea or improvement for EXdeck
 labels: ["enhancement"]
 body:
   - type: markdown
@@ -20,7 +20,7 @@ body:
     id: solution
     attributes:
       label: Describe the solution you'd like
-      description: What would you want EZdeck to do instead?
+      description: What would you want EXdeck to do instead?
       placeholder: "e.g. A chart-type override in the slide panel so I can switch bar → line without re-generating."
     validations:
       required: true

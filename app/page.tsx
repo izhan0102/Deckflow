@@ -178,7 +178,7 @@ export default function LandingPage() {
                   hidden, fully truthful, not cloaking — describes exactly what
                   the product is. */}
               <span className="sr-only">
-                {" "}EZdeck is a free AI PPT maker that turns your text into an
+                {" "}EXdeck is a free AI PPT maker that turns your text into an
                 editable PowerPoint presentation with one-click PPTX and PDF export.
               </span>
             </h1>
@@ -192,7 +192,7 @@ export default function LandingPage() {
 
             {/* Subhead */}
             <p className="mx-auto mt-6 max-w-md text-[15px] leading-relaxed text-white/60 lg:mx-0">
-              EZdeck turns a few sentences into a working presentation you
+              EXdeck turns a few sentences into a working presentation you
               can edit slide by slide and export to PowerPoint or PDF. No
               templates to wrestle with, and a free plan to start.
             </p>
@@ -251,7 +251,7 @@ export default function LandingPage() {
           <FeatureBlock
             icon={<Wand2 size={14} />}
             title="Generate from a brief"
-            body="Write a sentence or two. Pick a theme, font, and graphic — or skip and let a template do it. EZdeck assembles every layout in about ten seconds."
+            body="Write a sentence or two. Pick a theme, font, and graphic — or skip and let a template do it. EXdeck assembles every layout in about ten seconds."
           />
           <FeatureBlock
             icon={<Shapes size={14} />}
@@ -419,7 +419,7 @@ const REVIEWS: Review[] = [
     name: "Aarav Mehta",
     role: "Product designer",
     rating: 5,
-    text: "Tried EZdeck over the weekend. The UI is clean, the workflow makes sense, and generation is genuinely fast. No clutter, no learning curve.",
+    text: "Tried EXdeck over the weekend. The UI is clean, the workflow makes sense, and generation is genuinely fast. No clutter, no learning curve.",
   },
   {
     name: "Sofia Almeida",
@@ -1019,7 +1019,7 @@ function Footer({ dauToday }: { dauToday: number }) {
       <div className="mx-6 border-t border-dashed border-white/10" />
 
       <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-2 px-6 py-4 text-[10.5px] text-white/40">
-        <span>© {new Date().getFullYear()} EZdeck — All rights reserved</span>
+        <span>© {new Date().getFullYear()} EXdeck — All rights reserved</span>
         <span className="tabular-nums">{dauToday.toLocaleString()} presentations built today</span>
         <span>
           Built by{" "}

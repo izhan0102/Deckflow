@@ -325,7 +325,7 @@ function MobileEmpty({ onCreate }: { onCreate: () => void }) {
         Make your first deck
       </h3>
       <p className="mx-auto mt-2 max-w-xs text-[13px] leading-relaxed text-white/55">
-        Type a one-line brief and EZdeck builds a full, editable deck in about ten seconds.
+        Type a one-line brief and EXdeck builds a full, editable deck in about ten seconds.
       </p>
       <button
         onClick={onCreate}

@@ -7,7 +7,7 @@ import { LEGAL } from "@/lib/legal";
 export const metadata: Metadata = {
   title: "About",
   description:
-    "A note from the developer of EZdeck — the free AI PPT maker. What I built, why I built it, and how to get in touch.",
+    "A note from the developer of EXdeck — the free AI PPT maker. What I built, why I built it, and how to get in touch.",
   alternates: { canonical: "/about" },
 };
 
@@ -57,7 +57,7 @@ export default function AboutPage() {
           Hi, I&rsquo;m Izhan.
         </h1>
         <p className="mt-4 max-w-2xl text-[14.5px] leading-relaxed text-white/55">
-          I built EZdeck because I was tired of opening PowerPoint and
+          I built EXdeck because I was tired of opening PowerPoint and
           staring at the empty title slide. This is a note about what I
           made, why, and how to reach me when something&rsquo;s broken or
           could be better.
@@ -93,12 +93,12 @@ export default function AboutPage() {
           <p>
             Start free, no card needed: generate, edit, present, and export
             to .pptx and .pdf. Free decks carry a small &ldquo;Made with
-            EZdeck&rdquo; mark; the paid plans lift the monthly limit, remove
+            EXdeck&rdquo; mark; the paid plans lift the monthly limit, remove
             it, and add the finishing touches for people who present a lot.
             All I ask is a quick honest review before your first export.
           </p>
           <p>
-            EZdeck is open source. The whole thing is published under my
+            EXdeck is open source. The whole thing is published under my
             name on GitHub so anyone can read what it does, fork it,
             file issues, or send a pull request. I&rsquo;d genuinely
             love to know what&rsquo;s broken or could be better. The
@@ -119,7 +119,7 @@ export default function AboutPage() {
               Muhammad Izhan
             </div>
             <div className="text-[11.5px] text-white/45">
-              Sole maintainer of EZdeck
+              Sole maintainer of EXdeck
             </div>
           </div>
         </div>
@@ -194,7 +194,7 @@ export default function AboutPage() {
                 <Github size={15} />
               </span>
               <div className="min-w-0">
-                <div className="text-[13px] font-semibold text-white">EZdeck source</div>
+                <div className="text-[13px] font-semibold text-white">EXdeck source</div>
                 <div className="truncate text-[11.5px] text-cyan-200/70">View on GitHub →</div>
               </div>
             </a>

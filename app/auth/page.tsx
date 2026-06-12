@@ -252,7 +252,7 @@ function AuthInner() {
           {/* Footer: legal */}
           <div className="text-center">
             <p className="text-[11px] text-white/35">
-              By continuing you agree to EZdeck's{" "}
+              By continuing you agree to EXdeck's{" "}
               <Link href="/terms" className="underline-offset-2 hover:text-white/70 hover:underline">terms</Link>
               {" "}and{" "}
               <Link href="/privacy" className="underline-offset-2 hover:text-white/70 hover:underline">privacy policy</Link>.

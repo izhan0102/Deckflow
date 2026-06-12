@@ -1,4 +1,4 @@
-# EZdeck — Issues & Ideas
+# EXdeck — Issues & Ideas
 
 A running list of issues and ideas to work through one by one.
 Status: `todo` / `in-progress` / `done`

@@ -1,8 +1,8 @@
-# Contributing to EZdeck
+# Contributing to EXdeck
 
-Thank you for your interest in contributing to EZdeck. This document is your complete guide to getting set up, following our code standards, submitting pull requests, and picking your first issue.
+Thank you for your interest in contributing to EXdeck. This document is your complete guide to getting set up, following our code standards, submitting pull requests, and picking your first issue.
 
-EZdeck welcomes contributors at all experience levels. If this is your first open-source contribution, you are in the right place.
+EXdeck welcomes contributors at all experience levels. If this is your first open-source contribution, you are in the right place.
 
 ---
 
@@ -23,7 +23,7 @@ EZdeck welcomes contributors at all experience levels. If this is your first ope
 
 ## Before you start
 
-- Read the `README.md` to understand what EZdeck does and how the generator flow works
+- Read the `README.md` to understand what EXdeck does and how the generator flow works
 - Browse open issues on GitHub and look for labels: `good first issue`, `help wanted`
 - Check whether the issue you want to work on is already assigned to someone
 - Comment on the issue to let the maintainer know you are working on it
@@ -256,4 +256,4 @@ No question is too basic.
 
 ## License
 
-EZdeck is released under the [MIT License](LICENSE). By contributing, you agree that your changes will be distributed under the same license.
+EXdeck is released under the [MIT License](LICENSE). By contributing, you agree that your changes will be distributed under the same license.

@@ -136,7 +136,7 @@ export default function MobileGate() {
         </div>
 
         <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, lineHeight: 1.3 }}>
-          EZdeck is made for desktop
+          EXdeck is made for desktop
         </h2>
         <p
           style={{

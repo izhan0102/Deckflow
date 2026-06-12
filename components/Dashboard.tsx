@@ -595,7 +595,7 @@ function EmptyState({
           Make your first presentation
         </h3>
         <p className="mt-2 max-w-md text-[13.5px] leading-relaxed text-white/55">
-          Type a one-line brief and EZdeck assembles a full, editable deck in
+          Type a one-line brief and EXdeck assembles a full, editable deck in
           about ten seconds. Specific beats long. Try one of these to start:
         </p>
 
