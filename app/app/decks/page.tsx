@@ -75,10 +75,30 @@ useEffect(() => {
     return () => unsub();
   }, [user]);
 
-  if (!authReady) {
+if (!authReady) {
     return (
-      <main className="grid min-h-screen place-items-center bg-black text-white/60 text-sm">
-        Loading…
+      <main className="min-h-screen px-4 py-10 sm:px-8" style={{ background: "var(--ezd-bg-page)" }}>
+        <header className="mx-auto mb-10 flex max-w-5xl items-center justify-between">
+          <Logo size="md" />
+          <div className="h-9 w-24 animate-pulse rounded-xl bg-white/10" />
+        </header>
+        <div className="mx-auto max-w-5xl">
+          <div className="mb-6 flex items-center justify-between">
+            <div>
+              <div className="h-8 w-32 animate-pulse rounded bg-white/10" />
+              <div className="mt-2 h-4 w-64 animate-pulse rounded bg-white/[0.06]" />
+            </div>
+          </div>
+          <div
+            className="grid auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
+            aria-label="Loading decks"
+            aria-busy="true"
+          >
+            {Array.from({ length: 6 }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
+        </div>
       </main>
     );
   }
@@ -204,6 +224,26 @@ useEffect(() => {
         </div>
       )}
     </main>
+  );
+}
+
+function SkeletonCard() {
+  return (
+    <div
+      aria-hidden="true"
+      className="flex h-full flex-col rounded-2xl border border-white/10 bg-white/[0.02] p-4 animate-pulse"
+    >
+      <div className="mb-3 h-28 rounded-xl bg-white/[0.06]" />
+      <div className="min-h-[64px]">
+        <div className="h-4 w-3/4 rounded bg-white/[0.06]" />
+        <div className="mt-2 h-3 w-1/2 rounded bg-white/[0.04]" />
+      </div>
+      <div className="mt-2 flex items-center justify-between">
+        <div className="h-3 w-12 rounded bg-white/[0.04]" />
+        <div className="h-3 w-16 rounded bg-white/[0.04]" />
+      </div>
+      <div className="mt-3 h-8 rounded-lg bg-white/[0.06]" />
+    </div>
   );
 }
 
