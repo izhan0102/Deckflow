@@ -50,82 +50,92 @@ export async function extractPdfText(
   const pdfjs = await loadPdfjs();
   const buf = await file.arrayBuffer();
   const doc = await pdfjs.getDocument({ data: buf }).promise;
-  const total = doc.numPages;
 
-  const pageTexts: string[] = [];
-  const ocrPages: number[] = [];
+  try {
+    const total = doc.numPages;
+    const pageTexts: string[] = [];
+    const ocrPages: number[] = [];
 
-  // -------- Pass 1: text layer --------
-  for (let n = 1; n <= total; n++) {
-    onProgress?.({ phase: "reading", page: n, total });
-    const page = await doc.getPage(n);
-    const content = await page.getTextContent();
-    const text = content.items
-      .map((it: any) => (typeof it.str === "string" ? it.str : ""))
-      .join(" ")
-      .replace(/\s+/g, " ")
-      .trim();
-    pageTexts.push(text);
-    if (text.length < MIN_CHARS_PER_PAGE) ocrPages.push(n);
-    page.cleanup();
-  }
-
-  // -------- Pass 2: OCR for image-only pages --------
-  if (ocrPages.length > 0) {
-    try {
-      const { createWorker } = await import("tesseract.js");
-      const worker = await createWorker("eng");
+    // -------- Pass 1: text layer --------
+    for (let n = 1; n <= total; n++) {
+      onProgress?.({ phase: "reading", page: n, total });
+      const page = await doc.getPage(n);
       try {
-        for (const n of ocrPages) {
-          try {
-            onProgress?.({ phase: "ocr", page: n, total });
-            const dataUrl = await renderPageToDataUrl(doc, n);
-            if (!dataUrl) continue;
-            const { data } = await worker.recognize(dataUrl);
-            const ocrText = (data.text || "").replace(/\s+/g, " ").trim();
-            if (ocrText) pageTexts[n - 1] = ocrText;
-          } catch (pageErr) {
-            console.warn(`[pdfText] OCR failed on page ${n}:`, pageErr);
-          }
-        }
+        const content = await page.getTextContent();
+        const text = content.items
+          .map((it: any) => (typeof it.str === "string" ? it.str : ""))
+          .join(" ")
+          .replace(/\s+/g, " ")
+          .trim();
+        pageTexts.push(text);
+        if (text.length < MIN_CHARS_PER_PAGE) ocrPages.push(n);
       } finally {
-        await worker.terminate();
+        page.cleanup();
       }
-    } catch (e) {
-      // OCR is best-effort. If it fails we still return whatever the text
-      // layer produced.
-      // eslint-disable-next-line no-console
-      console.warn("[pdfText] OCR pass failed:", e);
     }
+
+    // -------- Pass 2: OCR for image-only pages --------
+    if (ocrPages.length > 0) {
+      try {
+        const { createWorker } = await import("tesseract.js");
+        const worker = await createWorker("eng");
+        try {
+          for (const n of ocrPages) {
+            try {
+              onProgress?.({ phase: "ocr", page: n, total });
+              const dataUrl = await renderPageToDataUrl(doc, n);
+              if (!dataUrl) continue;
+              const { data } = await worker.recognize(dataUrl);
+              const ocrText = (data.text || "").replace(/\s+/g, " ").trim();
+              if (ocrText) pageTexts[n - 1] = ocrText;
+            } catch (pageErr) {
+              console.warn(`[pdfText] OCR failed on page ${n}:`, pageErr);
+            }
+          }
+        } finally {
+          await worker.terminate();
+        }
+      } catch (e) {
+        // OCR is best-effort. If it fails we still return whatever the text
+        // layer produced.
+        // eslint-disable-next-line no-console
+        console.warn("[pdfText] OCR pass failed:", e);
+      }
+    }
+
+    onProgress?.({ phase: "done", total });
+    return pageTexts.filter(Boolean).join("\n\n").trim();
+  } finally {
+    doc.destroy();
   }
-
-  onProgress?.({ phase: "done", total });
-  doc.destroy();
-
-  return pageTexts.filter(Boolean).join("\n\n").trim();
 }
 
 /** Rasterize a single PDF page to a PNG data URL for OCR. */
 async function renderPageToDataUrl(doc: any, n: number): Promise<string | null> {
   const page = await doc.getPage(n);
-  // Scale up so OCR has enough resolution to read small print, but cap the
-  // canvas so a huge page doesn't blow out memory.
-  const baseViewport = page.getViewport({ scale: 1 });
-  const targetWidth = Math.min(1600, Math.max(1000, baseViewport.width * 2));
-  const scale = targetWidth / baseViewport.width;
-  const viewport = page.getViewport({ scale });
+  try {
+    const canvas = document.createElement("canvas");
+    try {
+      // Scale up so OCR has enough resolution to read small print, but cap the
+      // canvas so a huge page doesn't blow out memory.
+      const baseViewport = page.getViewport({ scale: 1 });
+      const targetWidth = Math.min(1600, Math.max(1000, baseViewport.width * 2));
+      const scale = targetWidth / baseViewport.width;
+      const viewport = page.getViewport({ scale });
 
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.ceil(viewport.width);
-  canvas.height = Math.ceil(viewport.height);
-  const ctx = canvas.getContext("2d");
-  if (!ctx) { page.cleanup(); return null; }
+      canvas.width = Math.ceil(viewport.width);
+      canvas.height = Math.ceil(viewport.height);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return null;
 
-  await page.render({ canvasContext: ctx, viewport }).promise;
-  const url = canvas.toDataURL("image/png");
-  page.cleanup();
-  // Free the canvas.
-  canvas.width = 0;
-  canvas.height = 0;
-  return url;
+      await page.render({ canvasContext: ctx, viewport }).promise;
+      return canvas.toDataURL("image/png");
+    } finally {
+      // Free the canvas.
+      canvas.width = 0;
+      canvas.height = 0;
+    }
+  } finally {
+    page.cleanup();
+  }
 }
