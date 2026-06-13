@@ -37,21 +37,21 @@ function localKey(uid: string, month = monthKey()): string {
   return `ezdeck_usage_${uid}_${month}`;
 }
 
-function readLocal(uid: string): number {
+function readLocal(uid: string, month = monthKey()): number {
   if (typeof window === "undefined") return 0;
   try {
-    const v = window.localStorage.getItem(localKey(uid));
+    const v = window.localStorage.getItem(localKey(uid, month));
     const n = v ? parseInt(v, 10) : 0;
     return Number.isFinite(n) && n >= 0 ? n : 0;
   } catch { return 0; }
 }
 
-function writeLocal(uid: string, value: number) {
+function writeLocal(uid: string, value: number, month = monthKey()) {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(localKey(uid), String(value));
+    window.localStorage.setItem(localKey(uid, month), String(value));
     window.dispatchEvent(new CustomEvent("ezdeck:usage-changed", {
-      detail: { uid, month: monthKey(), value },
+      detail: { uid, month, value },
     }));
   } catch { /* private mode etc. */ }
 }
@@ -106,41 +106,82 @@ export function watchMonthlyGenerations(
   uid: string,
   cb: (count: number) => void,
 ): () => void {
-  let lastLocal = readLocal(uid);
+  let activeMonth = monthKey();
+  let lastLocal = readLocal(uid, activeMonth);
   let lastRemote = 0;
+  let unsubFb: (() => void) | null = null;
+  let checkInterval: number;
+
   const emit = () => cb(Math.max(lastLocal, lastRemote));
-  emit();
 
   const onStorage = (e: StorageEvent) => {
-    if (e.key === localKey(uid)) { lastLocal = readLocal(uid); emit(); }
+    if (e.key === localKey(uid, activeMonth)) {
+      lastLocal = readLocal(uid, activeMonth);
+      emit();
+    }
   };
+
   const onSameTab = (e: Event) => {
-    const detail = (e as CustomEvent).detail as { uid?: string } | undefined;
+    const detail = (e as CustomEvent).detail as { uid?: string; month?: string } | undefined;
     if (detail?.uid && detail.uid !== uid) return;
-    lastLocal = readLocal(uid);
+
+    const nowMonth = monthKey();
+    if (nowMonth !== activeMonth) {
+      applyMonth(nowMonth);
+      return;
+    }
+
+    if (detail?.month && detail.month !== activeMonth) return;
+    lastLocal = readLocal(uid, activeMonth);
     emit();
   };
+
+  function subscribeFirebase() {
+    if (unsubFb) unsubFb();
+    unsubFb = null;
+    const db = getFirebaseDb();
+    if (db) {
+      const node = ref(db, usagePath(uid, activeMonth));
+      const u = onValue(node, (snap) => {
+        const v = snap.val();
+        lastRemote = typeof v === "number" && isFinite(v) ? v : 0;
+        emit();
+      });
+      unsubFb = () => u();
+    }
+  }
+
+  function applyMonth(newMonth: string) {
+    activeMonth = newMonth;
+    lastLocal = readLocal(uid, activeMonth);
+    lastRemote = 0;
+    subscribeFirebase();
+    emit();
+  }
+
+  // Initial setup
+  emit();
+
   if (typeof window !== "undefined") {
     window.addEventListener("storage", onStorage);
     window.addEventListener("ezdeck:usage-changed", onSameTab);
+
+    // Periodically check for month rollover
+    checkInterval = window.setInterval(() => {
+      const nowMonth = monthKey();
+      if (nowMonth !== activeMonth) {
+        applyMonth(nowMonth);
+      }
+    }, 60_000); // Check every minute
   }
 
-  let unsubFb: (() => void) | null = null;
-  const db = getFirebaseDb();
-  if (db) {
-    const node = ref(db, usagePath(uid));
-    const u = onValue(node, (snap) => {
-      const v = snap.val();
-      lastRemote = typeof v === "number" && isFinite(v) ? v : 0;
-      emit();
-    });
-    unsubFb = () => u();
-  }
+  subscribeFirebase();
 
   return () => {
     if (typeof window !== "undefined") {
       window.removeEventListener("storage", onStorage);
       window.removeEventListener("ezdeck:usage-changed", onSameTab);
+      window.clearInterval(checkInterval);
     }
     unsubFb?.();
   };
