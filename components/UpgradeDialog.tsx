@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
-import { X } from "lucide-react";
+import Link from "next/link";
+import { Github, X } from "lucide-react";
 import PricingPlans from "./PricingPlans";
 import { type PlanId } from "@/lib/plans";
 
@@ -63,6 +64,37 @@ export default function UpgradeDialog({
         <div className="mt-5">
           <PricingPlans currentPlan={currentPlan} onUpgrade={onUpgrade} />
         </div>
+
+        {/* Contributor perk — open-source contributors get a free Pro Plus
+            month. Routes to the redeem page which auto-activates it. */}
+        {currentPlan !== "proplus" && (
+          <Link
+            href="/redeem"
+            onClick={onClose}
+            className="mt-4 flex items-center justify-between gap-3 rounded-xl border px-4 py-3 transition hover:opacity-90"
+            style={{ borderColor: "var(--ezd-hairline)", background: "var(--ezd-bg-hover)" }}
+          >
+            <span className="flex min-w-0 items-center gap-2.5">
+              <span
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border"
+                style={{ borderColor: "var(--ezd-hairline)", color: "var(--ezd-fg-strong)" }}
+              >
+                <Github size={15} />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-[13px] font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>
+                  Contributed to EXdeck?
+                </span>
+                <span className="block text-[11.5px]" style={{ color: "var(--ezd-fg-muted)" }}>
+                  Click here to claim a free month of Pro Plus.
+                </span>
+              </span>
+            </span>
+            <span className="shrink-0 text-[13px] font-medium" style={{ color: "var(--ezd-fg-strong)" }} aria-hidden>
+              →
+            </span>
+          </Link>
+        )}
 
         <p className="mt-4 text-center text-[11px]" style={{ color: "var(--ezd-fg-quiet)" }}>
           You&rsquo;re on the {currentPlan === "free" ? "Free" : currentPlan === "pro" ? "Pro" : "Pro Plus"} plan.

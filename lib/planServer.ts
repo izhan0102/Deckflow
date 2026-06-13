@@ -14,7 +14,7 @@
 import { getDatabase } from "firebase-admin/database";
 import { getAdminAppOrThrow } from "./firebaseAdmin";
 import {
-  type PlanId, type PlanFeature, DEFAULT_PLAN, normalizePlan,
+  type PlanId, type PlanFeature, DEFAULT_PLAN, resolvePlanFromNode,
   planHasFeature, planDeckLimit, getPlan,
 } from "./plans";
 
@@ -34,12 +34,12 @@ function monthKey(d = new Date()): string {
   return d.toISOString().slice(0, 7);
 }
 
-/** Read a user's plan server-side. Defaults to free on any error. */
+/** Read a user's plan server-side. Defaults to free on any error. Honors expiry. */
 export async function getUserPlanServer(uid: string): Promise<PlanId> {
   try {
     const db = getDatabase(getAdminAppOrThrow());
-    const snap = await db.ref(`plans/${uid}/tier`).get();
-    return snap.exists() ? normalizePlan(snap.val()) : DEFAULT_PLAN;
+    const snap = await db.ref(`plans/${uid}`).get();
+    return snap.exists() ? resolvePlanFromNode(snap.val()) : DEFAULT_PLAN;
   } catch {
     return DEFAULT_PLAN;
   }

@@ -18,21 +18,21 @@
 import { get, child, ref, onValue } from "firebase/database";
 import { getFirebaseDb } from "./firebase";
 import {
-  type PlanId, type PlanFeature, DEFAULT_PLAN, normalizePlan,
+  type PlanId, type PlanFeature, DEFAULT_PLAN, resolvePlanFromNode,
   planHasFeature, planDeckLimit,
 } from "./plans";
 
 function planPath(uid: string): string {
-  return `plans/${uid}/tier`;
+  return `plans/${uid}`;
 }
 
-/** Read the user's plan once. Defaults to free. */
+/** Read the user's plan once. Defaults to free. Honors expiry. */
 export async function getUserPlan(uid: string): Promise<PlanId> {
   const db = getFirebaseDb();
   if (!db) return DEFAULT_PLAN;
   try {
     const snap = await get(child(ref(db), planPath(uid)));
-    return snap.exists() ? normalizePlan(snap.val()) : DEFAULT_PLAN;
+    return snap.exists() ? resolvePlanFromNode(snap.val()) : DEFAULT_PLAN;
   } catch {
     return DEFAULT_PLAN;
   }
@@ -45,7 +45,7 @@ export function watchUserPlan(uid: string, cb: (plan: PlanId) => void): () => vo
   if (!db) return () => {};
   const node = ref(db, planPath(uid));
   const u = onValue(node, (snap) => {
-    cb(snap.exists() ? normalizePlan(snap.val()) : DEFAULT_PLAN);
+    cb(snap.exists() ? resolvePlanFromNode(snap.val()) : DEFAULT_PLAN);
   });
   return () => u();
 }

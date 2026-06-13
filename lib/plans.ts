@@ -110,9 +110,42 @@ export const PLANS: Record<PlanId, Plan> = {
 export const PLAN_ORDER: PlanId[] = ["free", "pro", "proplus"];
 export const DEFAULT_PLAN: PlanId = "free";
 
+/**
+ * Contributor free-Pro-Plus promo deadline. New activations are accepted
+ * only up to this moment; the granted pass itself still lasts a month from
+ * whenever it's activated. (June 25, 2026, end of day UTC.)
+ */
+export const PROMO_OFFER_END = Date.UTC(2026, 5, 25, 23, 59, 59, 999);
+
+/** Whether the contributor promo is still accepting activations. */
+export function isPromoOpen(now: number = Date.now()): boolean {
+  return now <= PROMO_OFFER_END;
+}
+
 /** Coerce any value into a valid PlanId, defaulting to free. */
 export function normalizePlan(value: unknown): PlanId {
   return value === "pro" || value === "proplus" ? value : "free";
+}
+
+/**
+ * Resolve the effective plan from a `plans/{uid}` node, honoring an
+ * optional expiry. The node may be a bare tier string (legacy shape) or
+ * an object like `{ tier, expiresAt }`. A paid tier whose `expiresAt`
+ * has passed falls back to free, so time-limited grants auto-expire
+ * everywhere the plan is read (client and server) without a cron job.
+ */
+export function resolvePlanFromNode(node: unknown, now: number = Date.now()): PlanId {
+  if (!node) return DEFAULT_PLAN;
+  if (typeof node === "string") return normalizePlan(node);
+  if (typeof node === "object") {
+    const obj = node as { tier?: unknown; expiresAt?: unknown };
+    const tier = normalizePlan(obj.tier);
+    if (tier !== "free" && typeof obj.expiresAt === "number" && now > obj.expiresAt) {
+      return DEFAULT_PLAN;
+    }
+    return tier;
+  }
+  return DEFAULT_PLAN;
 }
 
 export function getPlan(id: PlanId): Plan {
