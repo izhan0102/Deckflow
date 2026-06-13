@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Deck, Slide, UploadedImage, TextBox } from "@/lib/types";
 import type { Theme } from "@/lib/themes";
 import { PRESET_THEMES } from "@/lib/themes";
@@ -122,7 +122,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
     setCanUndo(hist.length > 1);
   }, [deck]);
 
-  const undo = () => {
+  const undo = useCallback(() => {
     const hist = historyRef.current;
     if (hist.length < 2) return;
     // Pop current state; the new "last" is the previous state.
@@ -132,7 +132,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
     skipNextHistoryPushRef.current = true;
     setDeck(prev);
     setCanUndo(hist.length > 1);
-  };
+  }, [setDeck, setCanUndo]);
 
   // Ctrl/Cmd+Z to undo, ignoring when the user is typing in an editable.
   useEffect(() => {
@@ -146,7 +146,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [undo]);
   // Has the user already left a review? We only gate the first export.
   useEffect(() => {
     try {
