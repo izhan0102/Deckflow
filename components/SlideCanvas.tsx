@@ -681,7 +681,7 @@ function Deco({
   defaultColor: string;
   render: (color: string, scale: number) => React.ReactNode;
 }) {
-  const ov = slide.deco?.[decoKey] || {};
+  const ov = useMemo(() => slide.deco?.[decoKey] || {}, [slide.deco, decoKey]);
   const sel = useCanvasSelection();
   const [hover, setHover] = useState(false);
   const elRef = useRef<HTMLDivElement>(null);
@@ -694,9 +694,9 @@ function Deco({
   const scale = ov.scale ?? 1;
   const color = ov.color || defaultColor;
 
-  const patch = (next: Partial<typeof ov>) => onUpdate?.({
+  const patch = useCallback((next: Partial<typeof ov>) => onUpdate?.({
     deco: { ...(slide.deco || {}), [decoKey]: { ...ov, ...next } },
-  });
+  }), [onUpdate, slide.deco, decoKey, ov]);
 
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     if (!interactive || !onUpdate) return;
@@ -738,7 +738,7 @@ function Deco({
     if (!onUpdate || !finalOffset) return;
     if (finalOffset.dx === dx && finalOffset.dy === dy) return;
     patch({ dx: finalOffset.dx, dy: finalOffset.dy });
-  }, [onUpdate, dx, dy, slide.deco, decoKey]);
+  }, [onUpdate, dx, dy, patch]);
 
   // Hidden — render nothing, after hooks have run (rules of hooks).
   if (ov.hidden) return null;
