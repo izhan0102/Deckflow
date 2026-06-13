@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState, useCallback, createContext, useContext } from "react";
+import { useRef, useState, useCallback, createContext, useContext, useMemo } from "react";
 import type {
   Slide, Annotation, Anchor, ElementId, ElementOffset,
   TableData, Reference, UploadedImage, TextBox,
