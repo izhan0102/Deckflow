@@ -12,7 +12,6 @@ import GenerateOverlay from "@/components/GenerateOverlay";
 import ClarifyDialog from "@/components/ClarifyDialog";
 import TemplateGallery from "@/components/TemplateGallery";
 import TemplateDesigner from "@/components/TemplateDesigner";
-import OnboardingTour from "@/components/OnboardingTour";
 import Dashboard from "@/components/Dashboard";
 import DashboardMobile from "@/components/DashboardMobile";
 import { useDeviceMode } from "@/lib/deviceMode";
@@ -92,7 +91,7 @@ function PageInner() {
   const [audience, setAudience] = useState("");
   const [tone, setTone] = useState("");
   const [density, setDensity] = useState<ContentDensity>("balanced");
-  const [includeReferences, setIncludeReferences] = useState(true);
+  const [includeReferences, setIncludeReferences] = useState(false);
   const [theme, setTheme] = useState<Theme>(PRESET_THEMES[0]);
   const [graphicId, setGraphicId] = useState<string>("none");
   const [graphicAccent, setGraphicAccent] = useState<string | undefined>(undefined);
@@ -387,9 +386,6 @@ const retryGenerate = () => {
             onSignOut={async () => { await logout(); router.replace("/"); }}
           />
         </div>
-
-        {/* First-visit walkthrough still useful here. Self-disables after one show. */}
-        <OnboardingTour enabled />
       </main>
     );
   }
@@ -539,7 +535,9 @@ const retryGenerate = () => {
         onComplete={(directives) => {
           setClarifyOpen(false);
           setLastDirectives(directives);
-          setStep("style");
+          // Template already sets the look, so skip the theme/style steps
+          // and generate straight away.
+          generate(directives);
         }}
       />
 
@@ -586,7 +584,6 @@ const retryGenerate = () => {
       )}
 
       {/* First-visit walkthrough. Self-disables after one show. */}
-      <OnboardingTour enabled={false} />
 
       {/* Quota-exceeded popup — shown if a user hits Generate after using
           all their daily runs. */}

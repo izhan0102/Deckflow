@@ -33,6 +33,7 @@ import { getIdToken } from "@/lib/auth";
 import { watchUserPlan } from "@/lib/plan";
 import { type PlanId, planHasFeature, planShowsWatermark } from "@/lib/plans";
 import UpgradeDialog from "./UpgradeDialog";
+import DeckTour from "./DeckTour";
 
 type Props = {
   deck: Deck;
@@ -481,6 +482,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
 
   return (
     <div className="fade-in mx-auto w-full max-w-[1400px]">
+      <DeckTour userId={user?.uid ?? null} />
       {presenting && (
         <Presenter deck={deck} theme={theme} startIndex={active} onClose={() => setPresenting(false)} />
       )}
@@ -554,6 +556,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
           <div
             role="tablist"
             aria-label="Editor view"
+            data-tour="tour-outline"
             className="inline-flex items-center rounded-xl border border-white/15 bg-white/[0.04] p-1 text-[13px]"
           >
             <button
@@ -609,6 +612,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
           </button>
           <button
             onClick={() => requireFeatureOrUpgrade("icons", "Adding icons is a Pro feature. Upgrade to use the icon library.", () => setIconOpen(true))}
+            data-tour="tour-icon"
             className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
             title="Search 200,000+ icons from Iconify"
           >
@@ -618,6 +622,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
           {setTheme && (
             <button
               onClick={() => setThemeTransferOpen(true)}
+              data-tour="tour-theme"
               className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
               title="Apply a different theme to the whole deck"
             >
@@ -631,13 +636,14 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
             <button
               onClick={onShare}
               disabled={sharing}
+              data-tour="tour-share"
               className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 disabled:opacity-60"
               title="Get a public link to share this deck"
             >
               <LinkIcon size={14} /> {sharing ? "Sharing…" : "Share"}
             </button>
           )}
-          <div className="relative">
+          <div className="relative" data-tour="tour-notes">
             <button
               onClick={() => {
                 if (hasNotes) { setNotesViewOpen(true); return; }
@@ -663,6 +669,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
           </div>
           <button
             onClick={() => setPresenting(true)}
+            data-tour="tour-present"
             className="inline-flex items-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm text-emerald-200 hover:bg-emerald-400/20"
             title="Start full-screen presentation (Esc to exit)"
           >
@@ -674,7 +681,9 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
           >
             <RotateCcw size={14} /> Start over
           </button>
-          <ExportButton onExport={onExport} busy={downloading} handoutLocked={!planHasFeature(plan, "handout")} />
+          <span data-tour="tour-export">
+            <ExportButton onExport={onExport} busy={downloading} handoutLocked={!planHasFeature(plan, "handout")} />
+          </span>
         </div>
       </div>
 
@@ -746,7 +755,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
             </button>
           </div>
 
-          <div className="mt-4">
+          <div className="mt-4" data-tour="tour-ask-ai">
             <DeckChat
               deck={deck}
               theme={theme}
@@ -764,7 +773,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
           )}
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-zinc-950/60">
+        <div className="rounded-2xl border border-white/10 bg-zinc-950/60" data-tour="tour-styles">
           <DesignerPanel
             slide={deck.slides[active]}
             theme={theme}

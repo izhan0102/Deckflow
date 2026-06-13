@@ -1,6 +1,15 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, FileText, LayoutGrid, Loader2, Sparkles, Upload, Wand2 } from "lucide-react";
+import {
+  ArrowRight,
+  Check,
+  FileText,
+  LayoutGrid,
+  Loader2,
+  Sparkles,
+  Upload,
+  Wand2,
+} from "lucide-react";
 import type { ContentDensity } from "@/lib/types";
 
 type Props = {
@@ -52,7 +61,6 @@ const DENSITY_OPTIONS: { id: ContentDensity; label: string; hint: string }[] = [
 export default function PromptStep(p: Props) {
   const taRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const [confirmOpen, setConfirmOpen] = useState(false);
   const [uploadName, setUploadName] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   // PDF extraction progress (client-side text layer + OCR). Null when idle.
@@ -79,21 +87,22 @@ export default function PromptStep(p: Props) {
     const ta = taRef.current;
     if (!ta) return;
     ta.style.height = "auto";
-    ta.style.height = `${Math.min(Math.max(ta.scrollHeight, 200), 420)}px`;
+    ta.style.height = `${Math.min(Math.max(ta.scrollHeight, 168), 360)}px`;
   }, [p.prompt, isContent]);
 
-  // Cmd/Ctrl + Enter to continue.
+  // Cmd/Ctrl + Enter: generate when a template is chosen, otherwise jump
+  // straight to picking one (a template is required before generating).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && p.prompt.trim().length >= 5) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
         e.preventDefault();
-        if (p.activeTemplateName && p.onGenerateDirect) p.onGenerateDirect();
-        else p.onNext();
+        if (p.activeTemplateName) p.onGenerateDirect?.();
+        else p.onUseTemplate?.();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [p.prompt, p.onNext, p.activeTemplateName, p.onGenerateDirect, p]);
+  }, [p.activeTemplateName, p.onGenerateDirect, p.onUseTemplate]);
 
   const charCount = p.prompt.length;
   const sourceCount = p.sourceText.length;
@@ -108,11 +117,6 @@ export default function PromptStep(p: Props) {
     if (charCount < 500) return "Plenty to work with — every detail will be used.";
     return "Long brief — every section will be honored. Use as much detail as you want.";
   }, [charCount]);
-
-  const onContinue = () => {
-    if (p.activeTemplateName) setConfirmOpen(true);
-    else p.onNext();
-  };
 
   // Read a dropped/selected file into the source box. Plain text (.txt/.md)
   // is read directly; PDFs are extracted client-side (text layer + OCR) so
@@ -187,23 +191,17 @@ export default function PromptStep(p: Props) {
   };
 
   return (
-    <div className="fade-in mx-auto w-full max-w-6xl">
-      {/* Page header */}
-      <div className="mb-8 flex flex-col items-start gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight md:text-[34px]">
-            {isContent ? "Turn your content into slides" : "Tell me about the deck"}
-          </h1>
-          <p className="mt-1.5 max-w-xl text-sm text-white/55">
-            {isContent
-              ? "Upload a PDF, or paste your essay, report, or notes. AI keeps your words and organizes them into a presentation."
-              : "A sentence or two is enough. Audience and tone help, but they're optional."}
-          </p>
+    <div className="fade-in mx-auto w-full max-w-3xl">
+      {/* ── Top bar: subtle label + back to dashboard ──────────────── */}
+      <div className="mb-8 flex items-center justify-between">
+        <div className="inline-flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-[0.22em] text-white/40">
+          <Sparkles size={12} className="text-white/40" />
+          Create a deck
         </div>
         {p.onBack && (
           <button
             onClick={p.onBack}
-            className="group inline-flex items-center gap-1.5 text-[12px] text-white/55 transition hover:text-white"
+            className="group inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[12px] text-white/60 transition hover:border-white/25 hover:text-white"
           >
             <span aria-hidden className="transition-transform group-hover:-translate-x-0.5">←</span>
             Dashboard
@@ -211,391 +209,410 @@ export default function PromptStep(p: Props) {
         )}
       </div>
 
-      {/* Input mode toggle — describe a topic, or import existing content. */}
-      <div className="mb-5 inline-flex rounded-full border border-white/10 bg-white/[0.03] p-1">
-        <button
-          onClick={() => p.setInputMode("prompt")}
-          className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-[12.5px] font-medium transition ${
-            !isContent ? "bg-white text-black" : "text-white/65 hover:text-white"
-          }`}
-        >
-          <Sparkles size={12} /> Describe a topic
-        </button>
-        <button
-          onClick={() => p.setInputMode("content")}
-          className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-[12.5px] font-medium transition ${
-            isContent ? "bg-white text-black" : "text-white/65 hover:text-white"
-          }`}
-        >
-          <FileText size={12} /> Upload / paste content
-        </button>
-      </div>
-
-      {/* Two-column workspace: brief on the left, side rail on the right */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
-        {/* ============ LEFT: the brief ============ */}
-        <section className="rounded-2xl border border-white/20 bg-white/[0.02] p-5 lg:p-6">
+      {/* ── Hero (centered) ─────────────────────────────────────────── */}
+      <div className="mb-7 text-center">
+        <h1 className="text-[30px] font-semibold leading-[1.06] tracking-tight text-white md:text-[40px]">
           {isContent ? (
             <>
-              {/* Drop zone — paste in the box, or drag a PDF/TXT/MD onto it. */}
-              <div
-                className="relative"
-                onDrop={onDrop}
-                onDragOver={onDragOver}
-                onDragLeave={onDragLeave}
-              >
-                <textarea
-                  ref={taRef}
-                  value={p.sourceText}
-                  onChange={(e) => { p.setSourceText(e.target.value); if (uploadName) setUploadName(null); }}
-                  placeholder={"Paste your essay, report, article, or notes here — or drag and drop a PDF / .txt / .md file onto this box.\n\nAI keeps your words and turns them into slides. It won't rewrite your content into something generic."}
-                  rows={10}
-                  className={`block w-full resize-none rounded-xl border bg-black/40 p-4 pb-12 text-[15px] leading-relaxed outline-none transition placeholder:text-white/30 focus:border-white/30 ${
-                    dragOver ? "border-white/40" : "border-white/10"
-                  }`}
-                  style={{ minHeight: 300, maxHeight: 520 }}
-                />
+              Turn your content{" "}
+              <span className="bg-gradient-to-r from-cyan-200 via-cyan-100 to-white bg-clip-text text-transparent">
+                into slides
+              </span>
+            </>
+          ) : (
+            <>
+              What&rsquo;s your deck{" "}
+              <span className="bg-gradient-to-r from-cyan-200 via-cyan-100 to-white bg-clip-text text-transparent">
+                about?
+              </span>
+            </>
+          )}
+        </h1>
+        <p className="mx-auto mt-3 max-w-lg text-[14.5px] leading-relaxed text-white/55">
+          {isContent
+            ? "Upload a PDF or paste your essay, report, or notes. The AI keeps your words and builds them into a clean presentation."
+            : "Describe it in a sentence or two. Tune the details below — the AI handles the rest."}
+        </p>
+      </div>
 
-                {/* Drag-over overlay */}
-                {dragOver && (
-                  <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-xl border-2 border-dashed border-white/40 bg-black/70 backdrop-blur-sm">
-                    <div className="flex flex-col items-center gap-2 text-white/85">
-                      <Upload size={22} />
-                      <span className="text-sm font-medium">Drop your file to read it</span>
-                      <span className="text-[11px] text-white/45">PDF, .txt or .md · up to 1.5 MB</span>
-                    </div>
-                  </div>
-                )}
+      {/* ── Input-mode segmented control (centered) ─────────────────── */}
+      <div className="mb-4 flex justify-center">
+        <div className="inline-flex rounded-2xl border border-white/10 bg-black/30 p-1 backdrop-blur">
+          <ModeTab active={!isContent} onClick={() => p.setInputMode("prompt")} icon={<Sparkles size={13} />}>
+            Describe a topic
+          </ModeTab>
+          <ModeTab active={isContent} onClick={() => p.setInputMode("content")} icon={<FileText size={13} />}>
+            Upload / paste
+          </ModeTab>
+        </div>
+      </div>
 
-                {/* Empty-state upload affordance, centered over the textarea */}
-                {!p.sourceText && !dragOver && !extracting && (
-                  <div className="pointer-events-none absolute inset-x-0 bottom-14 flex flex-col items-center gap-1.5 text-center">
-                    <button
-                      type="button"
-                      onClick={() => fileRef.current?.click()}
-                      className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.06] px-3.5 py-1.5 text-[12px] font-medium text-white/80 transition hover:bg-white/12"
-                    >
-                      <Upload size={13} /> Click to upload a file
-                    </button>
-                    <span className="text-[10.5px] text-white/40">or drag &amp; drop a PDF here · or paste above</span>
-                  </div>
-                )}
+      {/* ── The composer — the hero input ───────────────────────────── */}
+      {isContent ? (
+        <>
+          <div
+            className={`relative rounded-3xl border bg-black/40 p-4 shadow-[0_40px_90px_-50px_rgba(0,0,0,0.6)] transition focus-within:border-white/30 sm:p-5 ${
+              dragOver ? "border-cyan-300/50" : "border-white/12"
+            }`}
+            onDrop={onDrop}
+            onDragOver={onDragOver}
+            onDragLeave={onDragLeave}
+          >
+            <textarea
+              ref={taRef}
+              value={p.sourceText}
+              onChange={(e) => { p.setSourceText(e.target.value); if (uploadName) setUploadName(null); }}
+              placeholder={"Paste your essay, report, article, or notes here — or drag and drop a PDF / .txt / .md file onto this box.\n\nAI keeps your words and turns them into slides. It won't rewrite your content into something generic."}
+              rows={9}
+              className="block w-full resize-none bg-transparent p-1 pb-14 text-[15px] leading-relaxed text-white outline-none placeholder:text-white/30"
+              style={{ minHeight: 280, maxHeight: 520 }}
+            />
 
-                <div className="pointer-events-none absolute inset-x-3 bottom-3 flex items-center justify-between text-[11px] text-white/40">
-                  <span className="line-clamp-1 pr-3">
-                    {extracting
-                      ? extracting
-                      : sourceCount === 0
-                      ? "Paste anything from a paragraph to a full document."
-                      : sourceCount < 40
-                      ? "A little more text and I can build a proper deck."
-                      : "Looks good — I'll keep your content and structure it into slides."}
+            {/* Drag-over overlay */}
+            {dragOver && (
+              <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-3xl border-2 border-dashed border-cyan-300/50 bg-black/70 backdrop-blur-sm">
+                <div className="flex flex-col items-center gap-2 text-white/90">
+                  <span className="grid h-11 w-11 place-items-center rounded-2xl border border-cyan-300/40 bg-cyan-300/10 text-cyan-200">
+                    <Upload size={20} />
                   </span>
-                  <span className="rounded-full border border-white/10 bg-black/40 px-2 py-0.5 tabular-nums">
-                    {sourceCount.toLocaleString()}
-                  </span>
+                  <span className="text-sm font-medium">Drop your file to read it</span>
+                  <span className="text-[11px] text-white/45">PDF, .txt or .md · up to 1.5 MB</span>
                 </div>
               </div>
+            )}
 
-              {/* Upload row */}
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept=".pdf,application/pdf,.txt,.md,.markdown,.csv,.text,text/plain"
-                  className="hidden"
-                  onChange={(e) => { onFile(e.target.files?.[0] || null); e.currentTarget.value = ""; }}
-                />
+            {/* Empty-state upload affordance, centered over the textarea */}
+            {!p.sourceText && !dragOver && !extracting && (
+              <div className="pointer-events-none absolute inset-x-0 bottom-16 flex flex-col items-center gap-1.5 text-center">
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.06] px-3.5 py-1.5 text-[12px] font-medium text-white/80 transition hover:border-cyan-300/40 hover:bg-white/12"
+                >
+                  <Upload size={13} /> Click to upload a file
+                </button>
+                <span className="text-[10.5px] text-white/40">or drag &amp; drop a PDF here · or paste above</span>
+              </div>
+            )}
+
+            {/* Bottom bar inside the composer: upload control + count */}
+            <div className="absolute inset-x-4 bottom-3 flex items-center justify-between gap-3 sm:inset-x-5">
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".pdf,application/pdf,.txt,.md,.markdown,.csv,.text,text/plain"
+                className="hidden"
+                onChange={(e) => { onFile(e.target.files?.[0] || null); e.currentTarget.value = ""; }}
+              />
+              <div className="flex min-w-0 items-center gap-2">
                 <button
                   onClick={() => fileRef.current?.click()}
                   disabled={!!extracting}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/80 transition hover:border-white/30 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11.5px] text-white/80 transition hover:border-cyan-300/40 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {extracting
-                    ? <Loader2 size={12} className="animate-spin" />
-                    : <Upload size={12} />}
-                  {extracting ? "Working…" : "Upload PDF, .txt or .md"}
+                  {extracting ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+                  {extracting ? "Working…" : "Upload file"}
                 </button>
                 {uploadName && !extracting && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-white/60">
-                    <FileText size={11} /> {uploadName}
+                  <span className="inline-flex min-w-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-white/60">
+                    <FileText size={11} className="shrink-0" /> <span className="truncate">{uploadName}</span>
                   </span>
                 )}
                 {p.sourceText.trim().length > 0 && !extracting && (
                   <button
                     onClick={() => { p.setSourceText(""); setUploadName(null); setUploadError(null); }}
-                    className="text-[11px] text-white/45 underline-offset-2 hover:text-white/80 hover:underline"
+                    className="shrink-0 text-[11px] text-white/45 underline-offset-2 hover:text-white/80 hover:underline"
                   >
                     Clear
                   </button>
                 )}
               </div>
-              {extracting && (
-                <p className="mt-2 text-[11px] text-white/55">
-                  {extracting} <span className="text-white/35">· stays on your device</span>
-                </p>
-              )}
-              {uploadError && (
-                <p className="mt-2 text-[11px] text-red-300">{uploadError}</p>
-              )}
-              <p className="mt-2 text-[10.5px] leading-relaxed text-white/35">
-                Drag &amp; drop or upload a PDF (up to 1.5 MB), .txt, or .md. Scanned PDFs are read with on-device OCR. Files never leave your browser.
-              </p>
+              <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] tabular-nums text-white/45">
+                {sourceCount.toLocaleString()}
+              </span>
+            </div>
+          </div>
 
-              {/* Optional intent line */}
-              <div className="mt-6">
-                <Field label="What's it for? (optional)">
-                  <input
-                    type="text"
-                    value={p.prompt}
-                    onChange={(e) => p.setPrompt(e.target.value)}
-                    placeholder="e.g. a 10-minute class presentation, a board readout…"
-                    className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm outline-none focus:border-white/30"
-                  />
-                </Field>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="relative" data-tour="brief">
-                <textarea
-                  ref={taRef}
-                  value={p.prompt}
-                  onChange={(e) => p.setPrompt(e.target.value)}
-                  placeholder="e.g. A 10-slide investor update covering Q1 traction, churn, and our ask for the next round."
-                  rows={6}
-                  className="block w-full resize-none rounded-xl border border-white/10 bg-black/40 p-4 pb-12 text-base leading-relaxed outline-none placeholder:text-white/30 focus:border-white/30"
-                  style={{ minHeight: 200, maxHeight: 420 }}
-                />
-
-                {/* Footer row inside the textarea — char count + hint */}
-                <div className="pointer-events-none absolute inset-x-3 bottom-3 flex items-center justify-between text-[11px] text-white/40">
-                  <span className="line-clamp-1 pr-3">{charHint}</span>
-                  <span className="rounded-full border border-white/10 bg-black/40 px-2 py-0.5 tabular-nums">
-                    {charCount}
-                  </span>
-                </div>
-              </div>
-
-              {/* Quick starters */}
-              <div className="mt-5">
-                <div className="mb-2 text-[10px] uppercase tracking-wider text-white/45">
-                  Quick starters
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {EXAMPLES.map((ex) => (
-                    <button
-                      key={ex.label}
-                      onClick={() => p.setPrompt(ex.prompt)}
-                      title={ex.prompt}
-                      className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/75 transition hover:border-white/30 hover:bg-white/10"
-                    >
-                      {ex.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </>
+          {extracting && (
+            <p className="mt-2 text-center text-[11px] text-white/55">
+              {extracting} <span className="text-white/35">· stays on your device</span>
+            </p>
+          )}
+          {uploadError && (
+            <p className="mt-2 text-center text-[11px] text-red-300">{uploadError}</p>
+          )}
+          {!extracting && !uploadError && (
+            <p className="mt-2 text-center text-[10.5px] leading-relaxed text-white/35">
+              PDF (up to 1.5 MB), .txt, or .md. Scanned PDFs use on-device OCR — files never leave your browser.
+            </p>
           )}
 
-          {/* Audience + tone — sit inline within the same card so the
-              brief and its modifiers feel like one block. */}
-          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label="Audience">
-              <input
-                type="text"
-                value={p.audience}
-                onChange={(e) => p.setAudience(e.target.value)}
-                placeholder="investors, students, sales team…"
-                className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm outline-none focus:border-white/30"
-              />
-            </Field>
-            <Field label="Tone">
-              <input
-                type="text"
-                value={p.tone}
-                onChange={(e) => p.setTone(e.target.value)}
-                placeholder="confident, casual, technical…"
-                className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm outline-none focus:border-white/30"
-              />
-            </Field>
+          {/* Optional intent line */}
+          <div className="mt-4">
+            <InlineInput
+              label="For"
+              value={p.prompt}
+              onChange={p.setPrompt}
+              placeholder="What's it for? e.g. a 10-minute class talk, a board readout… (optional)"
+            />
           </div>
-        </section>
-
-        {/* ============ RIGHT: side rail ============ */}
-        <aside className="space-y-4">
-          {/* Shape */}
-          <div className="rounded-2xl border border-white/20 bg-white/[0.02] p-4">
-            <Field label="Slides">
-              <SlideCounter value={p.slideCount} onChange={p.setSlideCount} />
-            </Field>
-
-            <div className="mt-4">
-              <Field label="Density">
-                <div className="grid grid-cols-2 gap-2">
-                  {DENSITY_OPTIONS.map((opt) => {
-                    const active = p.density === opt.id;
-                    return (
-                      <button
-                        key={opt.id}
-                        onClick={() => p.setDensity(opt.id)}
-                        className={`rounded-lg border px-2.5 py-2 text-left transition ${
-                          active
-                            ? "border-white/60 bg-white/10 text-white"
-                            : "border-white/10 bg-white/[0.03] text-white/70 hover:bg-white/10"
-                        }`}
-                      >
-                        <div className="text-[12px] font-medium">{opt.label}</div>
-                        <div className="mt-0.5 text-[10px] text-white/50">{opt.hint}</div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </Field>
+        </>
+      ) : (
+        <>
+          <div
+            className="relative rounded-3xl border border-white/12 bg-black/40 p-4 shadow-[0_40px_90px_-50px_rgba(0,0,0,0.6)] transition focus-within:border-white/30 sm:p-5"
+            data-tour="brief"
+          >
+            <textarea
+              ref={taRef}
+              value={p.prompt}
+              onChange={(e) => p.setPrompt(e.target.value)}
+              placeholder="e.g. A 10-slide investor update covering Q1 traction, churn, and our ask for the next round."
+              rows={5}
+              className="block w-full resize-none bg-transparent p-1 pb-10 text-[16px] leading-relaxed text-white outline-none placeholder:text-white/30"
+              style={{ minHeight: 168, maxHeight: 360 }}
+            />
+            <div className="pointer-events-none absolute inset-x-4 bottom-3 flex items-center justify-between text-[11px] text-white/40 sm:inset-x-5">
+              <span className="line-clamp-1 pr-3">{charHint}</span>
+              <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 tabular-nums">{charCount}</span>
             </div>
-
-            <label className="mt-4 flex items-start gap-2.5 rounded-lg border border-white/10 bg-white/[0.03] p-3 text-left cursor-pointer hover:bg-white/[0.06]">
-              <input
-                type="checkbox"
-                checked={p.includeReferences}
-                onChange={(e) => p.setIncludeReferences(e.target.checked)}
-                className="mt-0.5 h-4 w-4 cursor-pointer accent-cyan-400"
-              />
-              <div className="flex-1">
-                <div className="text-[12px] font-medium text-white">Add a references slide</div>
-                <div className="mt-0.5 text-[11px] leading-relaxed text-white/50">
-                  Citations slide before the closing thank-you.
-                </div>
-              </div>
-            </label>
           </div>
 
-          {/* Continue card */}
-          <div className="rounded-2xl border border-white/20 bg-white/[0.02] p-4">
-            {/* Use a template — sits above the Choose theme button, with an
-                "or" divider so the two paths read as alternatives. */}
-            {p.onUseTemplate && (
-              <>
-                <button
-                  onClick={p.onUseTemplate}
-                  data-tour="templates"
-                  className="group flex w-full items-start gap-3 rounded-xl border border-white/10 bg-gradient-to-br from-cyan-500/10 via-white/[0.02] to-transparent p-3.5 text-left transition hover:border-cyan-300/40"
-                >
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-cyan-300/30 bg-cyan-300/10 text-cyan-200">
-                    <LayoutGrid size={15} />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-2 text-sm font-medium text-white">
-                      <span className="flex items-center gap-1.5">
-                        Use a template
-                        {p.activeTemplateName && (
-                          <span className="inline-flex items-center gap-0.5 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-1.5 py-0.5 text-[9px] text-emerald-200">
-                            <Check size={9} />
-                          </span>
-                        )}
-                      </span>
-                      <span className="text-[11px] text-white/55">
-                        {p.activeTemplateName ? "Change" : "Browse"}
-                      </span>
-                    </div>
-                    {p.activeTemplateName ? (
-                      <p className="mt-1 truncate text-[11px] text-emerald-200/80">
-                        {p.activeTemplateName} applied
-                      </p>
-                    ) : (
-                      <p className="mt-1 text-[11px] leading-relaxed text-white/55">
-                        A designed style — theme, font, graphic in one pick.
-                      </p>
-                    )}
-                  </div>
-                </button>
-
-                {/* or divider */}
-                <div className="my-3 flex items-center gap-3">
-                  <span className="h-px flex-1 bg-white/10" />
-                  <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-white/35">or</span>
-                  <span className="h-px flex-1 bg-white/10" />
-                </div>
-              </>
-            )}
-
-            {p.activeTemplateName && p.onGenerateDirect && (
-              <button
-                disabled={!ready || p.generateLoading}
-                onClick={p.onGenerateDirect}
-                className="mb-2 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-400/40 bg-emerald-400/15 px-4 py-2.5 text-sm font-medium text-emerald-100 transition hover:bg-emerald-400/25 disabled:cursor-not-allowed disabled:opacity-50"
-                title="Use the picked template's theme, font, and graphic — skip the next steps."
-              >
-                <Wand2 size={14} />
-                {p.generateLoading ? "Generating…" : "Generate with template"}
-              </button>
-            )}
-            <button
-              disabled={!ready}
-              onClick={onContinue}
-              data-tour="continue"
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-medium text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {p.activeTemplateName ? "Customize theme" : "Choose theme"}
-              <span aria-hidden>→</span>
-            </button>
-            <p className="mt-2 text-center text-[10px] text-white/40">
-              {ready ? "Press ⌘ + Enter to continue" : "Type at least a few words to continue"}
+          {/* Quick starters — suggestion chips under the composer */}
+          <div className="mt-5">
+            <p className="mb-2.5 text-center text-[11px] font-medium text-white/35">
+              Not sure where to start? Pick an example
             </p>
+            <div className="flex flex-wrap justify-center gap-2">
+              {EXAMPLES.map((ex) => (
+                <button
+                  key={ex.label}
+                  onClick={() => p.setPrompt(ex.prompt)}
+                  title={ex.prompt}
+                  className="rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1.5 text-[12px] text-white/70 transition hover:border-white/25 hover:bg-white/[0.07] hover:text-white"
+                >
+                  {ex.label}
+                </button>
+              ))}
+            </div>
           </div>
-        </aside>
+        </>
+      )}
+
+      {/* ── Options panel: audience · tone · slides · density · refs ── */}
+      <div className="mt-6 overflow-hidden rounded-2xl border border-white/12 bg-white/[0.02]">
+        {/* Audience + tone */}
+        <div className="grid grid-cols-1 sm:grid-cols-2">
+          <PanelField
+            label="Audience"
+            value={p.audience}
+            onChange={p.setAudience}
+            placeholder="investors, students, sales team…"
+          />
+          <PanelField
+            label="Tone"
+            value={p.tone}
+            onChange={p.setTone}
+            placeholder="confident, casual, technical…"
+            className="border-t border-white/10 sm:border-l sm:border-t-0"
+          />
+        </div>
+
+        {/* Slides · density · references */}
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-white/10 px-4 py-3.5">
+          {/* Slides */}
+          <div className="flex items-center gap-2.5">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/45">Slides</span>
+            <SlideCounter value={p.slideCount} onChange={p.setSlideCount} />
+          </div>
+
+          {/* Density */}
+          <div className="flex items-center gap-2.5">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/45">Density</span>
+            <div className="flex rounded-lg border border-white/10 bg-black/30 p-0.5">
+              {DENSITY_OPTIONS.map((opt) => {
+                const active = p.density === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    onClick={() => p.setDensity(opt.id)}
+                    title={opt.hint}
+                    className={`rounded-md px-2.5 py-1.5 text-[11.5px] font-medium transition ${
+                      active ? "bg-white text-black" : "text-white/60 hover:text-white"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* References */}
+          <button
+            onClick={() => p.setIncludeReferences(!p.includeReferences)}
+            className={`ml-auto inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[11.5px] font-medium transition ${
+              p.includeReferences
+                ? "border-white/30 bg-white/10 text-white"
+                : "border-white/10 bg-black/30 text-white/55 hover:text-white"
+            }`}
+            title="Add a citations slide before the closing thank-you"
+          >
+            <span
+              className={`grid h-4 w-4 place-items-center rounded-[5px] border transition ${
+                p.includeReferences ? "border-white/40 bg-white/20" : "border-white/25"
+              }`}
+            >
+              {p.includeReferences && <Check size={11} />}
+            </span>
+            References slide
+          </button>
+        </div>
       </div>
 
-      {/* Confirm dialog: warn user that customizing theme overrides the
-          template they already picked. */}
-      {confirmOpen && p.activeTemplateName && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="m-4 w-full max-w-md rounded-2xl border border-white/10 bg-zinc-950 p-6 shadow-2xl">
-            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-[11px] text-amber-200">
-              <LayoutGrid size={11} /> Template active
-            </div>
-            <h3 className="text-lg font-semibold text-white">
-              You've already chosen a template
-            </h3>
-            <p className="mt-2 text-sm text-white/65">
-              <span className="font-medium text-white/85">{p.activeTemplateName}</span> is selected.
-              Customizing the theme, font, and graphic will let you tweak everything
-              the template set up. Or you can generate right now using the template as-is.
+      {/* ── Actions: pick a template, then generate ─────────────────── */}
+      <div className="mt-6">
+        {p.activeTemplateName ? (
+          <>
+            {/* Chosen template summary — tap to change */}
+            <button
+              onClick={p.onUseTemplate}
+              data-tour="templates"
+              className="group mb-2.5 flex w-full items-center justify-between gap-3 rounded-xl border border-white/12 bg-white/[0.02] px-4 py-3 text-left transition hover:border-white/25 hover:bg-white/[0.05]"
+            >
+              <span className="flex min-w-0 items-center gap-2.5">
+                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-white/15 bg-white/5 text-white/80">
+                  <LayoutGrid size={14} />
+                </span>
+                <span className="min-w-0 truncate text-[13px] font-medium text-white">
+                  Template:{" "}
+                  <span className="inline-flex items-center gap-1 text-white/70">
+                    {p.activeTemplateName}
+                    <Check size={11} className="text-white/70" />
+                  </span>
+                </span>
+              </span>
+              <span className="shrink-0 text-[11px] text-white/50 transition group-hover:text-white/80">Change</span>
+            </button>
+
+            {/* Primary: generate with the chosen template */}
+            <button
+              disabled={!ready || p.generateLoading}
+              onClick={p.onGenerateDirect}
+              data-tour="continue"
+              className="group inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3.5 text-[15px] font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Wand2 size={16} />
+              {p.generateLoading ? "Generating…" : "Generate presentation"}
+            </button>
+
+            <p className="mt-3 text-center text-[10.5px] text-white/40">
+              {ready ? (
+                <span className="inline-flex items-center gap-1">
+                  Press
+                  <kbd className="rounded border border-white/15 bg-white/5 px-1.5 py-0.5 font-sans text-[10px] text-white/60">⌘</kbd>
+                  <kbd className="rounded border border-white/15 bg-white/5 px-1.5 py-0.5 font-sans text-[10px] text-white/60">Enter</kbd>
+                  to generate
+                </span>
+              ) : (
+                isContent ? "Add a paragraph or more, then generate" : "Add a few words about your deck, then generate"
+              )}
             </p>
-            <div className="mt-5 flex flex-col-reverse items-stretch gap-2 sm:flex-row sm:justify-end">
-              <button
-                onClick={() => { setConfirmOpen(false); p.onNext(); }}
-                className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/85 hover:bg-white/10"
-              >
-                Yes, customize theme
-              </button>
-              <button
-                onClick={() => { setConfirmOpen(false); p.onGenerateDirect?.(); }}
-                disabled={p.generateLoading}
-                className="rounded-xl bg-emerald-400/90 px-4 py-2 text-sm font-medium text-black transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {p.generateLoading ? "Generating…" : "Generate with template"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </>
+        ) : (
+          <>
+            {/* No template yet — choosing one is the required next step */}
+            <button
+              onClick={p.onUseTemplate}
+              data-tour="templates"
+              className="group inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3.5 text-[15px] font-semibold text-black transition hover:bg-white/90"
+            >
+              <LayoutGrid size={16} />
+              Choose a template
+              <ArrowRight size={16} className="transition-transform group-hover:translate-x-0.5" />
+            </button>
+            <p className="mt-3 text-center text-[10.5px] text-white/40">
+              Pick a template — it sets the look. You&rsquo;ll generate right after.
+            </p>
+          </>
+        )}
+      </div>
     </div>
   );
 }
 
 /* ------------------------------ subcomponents ----------------------------- */
 
-function Field({
-  label, children,
-}: { label: string; children: React.ReactNode }) {
+function ModeTab({
+  active, onClick, icon, children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
-    <div>
-      <label className="mb-1.5 block text-[10px] uppercase tracking-wider text-white/45">
+    <button
+      onClick={onClick}
+      className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-[12.5px] font-medium transition ${
+        active ? "bg-white text-black" : "text-white/60 hover:text-white"
+      }`}
+    >
+      {icon} {children}
+    </button>
+  );
+}
+
+/** A label-prefixed single-line input — used for the optional "what's it
+ *  for" line in content mode. */
+function InlineInput({
+  label, value, onChange, placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+}) {
+  return (
+    <label className="flex items-center gap-2.5 rounded-xl border border-white/12 bg-black/40 px-3.5 py-2.5 transition focus-within:border-white/30">
+      <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/45">
         {label}
-      </label>
-      {children}
-    </div>
+      </span>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full bg-transparent text-sm text-white outline-none placeholder:text-white/30"
+      />
+    </label>
+  );
+}
+
+/** A panel cell with a label above a borderless input — used inside the
+ *  unified options panel for Audience and Tone. */
+function PanelField({
+  label, value, onChange, placeholder, className = "",
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  className?: string;
+}) {
+  return (
+    <label className={`block px-4 py-3 transition focus-within:bg-white/[0.02] ${className}`}>
+      <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.16em] text-white/45">
+        {label}
+      </span>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full bg-transparent text-sm text-white outline-none placeholder:text-white/30"
+      />
+    </label>
   );
 }
 
@@ -604,10 +621,10 @@ function SlideCounter({
 }: { value: number; onChange: (n: number) => void }) {
   const clamp = (n: number) => Math.max(3, Math.min(20, Math.round(n)));
   return (
-    <div className="flex items-center rounded-xl border border-white/10 bg-black/40">
+    <div className="inline-flex items-center rounded-lg border border-white/10 bg-black/30">
       <button
         onClick={() => onChange(clamp(value - 1))}
-        className="grid h-10 w-10 place-items-center rounded-l-xl text-white/60 hover:bg-white/10"
+        className="grid h-8 w-8 place-items-center rounded-l-lg text-base text-white/60 transition hover:bg-white/10 hover:text-white"
         title="Fewer slides"
         aria-label="Decrease slide count"
       >
@@ -619,11 +636,11 @@ function SlideCounter({
         max={20}
         value={value}
         onChange={(e) => onChange(clamp(Number(e.target.value || 0)))}
-        className="h-10 w-full bg-transparent px-1 text-center text-sm tabular-nums outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+        className="h-8 w-9 bg-transparent px-0 text-center text-[13px] font-semibold tabular-nums text-white outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
       />
       <button
         onClick={() => onChange(clamp(value + 1))}
-        className="grid h-10 w-10 place-items-center rounded-r-xl text-white/60 hover:bg-white/10"
+        className="grid h-8 w-8 place-items-center rounded-r-lg text-base text-white/60 transition hover:bg-white/10 hover:text-white"
         title="More slides"
         aria-label="Increase slide count"
       >

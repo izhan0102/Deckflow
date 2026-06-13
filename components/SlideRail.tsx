@@ -3,10 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import type { Deck, Slide, SlideLayout } from "@/lib/types";
 import type { Theme } from "@/lib/themes";
 import SlideCanvas from "./SlideCanvas";
-import { Plus, Copy, Trash2, ArrowUp, ArrowDown, X, Lock } from "lucide-react";
+import { Plus, Copy, Trash2, ArrowUp, ArrowDown, Lock } from "lucide-react";
 import { stripHtml } from "@/lib/richText";
-
-const ADD_SLIDE_TIP_KEY = "deckflow_add_slide_tip_seen_v1";
 
 type Props = {
   deck: Deck;
@@ -35,27 +33,6 @@ export default function SlideRail({ deck, theme, active, setActive, onChange, ca
   const [dropIdx, setDropIdx] = useState<number | null>(null);
   const [menu, setMenu] = useState<{ idx: number; x: number; y: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-
-  // One-time tooltip pointing at the first insert bar so new users discover
-  // they can add slides between thumbnails. Self-dismisses on first insert
-  // click, on the X, or after a generous timeout.
-  const [showTip, setShowTip] = useState(false);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (deck.slides.length < 2) return; // not useful with one slide
-    let seen = false;
-    try { seen = !!window.localStorage.getItem(ADD_SLIDE_TIP_KEY); } catch { /* ignore */ }
-    if (seen) return;
-    const t = window.setTimeout(() => setShowTip(true), 1200);
-    const auto = window.setTimeout(() => dismissTip(), 14000);
-    return () => { window.clearTimeout(t); window.clearTimeout(auto); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const dismissTip = () => {
-    setShowTip(false);
-    try { window.localStorage.setItem(ADD_SLIDE_TIP_KEY, "1"); } catch { /* ignore */ }
-  };
 
   // Close context menu on outside click / Esc
   useEffect(() => {
@@ -89,7 +66,6 @@ export default function SlideRail({ deck, theme, active, setActive, onChange, ca
     next.splice(i, 0, emptySlide("bullets"));
     onChange(next);
     setActive(i);
-    if (showTip) dismissTip();
   };
 
   const duplicate = (i: number) => {
@@ -111,15 +87,12 @@ export default function SlideRail({ deck, theme, active, setActive, onChange, ca
     <div className="max-h-[78vh] overflow-y-auto pr-1">
       {slides.map((s, i) => (
         <div key={i} className="relative">
-          {/* Insert-before bar — the one between slides 1 and 2 (i === 1)
-              is the anchor for the first-visit tooltip. */}
+          {/* Insert-before bar. The one between slides 1 and 2 (i === 1)
+              carries the tour anchor for "add a slide anywhere". */}
           <InsertBar
             onClick={() => insertAt(i)}
-            highlight={showTip && i === 1}
+            tourAnchor={i === 1}
           />
-          {showTip && i === 1 && (
-            <AddSlideTip onDismiss={dismissTip} />
-          )}
 
           {/* Drop indicator */}
           {dropIdx === i && dragIdx !== null && dragIdx !== i && (
@@ -206,81 +179,20 @@ export default function SlideRail({ deck, theme, active, setActive, onChange, ca
   );
 }
 
-function InsertBar({ onClick, label, highlight }: { onClick: () => void; label?: string; highlight?: boolean }) {
+function InsertBar({ onClick, label, tourAnchor }: { onClick: () => void; label?: string; tourAnchor?: boolean }) {
   return (
     <button
       onClick={onClick}
-      className={`group my-1 flex h-5 w-full items-center justify-center transition ${
-        highlight ? "text-cyan-100" : "text-white/0 hover:text-white/80"
-      }`}
+      {...(tourAnchor ? { "data-tour": "tour-add-slide" } : {})}
+      className="group my-1 flex h-5 w-full items-center justify-center text-white/0 transition hover:text-white/80"
       title={label || "Insert slide here"}
     >
-      <span className={`flex h-px flex-1 transition ${
-        highlight ? "bg-cyan-300/60" : "bg-transparent group-hover:bg-white/20"
-      }`} />
-      <span
-        className={`mx-2 grid h-4 w-4 place-items-center rounded-full text-[10px] transition ${
-          highlight
-            ? "border border-cyan-300/70 bg-cyan-500/30 text-cyan-50 deckflow-tip-pulse"
-            : "border border-white/20 bg-zinc-950 text-white/0 group-hover:text-white/85"
-        }`}
-      >
+      <span className="flex h-px flex-1 bg-transparent transition group-hover:bg-white/20" />
+      <span className="mx-2 grid h-4 w-4 place-items-center rounded-full border border-white/20 bg-zinc-950 text-[10px] text-white/0 transition group-hover:text-white/85">
         +
       </span>
-      <span className={`flex h-px flex-1 transition ${
-        highlight ? "bg-cyan-300/60" : "bg-transparent group-hover:bg-white/20"
-      }`} />
-      <style jsx>{`
-        .deckflow-tip-pulse {
-          animation: deckflow-tip-pulse 1.6s ease-in-out infinite;
-        }
-        @keyframes deckflow-tip-pulse {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0); }
-          50%      { box-shadow: 0 0 0 8px rgba(34, 211, 238, 0.18); }
-        }
-      `}</style>
+      <span className="flex h-px flex-1 bg-transparent transition group-hover:bg-white/20" />
     </button>
-  );
-}
-
-/**
- * Floating callout shown next to the highlighted "+" insert bar on first
- * visit. Dismisses on its X, on first insert click, or after 14s.
- */
-function AddSlideTip({ onDismiss }: { onDismiss: () => void }) {
-  return (
-    <div
-      role="dialog"
-      aria-label="Add a slide tip"
-      className="pointer-events-auto absolute left-full top-1/2 z-[60] ml-3 w-[220px] -translate-y-1/2 rounded-xl border border-cyan-300/30 bg-zinc-950/95 p-3 shadow-2xl backdrop-blur"
-    >
-      {/* Pointer arrow */}
-      <span
-        aria-hidden
-        className="absolute -left-1.5 top-1/2 h-3 w-3 -translate-y-1/2 rotate-45 border-b border-l border-cyan-300/30 bg-zinc-950"
-      />
-      <div className="mb-1 flex items-center justify-between gap-2">
-        <span className="inline-flex items-center gap-1 rounded-full border border-cyan-300/30 bg-cyan-300/10 px-2 py-0.5 text-[10px] font-medium text-cyan-100">
-          ✨ Tip
-        </span>
-        <button
-          onClick={onDismiss}
-          aria-label="Dismiss"
-          className="grid h-5 w-5 place-items-center rounded-full text-white/55 hover:bg-white/10 hover:text-white"
-        >
-          <X size={11} />
-        </button>
-      </div>
-      <p className="text-[11px] leading-relaxed text-white/80">
-        Click the <span className="font-semibold text-cyan-200">+</span> between slides to add a new one anywhere in your deck.
-      </p>
-      <button
-        onClick={onDismiss}
-        className="mt-2 w-full rounded-lg bg-white px-3 py-1 text-[11px] font-medium text-black hover:bg-white/90"
-      >
-        Got it
-      </button>
-    </div>
   );
 }
 
