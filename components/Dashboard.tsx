@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  ArrowRight, Clock, FileText, Home, Info, LayoutGrid,
+  AlertTriangle, ArrowRight, Clock, FileText, Home, Info, LayoutGrid,
   Loader2, LogOut, Plus, Search, Sparkles, Trash2, Wand2, X, Zap,
 } from "lucide-react";
 import { type AppUser } from "@/lib/auth";
@@ -11,6 +11,7 @@ import DeckThumbnail from "./DeckThumbnail";
 import Logo from "./Logo";
 import ThemeToggle from "./ThemeToggle";
 import UpgradeDialog from "./UpgradeDialog";
+import ReportDialog from "./ReportDialog";
 import { watchMonthlyGenerations, formatMonthlyResetIn } from "@/lib/usage";
 import { watchUserPlan, getUserPlan } from "@/lib/plan";
 import { type PlanId, planDeckLimit, getPlan } from "@/lib/plans";
@@ -53,6 +54,7 @@ export default function Dashboard({
   // decision) and whenever the user hits a plan limit or a locked feature.
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [upgradeReason, setUpgradeReason] = useState<string | undefined>(undefined);
+  const [reportOpen, setReportOpen] = useState(false);
 
   // Show the pricing modal once per dashboard mount — only for free users.
   // Resolve the real plan first so paid users never see the auto-popup (the
@@ -201,6 +203,14 @@ export default function Dashboard({
             <LogOut size={12} /> Sign out
           </button>
         </div>
+
+          {/* Report an issue — red, with a clear margin above it. */}
+          <button
+            onClick={() => setReportOpen(true)}
+            className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-[12px] font-medium text-red-500 transition hover:bg-red-500/20"
+          >
+            <AlertTriangle size={13} /> Report an issue
+          </button>
         </div>
       </aside>
 
@@ -214,6 +224,12 @@ export default function Dashboard({
             onClose={() => setUpgradeOpen(false)}
           />
         )}
+
+        <ReportDialog
+          open={reportOpen}
+          onClose={() => setReportOpen(false)}
+          username={user.name || user.email?.split("@")[0] || "Anonymous"}
+        />
 
         {/* Mobile header: brand + sign out */}
         <div className="mb-6 flex items-center justify-between lg:hidden">
