@@ -567,8 +567,169 @@ const organicSage: Graphic = {
 };
 
 
+/* --------------------- premium template backgrounds ---------------------- *
+ * Five Canva/Gamma-grade textured backgrounds. Every layer is low-opacity
+ * so body text stays fully legible. Built to pair with the new template
+ * palettes (aurora-night, peach-cream, deep-teal, lilac-mist, graphite-gold).
+ * -------------------------------------------------------------------------- */
+
+const auroraFlow: Graphic = {
+  id: "aurora-flow",
+  name: "Aurora flow",
+  render: (t) => {
+    const a1 = withAlpha(t.accent, 0.30);
+    const a3 = withAlpha(t.accent, 0.14);
+    const fgGrid = withAlpha(t.fg, 0.06);
+    const base = t.accent.slice(0, 7);
+    return svgWrap(`
+      <defs>
+        <radialGradient id="au1" cx="20%" cy="16%" r="55%">
+          <stop offset="0%" stop-color="${a1}"/>
+          <stop offset="100%" stop-color="${base}00"/>
+        </radialGradient>
+        <radialGradient id="au2" cx="86%" cy="90%" r="60%">
+          <stop offset="0%" stop-color="${withAlpha("#F472B6", 0.18)}"/>
+          <stop offset="100%" stop-color="#F472B600"/>
+        </radialGradient>
+        <radialGradient id="au3" cx="80%" cy="10%" r="46%">
+          <stop offset="0%" stop-color="${a3}"/>
+          <stop offset="100%" stop-color="${base}00"/>
+        </radialGradient>
+        <pattern id="audots" width="34" height="34" patternUnits="userSpaceOnUse">
+          <circle cx="2" cy="2" r="1.3" fill="${fgGrid}"/>
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#audots)"/>
+      <rect width="100%" height="100%" fill="url(#au1)"/>
+      <rect width="100%" height="100%" fill="url(#au3)"/>
+      <rect width="100%" height="100%" fill="url(#au2)"/>
+    `);
+  },
+  contentSafe: true,
+};
+
+const warmGrain: Graphic = {
+  id: "warm-grain",
+  name: "Warm grain",
+  render: (t) => {
+    const soft = withAlpha(t.accent, 0.12);
+    const softer = withAlpha(t.accent, 0.07);
+    const grain = withAlpha(t.fg, 0.05);
+    const arc = withAlpha(t.accent, 0.45);
+    const base = t.accent.slice(0, 7);
+    return svgWrap(`
+      <defs>
+        <radialGradient id="wg1" cx="86%" cy="10%" r="52%">
+          <stop offset="0%" stop-color="${soft}"/>
+          <stop offset="100%" stop-color="${base}00"/>
+        </radialGradient>
+        <radialGradient id="wg2" cx="8%" cy="96%" r="56%">
+          <stop offset="0%" stop-color="${softer}"/>
+          <stop offset="100%" stop-color="${base}00"/>
+        </radialGradient>
+        <pattern id="wgGrain" width="6" height="6" patternUnits="userSpaceOnUse">
+          <circle cx="1" cy="1.4" r="0.7" fill="${grain}"/>
+          <circle cx="4" cy="3.6" r="0.6" fill="${grain}"/>
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#wg1)"/>
+      <rect width="100%" height="100%" fill="url(#wg2)"/>
+      <rect width="100%" height="100%" fill="url(#wgGrain)"/>
+      <path d="M ${W - 470} -50 A 500 500 0 0 1 ${W + 40} 450" fill="none" stroke="${arc}" stroke-width="1.4"/>
+      <path d="M ${W - 540} -50 A 560 560 0 0 1 ${W + 40} 520" fill="none" stroke="${withAlpha(t.accent, 0.22)}" stroke-width="1.2"/>
+    `);
+  },
+  contentSafe: true,
+};
+
+const prismGlass: Graphic = {
+  id: "prism-glass",
+  name: "Prism glass",
+  render: (t) => {
+    const c1 = withAlpha(t.accent, 0.16);
+    const c2 = withAlpha(t.accent, 0.09);
+    const line = withAlpha(t.fg, 0.05);
+    return svgWrap(`
+      <defs>
+        <pattern id="pgl" width="26" height="26" patternUnits="userSpaceOnUse" patternTransform="rotate(35)">
+          <line x1="0" y1="0" x2="0" y2="26" stroke="${line}" stroke-width="1"/>
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#pgl)"/>
+      <circle cx="${W - 150}" cy="120" r="230" fill="${c1}"/>
+      <circle cx="${W - 10}" cy="340" r="160" fill="${c2}"/>
+      <circle cx="130" cy="${H - 90}" r="210" fill="${c2}"/>
+      <circle cx="-40" cy="${H - 280}" r="150" fill="${c1}"/>
+    `);
+  },
+  contentSafe: true,
+};
+
+const lilacBloom: Graphic = {
+  id: "lilac-bloom",
+  name: "Lilac bloom",
+  render: (t) => {
+    const a = withAlpha(t.accent, 0.16);
+    const pink = withAlpha("#EC4899", 0.10);
+    const plus = withAlpha(t.fg, 0.07);
+    return svgWrap(`
+      <defs>
+        <filter id="lbBlur" x="-30%" y="-30%" width="160%" height="160%">
+          <feGaussianBlur stdDeviation="42"/>
+        </filter>
+        <pattern id="lbPlus" width="46" height="46" patternUnits="userSpaceOnUse">
+          <path d="M23 18 V28 M18 23 H28" stroke="${plus}" stroke-width="1.2"/>
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#lbPlus)"/>
+      <g filter="url(#lbBlur)">
+        <circle cx="170" cy="140" r="190" fill="${a}"/>
+        <circle cx="${W - 150}" cy="${H - 110}" r="230" fill="${pink}"/>
+        <circle cx="${W - 250}" cy="70" r="120" fill="${a}"/>
+      </g>
+    `);
+  },
+  contentSafe: true,
+};
+
+const luxFrame: Graphic = {
+  id: "lux-frame",
+  name: "Lux frame",
+  render: (t) => {
+    const goldSoft = withAlpha(t.accent, 0.5);
+    const goldFaint = withAlpha(t.accent, 0.22);
+    const line = withAlpha(t.fg, 0.05);
+    const dot = withAlpha(t.accent, 0.55);
+    const dots = (cx: number, cy: number) =>
+      Array.from({ length: 16 }).map((_, i) => {
+        const r = Math.floor(i / 4), c = i % 4;
+        return `<circle cx="${cx + c * 11}" cy="${cy + r * 11}" r="1.4" fill="${dot}"/>`;
+      }).join("");
+    return svgWrap(`
+      <defs>
+        <pattern id="lfv" width="50" height="50" patternUnits="userSpaceOnUse">
+          <line x1="0" y1="0" x2="0" y2="50" stroke="${line}" stroke-width="1"/>
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#lfv)"/>
+      <rect x="30" y="30" width="${W - 60}" height="${H - 60}" fill="none" stroke="${goldSoft}" stroke-width="1"/>
+      <rect x="37" y="37" width="${W - 74}" height="${H - 74}" fill="none" stroke="${goldFaint}" stroke-width="1"/>
+      ${dots(58, 58)}
+      ${dots(W - 100, H - 90)}
+    `);
+  },
+  contentSafe: true,
+};
+
+
 export const GRAPHICS: Graphic[] = [
   none,
+  // New premium template backgrounds — first so they land on page 1.
+  auroraFlow,
+  warmGrain,
+  prismGlass,
+  lilacBloom,
+  luxFrame,
   // New — soft organic style. Sits high in the catalog so it shows up
   // on page 1 of the graphic picker for the new "Sage & Blush" template.
   organicSage,

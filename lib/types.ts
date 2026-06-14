@@ -94,9 +94,9 @@ export type Slide = {
   chart?: ChartSpec;
   references?: Reference[];
   /** Optional variant for the title-hero layout. */
-  titleVariant?: "centered" | "asymmetric" | "big-initial" | "numbered" | "underlined" | "editorial-serif";
+  titleVariant?: "centered" | "asymmetric" | "big-initial" | "numbered" | "underlined" | "editorial-serif" | "concept-hero";
   /** Bullets layout style. */
-  bulletsVariant?: "standard" | "numbered" | "cards" | "icon-check" | "dashed";
+  bulletsVariant?: "standard" | "numbered" | "cards" | "icon-check" | "dashed" | "concept-cards";
   /** Two-column layout style. */
   twoColumnVariant?: "classic" | "divider" | "cards" | "numbered" | "compare";
   /** Table layout style. */

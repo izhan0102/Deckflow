@@ -46,10 +46,147 @@ export type DeckTemplate = {
 
 export const DECK_TEMPLATES: DeckTemplate[] = [
   /* ============================================================
-   * SAGE & BLUSH — newest addition. Soft, organic, editorial.
-   * Pairs the new "organic-sage" graphic with a sage + blush
-   * theme and Fraunces, set to detailed density for long-form
-   * decks. Lands first on the gallery's first page.
+   * PREMIUM SET (Canva/Gamma-grade) — five fresh templates pairing
+   * new palettes with new low-opacity textured backgrounds. They lead
+   * the gallery's first page.
+   * ============================================================ */
+  {
+    id: "aurora-nights",
+    name: "Aurora Nights",
+    tagline: "Deep indigo with an aurora glow and a whisper-fine dot grid. Premium, modern, dark.",
+    category: "Keynote",
+    themeId: "aurora-night",
+    fontId: "space-grotesk",
+    graphicId: "aurora-flow",
+    density: "balanced",
+    includeReferences: false,
+    samplePrompt: "Product keynote for a new AI platform: the shift happening now, what we built, how it works, the proof, and where this goes next.",
+    variants: {
+      titleVariant: "big-initial",
+      bulletsVariant: "cards",
+      twoColumnVariant: "cards",
+      tableVariant: "accent-header",
+      quoteVariant: "stacked",
+      sectionVariant: "kicker-hero",
+      closingVariant: "cta",
+    },
+    isNew: true,
+  },
+  {
+    id: "peach-editorial",
+    name: "Peach Editorial",
+    tagline: "Warm peach cream, soft grain, a thin coral arc. Magazine-grade and calm.",
+    category: "Editorial",
+    themeId: "peach-cream",
+    fontId: "fraunces",
+    graphicId: "warm-grain",
+    density: "detailed",
+    includeReferences: true,
+    samplePrompt: "A long-form brand story for a boutique coffee roaster: origins, craft, the people, and what we stand for.",
+    variants: {
+      titleVariant: "editorial-serif",
+      bulletsVariant: "dashed",
+      twoColumnVariant: "divider",
+      tableVariant: "minimal",
+      quoteVariant: "editorial",
+      sectionVariant: "minimal",
+      closingVariant: "signature",
+    },
+    isNew: true,
+  },
+  {
+    id: "teal-depths",
+    name: "Teal Depths",
+    tagline: "Deep teal with mint glass circles and fine hatching. Confident, techy, fresh.",
+    category: "Report",
+    themeId: "deep-teal",
+    fontId: "outfit",
+    graphicId: "prism-glass",
+    density: "balanced",
+    includeReferences: false,
+    samplePrompt: "Quarterly business review: headline metrics, what moved, what stalled, the plan for next quarter, and risks we're watching.",
+    variants: {
+      titleVariant: "numbered",
+      bulletsVariant: "icon-check",
+      twoColumnVariant: "compare",
+      tableVariant: "zebra",
+      quoteVariant: "card",
+      sectionVariant: "panel",
+      closingVariant: "contact",
+    },
+    isNew: true,
+  },
+  {
+    id: "lilac-studio",
+    name: "Lilac Studio",
+    tagline: "Soft lilac mist with blurred blooms and a faint plus-grid. Friendly startup polish.",
+    category: "Startup",
+    themeId: "lilac-mist",
+    fontId: "plus-jakarta",
+    graphicId: "lilac-bloom",
+    density: "balanced",
+    includeReferences: false,
+    samplePrompt: "Seed pitch for a wellness app: the problem, our approach, early traction, the market, and what we're raising.",
+    variants: {
+      titleVariant: "asymmetric",
+      bulletsVariant: "cards",
+      twoColumnVariant: "cards",
+      tableVariant: "minimal",
+      quoteVariant: "centered",
+      sectionVariant: "split",
+      closingVariant: "cta",
+    },
+    isNew: true,
+  },
+  {
+    id: "graphite-gold",
+    name: "Graphite Gold",
+    tagline: "Graphite black framed in thin gold, with a quiet grid. Luxe, premium, brand-forward.",
+    category: "Brand",
+    themeId: "graphite-gold",
+    fontId: "playfair",
+    graphicId: "lux-frame",
+    density: "balanced",
+    includeReferences: false,
+    samplePrompt: "A luxury brand launch deck: the vision, the product, the craftsmanship, the experience, and the invitation.",
+    variants: {
+      titleVariant: "centered",
+      bulletsVariant: "dashed",
+      twoColumnVariant: "divider",
+      tableVariant: "bordered",
+      quoteVariant: "giant-mark",
+      sectionVariant: "chapter",
+      closingVariant: "signature",
+    },
+    isNew: true,
+  },
+
+  {
+    id: "concept-map",
+    name: "Concept Map",
+    tagline: "Playful rainbow numbered cards on soft lavender. Bright, friendly, and crystal clear.",
+    category: "Creative",
+    themeId: "bright-ideas",
+    fontId: "poppins",
+    graphicId: "none",
+    density: "concise",
+    includeReferences: false,
+    samplePrompt: "An overview of our team's core ideas and initiatives — one short, punchy card per idea.",
+    variants: {
+      titleVariant: "concept-hero",
+      bulletsVariant: "concept-cards",
+      twoColumnVariant: "cards",
+      tableVariant: "minimal",
+      quoteVariant: "centered",
+      sectionVariant: "minimal",
+      closingVariant: "centered",
+    },
+    isNew: true,
+  },
+
+  /* ============================================================
+   * SAGE & BLUSH — soft, organic, editorial. Pairs the
+   * "organic-sage" graphic with a sage + blush theme and Fraunces.
    * ============================================================ */
   {
     id: "sage-blush",

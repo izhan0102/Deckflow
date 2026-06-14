@@ -22,7 +22,9 @@ export type PlanFeature =
   | "translate"      // one-click deck translation
   | "icons"          // add icons from the editor
   | "reorder"        // reorder / move slides in the rail
-  | "handout";       // export a notes-page handout PDF
+  | "handout"        // export a notes-page handout PDF
+  | "density"        // rewrite the whole deck at a new content density
+  | "template";      // switch the whole deck to a different template
 
 export type Plan = {
   id: PlanId;
@@ -53,6 +55,8 @@ export const PLANS: Record<PlanId, Plan> = {
       icons: false,
       reorder: false,
       handout: false,
+      density: false,
+      template: false,
     },
     highlights: [
       "3 decks per month",
@@ -74,11 +78,14 @@ export const PLANS: Record<PlanId, Plan> = {
       icons: true,
       reorder: true,
       handout: true,
+      density: true,
+      template: true,
     },
     highlights: [
       "10 decks per month",
       "AI speaker notes + teleprompter",
       "Q&A prep",
+      "Change deck density & template anytime",
       "Notes handout PDF export",
       "Add icons from the editor",
       "Reorder slides freely",
@@ -97,6 +104,8 @@ export const PLANS: Record<PlanId, Plan> = {
       icons: true,
       reorder: true,
       handout: true,
+      density: true,
+      template: true,
     },
     highlights: [
       "Unlimited decks",

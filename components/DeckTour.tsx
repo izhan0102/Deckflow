@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, Sparkles, X } from "lucide-react";
 
 /**
@@ -103,7 +103,6 @@ export default function DeckTour({ userId }: { userId?: string | null }) {
   const [idx, setIdx] = useState(0);
   const [rect, setRect] = useState<DOMRect | null>(null);
   const [vp, setVp] = useState({ w: 0, h: 0 });
-  const rafRef = useRef<number | null>(null);
 
   // Per-user flag so the tour runs exactly once for each account.
   const storeKey = `${STORAGE_KEY}:${userId || "anon"}`;
@@ -138,45 +137,50 @@ export default function DeckTour({ userId }: { userId?: string | null }) {
     };
   }, [open]);
 
-  // Track the current target's rect. Scroll it into view, then keep the
-  // hole locked onto it via rAF. If a target genuinely doesn't exist (e.g.
-  // add-slide on a one-slide deck), auto-advance after a short grace period.
+  // Track the current target's rect. Scroll it into view, measure it now,
+  // then re-measure a few times over ~0.7s so the ring catches up to the
+  // smooth-scroll — and on scroll/resize. No perpetual per-frame loop (that
+  // was the jank: getBoundingClientRect + setState every frame, forever,
+  // under four large backdrop-blur panels). If the target genuinely never
+  // appears (e.g. add-slide on a one-slide deck), auto-advance.
   useEffect(() => {
     if (!open || !step) return;
-    let cancelled = false;
-    let misses = 0;
+    let raf = 0;
 
     const find = () => document.querySelector(`[data-tour="${step.sel}"]`) as HTMLElement | null;
+
+    const measure = () => {
+      const e = find();
+      if (!e) return false;
+      const r = e.getBoundingClientRect();
+      setRect((prev) => {
+        if (prev && prev.top === r.top && prev.left === r.left && prev.width === r.width && prev.height === r.height) return prev;
+        return r;
+      });
+      return true;
+    };
+
+    const scheduleMeasure = () => {
+      if (raf) cancelAnimationFrame(raf);
+      raf = window.requestAnimationFrame(measure);
+    };
 
     const el = find();
     if (el) el.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
 
-    const tick = () => {
-      if (cancelled) return;
-      const e = find();
-      if (e) {
-        misses = 0;
-        const r = e.getBoundingClientRect();
-        setRect((prev) => {
-          if (prev && prev.top === r.top && prev.left === r.left && prev.width === r.width && prev.height === r.height) return prev;
-          return r;
-        });
-      } else {
-        misses += 1;
-        if (misses > 45) { // ~0.75s of no element → skip this step
-          cancelled = true;
-          setRect(null);
-          advance();
-          return;
-        }
-      }
-      rafRef.current = window.requestAnimationFrame(tick);
-    };
-    rafRef.current = window.requestAnimationFrame(tick);
+    measure();
+    const settleTimers = [80, 220, 380, 560, 720].map((ms) => window.setTimeout(measure, ms));
+    const missTimer = window.setTimeout(() => { if (!find()) { setRect(null); advance(); } }, 950);
+
+    window.addEventListener("scroll", scheduleMeasure, { passive: true, capture: true });
+    window.addEventListener("resize", scheduleMeasure, { passive: true });
 
     return () => {
-      cancelled = true;
-      if (rafRef.current) window.cancelAnimationFrame(rafRef.current);
+      if (raf) cancelAnimationFrame(raf);
+      settleTimers.forEach((t) => window.clearTimeout(t));
+      window.clearTimeout(missTimer);
+      window.removeEventListener("scroll", scheduleMeasure, { capture: true } as any);
+      window.removeEventListener("resize", scheduleMeasure);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, idx]);

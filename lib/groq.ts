@@ -1140,6 +1140,120 @@ export async function translateDeck(opts: {
   return next;
 }
 
+/**
+ * Rewrite a whole deck at a new content density. Only the bullet content of
+ * bullet-bearing slides changes — titles, layouts, charts, tables, theme,
+ * structure, and order stay exactly as-is. The meaning is preserved; only the
+ * number of bullets and how long/detailed each one is gets adjusted to match
+ * the target density. Premium feature.
+ */
+export async function redensifyDeck(opts: {
+  deck: Deck;
+  density: ContentDensity;
+}): Promise<Deck> {
+  const { deck, density } = opts;
+  const next: Deck = JSON.parse(JSON.stringify(deck));
+
+  // Collect slides that carry bullets (bullets / two-column layouts). Density
+  // is a property of bullet content; hero/closing/quote/section/chart/table
+  // slides are left untouched.
+  const targets: { index: number; title: string; bullets: string[] }[] = [];
+  next.slides.forEach((s, i) => {
+    if (Array.isArray(s.bullets) && s.bullets.length > 0) {
+      targets.push({
+        index: i,
+        title: stripPlain(s.title || ""),
+        bullets: s.bullets.map((b) => stripPlain(b)).filter(Boolean),
+      });
+    }
+  });
+
+  if (targets.length === 0) {
+    next.density = density;
+    return next;
+  }
+
+  const BATCH = 8;
+  for (let start = 0; start < targets.length; start += BATCH) {
+    const slice = targets.slice(start, start + BATCH);
+    const rewritten = await redensifyBatch(slice, density, {
+      audience: deck.audience,
+      tone: deck.tone,
+    });
+    for (const r of rewritten) {
+      const slide = next.slides[r.index];
+      if (slide && Array.isArray(r.bullets) && r.bullets.length > 0) {
+        slide.bullets = r.bullets.map((b) => String(b).slice(0, 220));
+      }
+    }
+  }
+
+  next.density = density;
+  return next;
+}
+
+/** Rewrite one batch of slides' bullets to the target density. */
+async function redensifyBatch(
+  slides: { index: number; title: string; bullets: string[] }[],
+  density: ContentDensity,
+  ctx: { audience?: string; tone?: string },
+): Promise<{ index: number; bullets: string[] }[]> {
+  const system = `You rewrite slide bullet points to a target information density.
+You MUST keep the same topic, meaning, and intent for each slide — you only
+change how MANY bullets there are and how long/detailed each bullet is.
+
+${DENSITY_GUIDE[density]}
+
+Output ONLY JSON: { "slides": [ { "index": number, "bullets": string[] } ] }.
+
+Rules:
+- Return every slide given, with the SAME "index". Do not drop or merge slides.
+- Keep bullets faithful to the slide's title and the original bullets' meaning.
+  When EXPANDING, add genuine reasoning, detail, or examples that follow from
+  the original — never invent fake statistics, dates, names, or sources.
+  When CONDENSING, keep the most important points and tighten the wording.
+- Obey the density's bullet COUNT and LENGTH targets strictly.
+- Plain text only: no markdown, no numbering prefixes, no emojis, no commentary.`;
+
+  const payload = {
+    audience: ctx.audience || "general",
+    tone: ctx.tone || "professional",
+    slides: slides.map((s) => ({ index: s.index, title: s.title, bullets: s.bullets })),
+  };
+
+  const completion = await withGroqClient((client) =>
+    client.chat.completions.create({
+      model: "meta-llama/llama-4-scout-17b-16e-instruct",
+      temperature: 0.3,
+      max_tokens: 6000,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: `Rewrite these slides' bullets to the target density.\n${JSON.stringify(payload)}\n\nReturn ONLY the JSON.` },
+      ],
+    }),
+  );
+
+  const raw = completion.choices[0]?.message?.content || "{}";
+  let parsed: any = {};
+  try {
+    parsed = JSON.parse(extractJson(raw));
+  } catch {
+    return []; // on parse failure, leave the originals untouched
+  }
+
+  const list: any[] = Array.isArray(parsed?.slides) ? parsed.slides : [];
+  const out: { index: number; bullets: string[] }[] = [];
+  for (const it of list) {
+    const idx = Number(it?.index);
+    const bullets = Array.isArray(it?.bullets)
+      ? it.bullets.map((b: any) => (typeof b === "string" ? b.trim() : "")).filter(Boolean)
+      : [];
+    if (Number.isInteger(idx) && bullets.length > 0) out.push({ index: idx, bullets });
+  }
+  return out;
+}
+
 /** Translate an ordered list of strings, preserving order and count. */
 async function translateStrings(strings: string[], targetLanguage: string): Promise<string[]> {
   const numbered = strings.map((s, i) => ({ i, text: s }));

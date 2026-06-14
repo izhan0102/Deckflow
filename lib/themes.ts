@@ -67,6 +67,18 @@ export const PRESET_THEMES: Theme[] = [
   // "Soft sage blobs" graphic; they're not piped through theme.muted.
   // Backs the "Sage & Blush" template card on the gallery's first page.
   { id: "sage-blush",   name: "Sage & Blush",      bg: "#FAF7F2", fg: "#2F3A2A", accent: "#7B8C6F", muted: "#5C6B53", font: "serif" },
+
+  /* ---- Page 5: premium template palettes (Canva/Gamma-grade) ---- */
+  // Two deep, two soft, one luxe — each tuned so body text stays crisp on
+  // the textured backgrounds the matching graphics paint at low opacity.
+  { id: "aurora-night",  name: "Aurora Night",      bg: "#0E1124", fg: "#F4F6FF", accent: "#7DD3FC", muted: "#A6B0D6", font: "sans"  },
+  { id: "peach-cream",   name: "Peach Cream",       bg: "#FFF3EA", fg: "#2A1A12", accent: "#E2674A", muted: "#8A6F60", font: "serif" },
+  { id: "deep-teal",     name: "Deep Teal",         bg: "#0C2A2B", fg: "#EAF6F3", accent: "#5EEAD4", muted: "#8FBDB6", font: "sans"  },
+  { id: "lilac-mist",    name: "Lilac Mist",        bg: "#F4F0FB", fg: "#2B2440", accent: "#8B5CF6", muted: "#6D5E94", font: "sans"  },
+  { id: "graphite-gold", name: "Graphite Gold",     bg: "#15161C", fg: "#F7F4EC", accent: "#D8B26A", muted: "#A8A39A", font: "serif" },
+  // Soft lavender canvas for the playful "Concept Map" template — the
+  // rainbow numbered cards (concept-cards bullets variant) supply the color.
+  { id: "bright-ideas",  name: "Bright Ideas",      bg: "#F3F1FB", fg: "#22252E", accent: "#8B5CF6", muted: "#6B7280", font: "sans"  },
 ];
 
 export function getTheme(id: string): Theme | undefined {

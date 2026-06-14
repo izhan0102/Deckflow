@@ -23,6 +23,7 @@ type Variant = {
 };
 
 const TITLE_VARIANTS: Variant[] = [
+  { id: "concept-hero", label: "Concept", apply: (s) => ({ ...s, titleVariant: "concept-hero" }), current: (s) => s.titleVariant || "centered" },
   { id: "centered",    label: "Centered",    apply: (s) => ({ ...s, titleVariant: "centered"    }), current: (s) => s.titleVariant || "centered" },
   { id: "asymmetric",  label: "Asymmetric",  apply: (s) => ({ ...s, titleVariant: "asymmetric"  }), current: (s) => s.titleVariant || "centered" },
   { id: "big-initial", label: "Big initial", apply: (s) => ({ ...s, titleVariant: "big-initial" }), current: (s) => s.titleVariant || "centered" },
@@ -32,6 +33,7 @@ const TITLE_VARIANTS: Variant[] = [
 ];
 
 const BULLETS_VARIANTS: Variant[] = [
+  { id: "concept-cards", label: "Concept", apply: (s) => ({ ...s, bulletsVariant: "concept-cards" }), current: (s) => s.bulletsVariant || "standard" },
   { id: "standard",   label: "Standard",   apply: (s) => ({ ...s, bulletsVariant: "standard"   }), current: (s) => s.bulletsVariant || "standard" },
   { id: "numbered",   label: "Numbered",   apply: (s) => ({ ...s, bulletsVariant: "numbered"   }), current: (s) => s.bulletsVariant || "standard" },
   { id: "cards",      label: "Cards",      apply: (s) => ({ ...s, bulletsVariant: "cards"      }), current: (s) => s.bulletsVariant || "standard" },

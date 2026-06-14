@@ -11,7 +11,6 @@ import DeckPreview from "@/components/DeckPreview";
 import GenerateOverlay from "@/components/GenerateOverlay";
 import ClarifyDialog from "@/components/ClarifyDialog";
 import TemplateGallery from "@/components/TemplateGallery";
-import TemplateDesigner from "@/components/TemplateDesigner";
 import Dashboard from "@/components/Dashboard";
 import DashboardMobile from "@/components/DashboardMobile";
 import { useDeviceMode } from "@/lib/deviceMode";
@@ -115,7 +114,6 @@ function PageInner() {
   const [templateName, setTemplateName] = useState<string | null>(null);
   // Custom (user-designed) templates.
   const [customTemplates, setCustomTemplates] = useState<CustomTemplate[]>([]);
-  const [designerOpen, setDesignerOpen] = useState(false);
   const [activeCustomTemplate, setActiveCustomTemplate] = useState<CustomTemplate | null>(null);
   // Style bundle chosen on the "style" step — a self-consistent set of
   // per-layout variants layered onto every generated slide. Defaults to the
@@ -271,11 +269,19 @@ const retryGenerate = () => {
       // choice and OVERRIDES the AI's per-slide variants so the deck matches
       // exactly what they previewed.
       const bundle = templateVariants ? null : getStyleBundle(styleBundleId);
-      const slides = bundle
+      const styledSlides = bundle
         ? data.deck.slides.map((s: any) => applyBundleToSlide(s, bundle))
         : templateVariants
           ? data.deck.slides.map((s: any) => applyTemplateToSlide(s, templateVariants))
           : data.deck.slides;
+      // Concept is the default style across every deck, regardless of the
+      // chosen template: colorful numbered cards for bullets and the concept
+      // hero for the title slide. Applied after template/bundle so it wins.
+      const slides = styledSlides.map((s: any) => ({
+        ...s,
+        bulletsVariant: "concept-cards",
+        ...(s.layout === "title-hero" ? { titleVariant: "concept-hero" } : {}),
+      }));
       const baseDeck: Deck = { ...data.deck, slides, graphic: graphicId, graphicAccent, fontId };
 
       // If the user picked one of their custom templates, re-skin the whole
@@ -545,7 +551,6 @@ const retryGenerate = () => {
         open={galleryOpen}
         onClose={() => setGalleryOpen(false)}
         customTemplates={customTemplates}
-        onDesignNew={() => { setGalleryOpen(false); setDesignerOpen(true); }}
         onPickCustom={(t) => {
           // Use a custom template: clear preset variants, mark it active so
           // generation re-skins the deck to follow it exactly.
@@ -574,14 +579,6 @@ const retryGenerate = () => {
           setTemplateName(t.name);
         }}
       />
-
-      {designerOpen && user && (
-        <TemplateDesigner
-          user={user}
-          onClose={() => setDesignerOpen(false)}
-          onSaved={() => { setDesignerOpen(false); setGalleryOpen(true); }}
-        />
-      )}
 
       {/* First-visit walkthrough. Self-disables after one show. */}
 

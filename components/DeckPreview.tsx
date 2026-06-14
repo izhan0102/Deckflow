@@ -1,12 +1,12 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Deck, Slide, UploadedImage, TextBox } from "@/lib/types";
+import type { Deck, Slide, UploadedImage, TextBox, ContentDensity } from "@/lib/types";
 import type { Theme } from "@/lib/themes";
-import { PRESET_THEMES } from "@/lib/themes";
+import { PRESET_THEMES, getTheme } from "@/lib/themes";
 import {
   BarChart3, ChevronDown, ChevronLeft, ChevronRight, Eye, Grid3x3, Image as ImageIcon, LayoutGrid, Link as LinkIcon, List, Loader2, NotebookText, Play, RotateCcw, Smile, Star, Undo2, X,
   Type, Bold, Italic, Underline as UnderlineIcon, Trash2, AlignLeft, AlignCenter, AlignRight, PanelRightOpen,
-  Users, Plus, Minus, Languages, MessageCircleQuestion, Send, Lock,
+  Users, Plus, Minus, Languages, MessageCircleQuestion, Send, Lock, Check, SlidersHorizontal, LayoutTemplate,
 } from "lucide-react";
 import SlideCanvas, { type CanvasSelection } from "./SlideCanvas";
 import DesignerPanel from "./DesignerPanel";
@@ -34,6 +34,25 @@ import { watchUserPlan } from "@/lib/plan";
 import { type PlanId, planHasFeature, planShowsWatermark } from "@/lib/plans";
 import UpgradeDialog from "./UpgradeDialog";
 import DeckTour from "./DeckTour";
+import GenerateOverlay from "./GenerateOverlay";
+import TemplateGallery from "./TemplateGallery";
+import { type DeckTemplate } from "@/lib/templates";
+import { applyCustomTemplateToDeck } from "@/lib/applyCustomTemplate";
+import { watchCustomTemplates, deleteCustomTemplate, type CustomTemplate } from "@/lib/customTemplates";
+
+const DENSITY_TABS: { id: ContentDensity; label: string }[] = [
+  { id: "concise", label: "Concise" },
+  { id: "balanced", label: "Balanced" },
+  { id: "detailed", label: "Detailed" },
+  { id: "comprehensive", label: "In-depth" },
+];
+
+const DENSITY_HINTS: Record<ContentDensity, string> = {
+  concise: "3 short bullets",
+  balanced: "4 medium bullets",
+  detailed: "5 full sentences",
+  comprehensive: "5–6 rich bullets",
+};
 
 type Props = {
   deck: Deck;
@@ -60,6 +79,22 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
   const [plan, setPlan] = useState<PlanId>("free");
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [upgradeReason, setUpgradeReason] = useState<string | undefined>(undefined);
+  // Density rewrite (premium): re-runs the AI to rewrite the whole deck's
+  // bullets at a new content density while showing the building overlay.
+  const [densifying, setDensifying] = useState(false);
+  const [densityError, setDensityError] = useState<string | null>(null);
+  const [densityMenuOpen, setDensityMenuOpen] = useState(false);
+  const pendingDensityRef = useRef<ContentDensity | null>(null);
+  // Template switch (premium): re-skin the whole deck with another template.
+  const [templateGalleryOpen, setTemplateGalleryOpen] = useState(false);
+  const [customTemplates, setCustomTemplates] = useState<CustomTemplate[]>([]);
+
+  // Load the user's saved custom templates for the gallery.
+  useEffect(() => {
+    if (!user) return;
+    const unsub = watchCustomTemplates(user.uid, setCustomTemplates);
+    return () => unsub();
+  }, [user]);
 
   // Live plan so feature locks reflect upgrades immediately.
   useEffect(() => {
@@ -69,7 +104,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
   }, [user]);
 
   const requireFeatureOrUpgrade = (
-    feature: "speakerNotes" | "qaPrep" | "translate" | "icons" | "reorder",
+    feature: "speakerNotes" | "qaPrep" | "translate" | "icons" | "reorder" | "density" | "template",
     reason: string,
     run: () => void,
   ) => {
@@ -480,9 +515,126 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
     setThemeTransferOpen(false);
   };
 
+  const currentDensity: ContentDensity = deck.density || "balanced";
+  const currentDensityLabel = DENSITY_TABS.find((d) => d.id === currentDensity)?.label || "Balanced";
+
+  // Premium: rewrite the whole deck's bullet content at a new density. Shows
+  // the EXdeck building overlay while the AI reworks every content slide.
+  const runDensity = async (target: ContentDensity) => {
+    pendingDensityRef.current = target;
+    setDensityError(null);
+    setDensifying(true);
+    // Keep the animation up for a beat so the rewrite feels intentional.
+    const minDelay = new Promise<void>((r) => window.setTimeout(r, 6500));
+    try {
+      const token = await getIdToken();
+      const fetchPromise = (async () => {
+        const res = await fetch("/api/redensify", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ deck, density: target }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data?.error || "Couldn't change the density. Try again.");
+        return data as { deck?: Deck };
+      })();
+      const [data] = await Promise.all([fetchPromise, minDelay]);
+      if (data?.deck) setDeck(data.deck);
+      else setDeck({ ...deck, density: target });
+    } catch (e: any) {
+      await minDelay.catch(() => {});
+      setDensityError(e?.message || "Something went wrong changing the density.");
+    } finally {
+      setDensifying(false);
+    }
+  };
+
+  const changeDensity = (target: ContentDensity) => {
+    if (target === currentDensity || densifying) return;
+    requireFeatureOrUpgrade(
+      "density",
+      "Changing the deck's density is a Pro feature. Upgrade to rewrite your whole deck at a new level of detail.",
+      () => runDensity(target),
+    );
+  };
+
+  // Premium: re-skin the whole deck with a different preset template. Theme,
+  // font, graphic, and per-layout variants change; content stays put. We
+  // force the template's variants (the shared helper only fills blanks) and
+  // clear any per-slide overrides a previous template left behind.
+  const applyPresetTemplate = (t: DeckTemplate) => {
+    const picked = getTheme(t.themeId);
+    if (picked && setTheme) setTheme(picked);
+    const v = t.variants;
+    setDeck({
+      ...deck,
+      graphic: t.graphicId,
+      graphicAccent: t.graphicAccent,
+      fontId: t.fontId,
+      slides: deck.slides.map((s) => ({
+        ...s,
+        titleVariant: v.titleVariant ?? s.titleVariant,
+        bulletsVariant: v.bulletsVariant ?? s.bulletsVariant,
+        twoColumnVariant: v.twoColumnVariant ?? s.twoColumnVariant,
+        tableVariant: v.tableVariant ?? s.tableVariant,
+        quoteVariant: v.quoteVariant ?? s.quoteVariant,
+        sectionVariant: v.sectionVariant ?? s.sectionVariant,
+        closingVariant: v.closingVariant ?? s.closingVariant,
+        // Drop overrides a previous template applied so the new look shows.
+        textColorOverride: undefined,
+        accentColorOverride: undefined,
+        backgroundColorOverride: undefined,
+        templateFonts: undefined,
+        uploadedImages: (s.uploadedImages || []).filter((im) => im.kind !== "templateBg"),
+      })),
+    });
+    setTemplateGalleryOpen(false);
+  };
+
+  // Premium: re-skin the deck to follow one of the user's custom templates.
+  const applyCustomTemplate = (t: CustomTemplate) => {
+    const applied = applyCustomTemplateToDeck(deck, t);
+    setDeck(applied.deck);
+    if (setTheme) setTheme(applied.theme);
+    setTemplateGalleryOpen(false);
+  };
+
+  const openTemplateGallery = () => {
+    requireFeatureOrUpgrade(
+      "template",
+      "Switching templates is a Pro feature. Upgrade to restyle your whole deck with a different template.",
+      () => setTemplateGalleryOpen(true),
+    );
+  };
+
   return (
     <div className="fade-in mx-auto w-full max-w-[1400px]">
       <DeckTour userId={user?.uid ?? null} />
+      {(densifying || !!densityError) && (
+        <GenerateOverlay
+          open
+          loading={densifying}
+          error={densityError}
+          onRetry={() => {
+            const t = pendingDensityRef.current;
+            setDensityError(null);
+            if (t) void runDensity(t);
+          }}
+        />
+      )}
+      {templateGalleryOpen && (
+        <TemplateGallery
+          open
+          onClose={() => setTemplateGalleryOpen(false)}
+          customTemplates={customTemplates}
+          onPick={applyPresetTemplate}
+          onPickCustom={applyCustomTemplate}
+          onDeleteCustom={(t) => { if (user) deleteCustomTemplate(user.uid, t.id).catch(() => {}); }}
+        />
+      )}
       {presenting && (
         <Presenter deck={deck} theme={theme} startIndex={active} onClose={() => setPresenting(false)} />
       )}
@@ -583,8 +735,59 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
             </button>
           </div>
           <SaveBadge state={saveState} />
+          {viewMode === "slides" && (
+            <div className="relative hidden lg:block" data-tour="tour-density">
+              <button
+                onClick={() => setDensityMenuOpen((o) => !o)}
+                disabled={densifying}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/[0.04] px-2.5 py-1.5 text-[12px] text-white/80 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+                title="Change the whole deck's content density"
+              >
+                <SlidersHorizontal size={13} className="opacity-70" />
+                <span className="text-white/55">Density:</span>
+                <span className="font-medium text-white">{currentDensityLabel}</span>
+                {!planHasFeature(plan, "density") && <Lock size={11} className="opacity-60" />}
+                <ChevronDown size={12} className="opacity-60" />
+              </button>
+              {densityMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setDensityMenuOpen(false)} />
+                  <div
+                    className="absolute left-0 z-50 mt-1.5 w-52 overflow-hidden rounded-xl border p-1 shadow-2xl"
+                    style={{ background: "var(--ezd-bg-elev)", borderColor: "var(--ezd-hairline)" }}
+                  >
+                    <div className="flex items-center justify-between px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40">
+                      Content density
+                      {!planHasFeature(plan, "density") && (
+                        <span className="inline-flex items-center gap-1 text-[9px] text-white/50"><Lock size={9} /> Pro</span>
+                      )}
+                    </div>
+                    {DENSITY_TABS.map((d) => {
+                      const activeD = currentDensity === d.id;
+                      return (
+                        <button
+                          key={d.id}
+                          onClick={() => { setDensityMenuOpen(false); changeDensity(d.id); }}
+                          disabled={densifying}
+                          className={`flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-[12.5px] transition disabled:opacity-60 ${
+                            activeD ? "bg-white/10 text-white" : "text-white/75 hover:bg-white/10"
+                          }`}
+                        >
+                          <span>
+                            <span className="font-medium">{d.label}</span>
+                            <span className="ml-1.5 text-[10.5px] text-white/40">{DENSITY_HINTS[d.id]}</span>
+                          </span>
+                          {activeD && <Check size={14} className="shrink-0 text-cyan-300" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
-        <div className="flex shrink-0 items-center gap-2 overflow-x-auto [&>*]:shrink-0">
+        <div className="flex shrink-0 items-center gap-1.5 overflow-x-auto [&>*]:shrink-0 [&_button]:gap-1.5 [&_button]:rounded-lg [&_button]:px-2.5 [&_button]:py-1.5 [&_button]:text-[12.5px]">
           <input
             ref={fileInputRef} type="file" accept="image/*" hidden
             onChange={(e) => {
@@ -630,6 +833,15 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
               Theme
             </button>
           )}
+          <button
+            onClick={openTemplateGallery}
+            data-tour="tour-template"
+            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
+            title="Switch the whole deck to a different template (theme, font, graphic, layout)"
+          >
+            <LayoutTemplate size={14} /> Template
+            {!planHasFeature(plan, "template") && <Lock size={12} className="opacity-60" />}
+          </button>
             </>
           )}
           {user && deckId && (

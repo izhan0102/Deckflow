@@ -1,31 +1,31 @@
 # EXdeck
 
-AI presentation builder. Type a short prompt, pick a theme, get an editable deck in seconds. Drag text boxes, edit them inline, swap colors, drop in charts and icons, ask the chat to rewrite a slide, and export to PowerPoint or PDF.
+AI presentation builder. Type a short brief, pick a template, and get a fully editable deck in seconds — real charts, themed layouts, speaker notes, and one-click export to PowerPoint and PDF.
 
-Live preview, full-screen presenter mode, slide reorder, and a 200,000-icon library all included.
+Drag and edit everything inline, ask the AI chat to rewrite a slide, switch the whole deck's template or content density on the fly, present full-screen, and share a live link. A 200,000-icon library, AI speaker notes, Q&A prep, and one-click translation are all built in.
 
 ## How it works
 
-The user-facing flow is five steps. The shape doesn't change between sessions — only the content does.
+Describe the deck, choose a template, answer a couple of quick questions, and EXdeck writes and designs the whole thing. The template sets the look; the AI fills in the content. Everything after that happens live in the editor.
 
 ```mermaid
 flowchart LR
-    A(["Brief"]) --> B(["Theme"])
-    B --> C(["Font"])
-    C --> D(["Graphic"])
-    D --> E["Generate"]
-    E --> F(["Editor"])
-    F --> G(["Export .pptx / .pdf"])
-    F -. "chat: rewrite slide 3" .-> F
-    F -. "drag, recolor, swap layout" .-> F
+    A(["Brief<br/>(topic or upload)"]) --> B(["Choose a template"])
+    B --> C{{"AI clarifying<br/>questions"}}
+    C --> D["Generate"]
+    D --> E(["Editor"])
+    E --> F(["Export .pptx / .pdf"])
+    E -. "chat: rewrite slide 3" .-> E
+    E -. "change density / template" .-> E
+    E -. "drag, recolor, add slides" .-> E
 
-    classDef step fill:#1f2937,stroke:#7c5cff,color:#fff,rx:8
-    classDef action fill:#7c5cff,stroke:#7c5cff,color:#fff,rx:8
-    class A,B,C,D,F,G step
-    class E action
+    classDef step fill:#1f2937,stroke:#8b5cf6,color:#fff,rx:8
+    classDef action fill:#8b5cf6,stroke:#8b5cf6,color:#fff,rx:8
+    class A,B,C,E,F step
+    class D action
 ```
 
-Under the hood, the browser stays thin. Long-running and key-sensitive work happens on Next.js API routes; everything else (drag, edit, recolor, PDF render) runs entirely client-side.
+Under the hood the browser stays thin. Long-running and key-sensitive work happens on Next.js API routes; everything else — drag, edit, recolor, template re-skin, PDF render — runs entirely client-side.
 
 ```mermaid
 flowchart TB
@@ -37,9 +37,16 @@ flowchart TB
 
     subgraph "Next.js API routes"
       GEN["/api/generate"]
-      EDIT["/api/edit-slide"]
+      CLAR["/api/clarify"]
+      EDITS["/api/edit-slide"]
+      EDITD["/api/edit-deck"]
+      DENS["/api/redensify"]
+      NOTES["/api/speaker-notes"]
+      QA["/api/qa-prep"]
+      TRANS["/api/translate"]
       EXPORT["/api/export"]
       ICON["/api/icon-search"]
+      CLAIM["/api/claim-proplus"]
     end
 
     subgraph "External services"
@@ -48,29 +55,46 @@ flowchart TB
       FB_DB["Firebase Realtime DB"]
     end
 
-    UI -->|"prompt + theme + font + graphic"| GEN
-    UI -->|"per-slide instruction"| EDIT
+    UI -->|"brief + template"| GEN
+    UI -->|"clarifying Qs"| CLAR
+    UI -->|"per-slide instruction"| EDITS
+    UI -->|"deck-wide instruction"| EDITD
+    UI -->|"new density"| DENS
+    UI -->|"generate notes"| NOTES
+    UI -->|"prep questions"| QA
+    UI -->|"target language"| TRANS
     UI -->|"deck JSON"| EXPORT
     UI -->|"icon query"| ICON
+    UI -->|"device + token"| CLAIM
 
     GEN --> GROQ
-    EDIT --> GROQ
-    EDIT --> ICONIFY
-    EXPORT --> EXPORT_OUT(["pptxgenjs builds .pptx"])
+    CLAR --> GROQ
+    EDITS --> GROQ
+    EDITD --> GROQ
+    DENS --> GROQ
+    NOTES --> GROQ
+    QA --> GROQ
+    TRANS --> GROQ
+    EDITS --> ICONIFY
     ICON --> ICONIFY
+    EXPORT --> EXPORT_OUT(["pptxgenjs builds .pptx"])
+
+    GEN -.->|"plan + usage gate"| FB_DB
+    DENS -.->|"plan gate"| FB_DB
+    CLAIM --> FB_DB
 
     UI -->|"deck JSON"| PDF
     PDF --> PDF_OUT(["Downloaded .pdf"])
 
-    UI <-->|"sign in / events"| AUTH
+    UI <-->|"sign in / plan / events"| AUTH
     AUTH --> FB_DB
 
     classDef ext fill:#0f172a,stroke:#94a3b8,color:#fff,rx:6
-    classDef api fill:#7c5cff,stroke:#7c5cff,color:#fff,rx:6
+    classDef api fill:#8b5cf6,stroke:#8b5cf6,color:#fff,rx:6
     classDef br fill:#1f2937,stroke:#facc15,color:#fff,rx:6
     classDef out fill:#10b981,stroke:#10b981,color:#fff,rx:6
     class UI,PDF,AUTH br
-    class GEN,EDIT,EXPORT,ICON api
+    class GEN,CLAR,EDITS,EDITD,DENS,NOTES,QA,TRANS,EXPORT,ICON,CLAIM api
     class GROQ,ICONIFY,FB_DB ext
     class EXPORT_OUT,PDF_OUT out
 ```
@@ -78,57 +102,78 @@ flowchart TB
 Three patterns hold the system together:
 
 1. **Single deck object** — the entire presentation lives in one typed `Deck` shape (`lib/types.ts`). Every page and every API route reads and writes it. No hidden state.
-2. **Pure-function rendering** — `SlideCanvas` is the same component used in the editor, the thumbnail rail, the present mode, and the off-screen PDF capture. One source of visual truth.
-3. **Server is a thin proxy** — the Next.js API routes only do what the browser cannot: hold the Groq key, hit Iconify for search, and run pptxgenjs for the binary `.pptx`. Everything else is client-side.
+2. **Pure-function rendering** — `SlideCanvas` is the same component used in the editor, the thumbnail rail, present mode, and the off-screen PDF capture. One source of visual truth.
+3. **Server is a thin proxy** — the API routes only do what the browser cannot: hold the Groq key, enforce plan limits, hit Iconify, and run pptxgenjs for the binary `.pptx`. Everything else is client-side.
 
 ## Showcase
 
-The generator now builds **real data visuals** — bar, line, area, pie, and donut charts — directly into the deck when the topic has numbers worth showing. Charts are rendered as crisp vectors that survive both PDF and PowerPoint export, colored from the selected theme, and resizable from the side panel.
+**Start from a brief.** Describe the deck in a sentence (or paste/upload your own content), tune the audience, tone, slide count, and density.
 
 <p align="center">
-  <img src="previews/image.png" alt="Generated deck in the editor" width="100%" />
+  <img src="previews/12.png" alt="The prompt / brief page" width="100%" />
 </p>
 
+**Pick a template.** Choosing a template is the one required step — it sets the theme, font, background texture, and layout. The catalog leads with premium, Canva/Gamma-grade designs.
+
 <p align="center">
-  <img src="previews/graph.png" alt="AI-generated data chart on a slide" width="100%" />
+  <img src="previews/11.png" alt="The template gallery" width="100%" />
+</p>
+
+**Edit everything live.** The full editor: inline text editing, drag-and-drop, AI chat, real data charts, speaker notes, present mode, and one-click export — plus premium switchers to change the deck's density or template instantly.
+
+<p align="center">
+  <img src="previews/13.png" alt="The deck editor" width="100%" />
 </p>
 
 The AI decides on its own whether a chart belongs and which type fits the data — a time trend becomes a line chart, a budget split becomes a pie, category comparisons become bars. If a topic has no real numbers, it stays with text rather than inventing data.
 
 ## Features
 
-- Five-step generator: brief → theme → font → graphic → deck
+### Generation
+- Brief → template → AI clarifying questions → deck, in about ten seconds
+- Describe a topic **or** upload/paste your own content (PDF, .txt, .md — read on-device with OCR fallback)
 - Nine slide layouts: title hero, bullets, table, **data chart**, two-column, quote, section, references, closing
-- **AI-generated data charts** — bar, line, area, pie, and donut, built from the topic's real figures, theme-colored, resizable, and exported as vectors to both PPTX and PDF
-- The model picks the layout per slide (chart, table, two-column, bullets) based on what the content actually is — no fixed template, so every deck looks different
-- 32 themes paginated across four pages, plus full custom colors
-- 18 hand-picked Google Fonts with live previews
-- 22 background graphic styles, recolorable per deck
-- 36 in-house decorations (charts, infographics, layouts) plus 200k searchable icons via Iconify
-- Density slider so you can choose how packed each slide is
-- Per-slide AI chat that knows the deck topic, theme, all slide titles, and existing graphics
-- Drag-and-drop text boxes with PowerPoint-style font sizes
-- Inline text editing on every box (click, edit, blur to save)
-- Click any graphic to recolor it from a swatch picker
-- Image upload with free positioning and resize
-- Corner annotations the AI can place via natural language
-- Optional references slide auto-inserted before the closing
-- Slide reorder, duplicate, insert, delete from the thumbnail rail
-- Full-screen Present mode with PowerPoint-style shortcuts (arrows, B for blank, type-to-jump)
-- Real `.pptx` and `.pdf` export, both pixel-mirroring the on-screen design
-- 10-second generate animation with progress steps so fast generations still feel deliberate
-- Firebase Auth (email and Google) with stats events written to Realtime DB
-- Multi-key Groq fallback so a rate limit on one key auto-switches to another
+- The model picks the layout per slide based on what the content actually is — no fixed template, so every deck reads differently
+- **AI data charts** — bar, line, area, pie, and donut, built from the topic's real figures, theme-colored, resizable, and exported as vectors to both PPTX and PDF
+
+### Design
+- Premium **Canva/Gamma-grade templates** with hand-built low-opacity textured backgrounds
+- The **Concept** style — colorful numbered cards and a bold left-aligned hero — applied by default to every deck
+- 37 themes, 28 Google fonts, and 27 recolorable background graphics
+- Per-slide style variants you can switch on any slide (title, bullets, two-column, table, quote, section, closing)
+- 200,000 searchable icons (Iconify) plus in-house decorations
+
+### Editing
+- Per-slide AI chat that knows the deck topic, theme, every slide title, and existing graphics
+- Deck-wide AI editing ("add three competitor slides", "tighten every bullet")
+- Drag-and-drop text boxes, inline editing, click-to-recolor graphics, image upload
+- Slide reorder, duplicate, insert-between, and delete from the thumbnail rail
+- Undo, autosave to your account, and a guided one-time onboarding tour
+
+### Present & finish
+- AI **speaker notes** with a teleprompter and split-by-speaker mode
+- **Q&A prep** — likely audience questions with suggested answers, plus ask-your-own
+- One-click **deck translation** into any language (layout preserved)
+- Full-screen **Present** mode with PowerPoint-style shortcuts
+- Real `.pptx` and `.pdf` export that pixel-mirrors the on-screen design, plus a **notes handout** PDF
+- Public **share links** with view analytics
+
+### Plans & premium
+- **Free / Pro ($5) / Pro Plus ($10)** tiers, enforced both client-side (for UX) and server-side (non-bypassable)
+- Free: 3 decks/month, watermark on exports, finishing features locked
+- Pro: 10 decks/month, speaker notes, Q&A prep, icons, reorder, handout, **change density**, **switch template**
+- Pro Plus: unlimited decks, everything in Pro, plus **translation**
+- Editor-side premium switchers: rewrite the whole deck at a new **content density**, or re-skin it with a different **template**, in one click
 
 ## Stack
 
 - Next.js 14 with the App Router
 - TypeScript and Tailwind
-- Groq SDK (model `meta-llama/llama-4-scout-17b-16e-instruct`)
+- Groq SDK (model `meta-llama/llama-4-scout-17b-16e-instruct`) with multi-key fallback
 - Iconify for icon search
 - pptxgenjs for PowerPoint export
 - jsPDF and html2canvas for PDF export
-- Firebase Auth and Realtime Database
+- Firebase Auth and Realtime Database (auth, plans, usage, share analytics)
 - Lucide for UI icons
 
 ## Setup
@@ -157,98 +202,39 @@ NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=...
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
 NEXT_PUBLIC_FIREBASE_APP_ID=...
 NEXT_PUBLIC_FIREBASE_DATABASE_URL=...
+
+# server-only: base64 service-account JSON for plan/usage enforcement
+FIREBASE_SERVICE_ACCOUNT_KEY=...
 ```
 
-The Groq key is server-only. The Firebase `NEXT_PUBLIC_*` values are client-side and public by Google's design, protected by Auth authorized domains and Realtime Database security rules.
+The Groq and service-account keys are server-only. The Firebase `NEXT_PUBLIC_*` values are client-side and public by Google's design, protected by Auth authorized domains and Realtime Database security rules.
 
 ## Routes
 
 - `/` — landing page with feature tour and live counters
 - `/auth` — sign in / sign up (email and Google)
 - `/app` — the generator and editor (requires sign-in)
+- `/redeem` — contributor promo: one-time Pro Plus pass
+- `/blog`, `/[keyword]` — SEO content hub and keyword landing pages
 - `/privacy`, `/terms`, `/refund`, `/shipping`, `/contact` — legal pages
 
 ## API Routes
 
-The application uses a small set of API routes to handle tasks that cannot safely or efficiently run in the browser.
+The application uses a small set of API routes for work that cannot safely or efficiently run in the browser. Every AI route is authenticated, rate-limited, and (where relevant) plan-gated.
 
-### `/api/generate`
-
-Generates a complete presentation from a user prompt and selected design settings.
-
-**Input**
-
-* Presentation brief
-* Theme selection
-* Font selection
-* Graphic style
-* Density preferences
-
-**External Services**
-
-* Groq API
-
-**Output**
-
-* Fully structured `Deck` object containing slides, layouts, content, and design metadata
-
----
-
-### `/api/edit-slide`
-
-Applies AI-powered edits to an individual slide without regenerating the entire presentation.
-
-**Input**
-
-* Current slide content
-* User instruction
-* Deck context
-
-**External Services**
-
-* Groq API
-* Iconify API (when icons are requested)
-
-**Output**
-
-* Updated slide content and layout data
-
----
-
-### `/api/export`
-
-Creates downloadable PowerPoint files from the current deck.
-
-**Input**
-
-* Deck JSON object
-
-**Libraries Used**
-
-* pptxgenjs
-
-**Output**
-
-* `.pptx` presentation file
-
----
-
-### `/api/icon-search`
-
-Searches the Iconify icon library and returns matching icons.
-
-**Input**
-
-* Search query
-
-**External Services**
-
-* Iconify
-
-**Output**
-
-* Matching icon metadata and identifiers for use inside the editor
-
+| Route | Purpose | External |
+| --- | --- | --- |
+| `/api/generate` | Build a full `Deck` from a brief + template (deck-limit + usage enforced) | Groq |
+| `/api/clarify` | Generate the pre-generation clarifying questions | Groq |
+| `/api/edit-slide` | AI patch to a single slide | Groq, Iconify |
+| `/api/edit-deck` | AI edits across the whole deck (add/remove/reorder/patch) | Groq |
+| `/api/redensify` | Rewrite the deck at a new content density (Pro) | Groq |
+| `/api/speaker-notes` | Generate spoken speaker notes per slide (Pro) | Groq |
+| `/api/qa-prep` | Likely audience questions + suggested answers (Pro) | Groq |
+| `/api/translate` | Translate the whole deck in place (Pro Plus) | Groq |
+| `/api/export` | Build the downloadable `.pptx` | pptxgenjs |
+| `/api/icon-search` | Proxy to Iconify icon search | Iconify |
+| `/api/claim-proplus` | Grant a one-time, per-device Pro Plus promo pass | Firebase Admin |
 
 ## Project structure
 
@@ -257,26 +243,26 @@ app/
   page.tsx              landing
   app/page.tsx          generator and editor
   auth/page.tsx         login / signup
-  api/
-    generate/           creates a deck from a prompt
-    edit-slide/         applies a single-slide AI patch
-    export/             builds the .pptx file
-    icon-search/        proxy to Iconify search
-components/             SlideCanvas, DeckPreview, Presenter, etc.
+  redeem/page.tsx       contributor Pro Plus promo
+  api/                  generate, clarify, edit-slide, edit-deck,
+                        redensify, speaker-notes, qa-prep, translate,
+                        export, icon-search, claim-proplus
+components/             SlideCanvas, DeckPreview, Presenter, TemplateGallery,
+                        DeckTour, GenerateOverlay, StyleVariants, etc.
 lib/
-  groq.ts               deck generation prompt + parser
+  types.ts              the single Deck/Slide shape
+  groq.ts               generation, edit, notes, translate, density prompts
   groqClient.ts         multi-key Groq client with fallback
-  layoutMath.ts         adaptive font sizes shared by preview and export
-  graphics.ts           background graphic catalog (22)
-  decorations.ts        in-deck decoration catalog (36)
-  iconify.ts            Iconify search + URL builder
-  fonts.ts              Google font presets (18)
-  themes.ts             theme catalog (32)
+  templates.ts          template catalog (theme + font + graphic + variants)
+  themes.ts             theme palette catalog
+  graphics.ts           background graphic catalog (textured, low-opacity)
+  fonts.ts              Google font presets
+  plans.ts              plan tiers, features, limits (single source of truth)
+  plan.ts / planServer.ts   client + server plan resolution (with expiry)
+  usage.ts              monthly generation metering
   pdfExport.ts          client-side PDF builder
-  firebase.ts           Firebase initialization
+  firebase.ts / firebaseAdmin.ts   client + admin Firebase
   auth.ts               sign-in helpers
-  stats.ts              event tracking
-  legal.ts              single source of truth for legal copy
 ```
 
 ## Notes

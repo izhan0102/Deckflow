@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, LayoutGrid, Plus, Sparkles, Trash2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, LayoutGrid, Sparkles, Trash2, X } from "lucide-react";
 import { DECK_TEMPLATES, type DeckTemplate } from "@/lib/templates";
 import { getTheme, type Theme } from "@/lib/themes";
 import { getGraphic } from "@/lib/graphics";
@@ -17,13 +17,12 @@ const PAGE_SIZE_MOBILE = 3;
  * step — no scaling, no aspect-ratio CSS, no container queries.
  */
 export default function TemplateGallery({
-  open, onClose, onPick, customTemplates = [], onDesignNew, onPickCustom, onDeleteCustom,
+  open, onClose, onPick, customTemplates = [], onPickCustom, onDeleteCustom,
 }: {
   open: boolean;
   onClose: () => void;
   onPick: (t: DeckTemplate) => void;
   customTemplates?: CustomTemplate[];
-  onDesignNew?: () => void;
   onPickCustom?: (t: CustomTemplate) => void;
   onDeleteCustom?: (t: CustomTemplate) => void;
 }) {
@@ -58,9 +57,9 @@ export default function TemplateGallery({
   }, [filter]);
 
   // Cards injected before the presets on page 0 of the "All" view:
-  // the "Design your own" card + each saved custom template. They consume
-  // grid slots, so page 0 shows fewer presets to avoid overflow/clipping.
-  const reserved = filter === "All" ? 1 + customTemplates.length : 0;
+  // each saved custom template consumes a grid slot, so page 0 shows fewer
+  // presets to avoid overflow/clipping.
+  const reserved = filter === "All" ? customTemplates.length : 0;
 
   // How many presets fit on each page once page 0's reserved slots are taken.
   const firstPagePresetCount = Math.max(0, pageSize - reserved);
@@ -125,20 +124,9 @@ export default function TemplateGallery({
 
         {/* Grid */}
         <div className="grid min-h-0 flex-1 grid-cols-1 content-start gap-4 overflow-y-auto px-6 pt-6 pb-4 sm:grid-cols-2 lg:grid-cols-3">
-          {/* Design-your-own + saved custom templates (first page, All filter). */}
-          {page === 0 && filter === "All" && (
+          {/* Saved custom templates (first page, All filter). */}
+          {page === 0 && filter === "All" && customTemplates.length > 0 && (
             <>
-              <button
-                onClick={() => { onDesignNew?.(); }}
-                className="group flex min-h-[224px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-cyan-300/30 bg-cyan-400/[0.04] text-center transition hover:border-cyan-300/60 hover:bg-cyan-400/[0.08]"
-              >
-                <span className="grid h-12 w-12 place-items-center rounded-full border border-cyan-300/40 bg-cyan-400/10 text-cyan-200">
-                  <Plus size={20} />
-                </span>
-                <span className="text-[14px] font-semibold text-white">Design your own template</span>
-                <span className="max-w-[80%] text-[11px] text-white/55">Colors, fonts, background, decorations — your look, every deck.</span>
-              </button>
-
               {customTemplates.map((t) => (
                 <CustomTemplateCard
                   key={t.id}
