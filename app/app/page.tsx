@@ -274,13 +274,13 @@ const retryGenerate = () => {
         : templateVariants
           ? data.deck.slides.map((s: any) => applyTemplateToSlide(s, templateVariants))
           : data.deck.slides;
-      // Concept is the default style across every deck, regardless of the
-      // chosen template: colorful numbered cards for bullets and the concept
-      // hero for the title slide. Applied after template/bundle so it wins.
+      // Concept is the default style only where a template hasn't specified
+      // its own — so templates with a bespoke title/bullets design (e.g. the
+      // reference-built covers) keep their look, while plain decks get Concept.
       const slides = styledSlides.map((s: any) => ({
         ...s,
-        bulletsVariant: "concept-cards",
-        ...(s.layout === "title-hero" ? { titleVariant: "concept-hero" } : {}),
+        bulletsVariant: s.bulletsVariant || "concept-cards",
+        ...(s.layout === "title-hero" && !s.titleVariant ? { titleVariant: "concept-hero" } : {}),
       }));
       const baseDeck: Deck = { ...data.deck, slides, graphic: graphicId, graphicAccent, fontId };
 

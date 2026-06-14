@@ -79,6 +79,13 @@ export const PRESET_THEMES: Theme[] = [
   // Soft lavender canvas for the playful "Concept Map" template — the
   // rainbow numbered cards (concept-cards bullets variant) supply the color.
   { id: "bright-ideas",  name: "Bright Ideas",      bg: "#F3F1FB", fg: "#22252E", accent: "#8B5CF6", muted: "#6B7280", font: "sans"  },
+
+  /* ---- Page 6: reference-built title palettes ---- */
+  { id: "blush-grain",   name: "Blush Grain",       bg: "#FAF7F5", fg: "#121212", accent: "#E2503A", muted: "#6B6B6B", font: "sans"  },
+  { id: "ink-paper",     name: "Ink & Paper",       bg: "#F1EFEA", fg: "#1A1A1A", accent: "#1A1A1A", muted: "#555555", font: "serif" },
+  { id: "cream-noir",    name: "Cream Noir",        bg: "#F2EFE2", fg: "#14130F", accent: "#1A1814", muted: "#6B6655", font: "serif" },
+  { id: "crimson-blocks",name: "Crimson Blocks",    bg: "#FFFFFF", fg: "#141414", accent: "#9E1B1B", muted: "#6B6B6B", font: "sans"  },
+  { id: "navy-serif",    name: "Navy Serif",        bg: "#F4F5F3", fg: "#163A52", accent: "#1C496B", muted: "#5C7A8C", font: "serif" },
 ];
 
 export function getTheme(id: string): Theme | undefined {

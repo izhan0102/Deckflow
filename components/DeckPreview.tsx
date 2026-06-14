@@ -39,6 +39,8 @@ import TemplateGallery from "./TemplateGallery";
 import { type DeckTemplate } from "@/lib/templates";
 import { applyCustomTemplateToDeck } from "@/lib/applyCustomTemplate";
 import { watchCustomTemplates, deleteCustomTemplate, type CustomTemplate } from "@/lib/customTemplates";
+import VisualsDrawer from "./VisualsDrawer";
+import type { ChartSpec } from "@/lib/charts";
 
 const DENSITY_TABS: { id: ContentDensity; label: string }[] = [
   { id: "concise", label: "Concise" },
@@ -88,6 +90,9 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
   // Template switch (premium): re-skin the whole deck with another template.
   const [templateGalleryOpen, setTemplateGalleryOpen] = useState(false);
   const [customTemplates, setCustomTemplates] = useState<CustomTemplate[]>([]);
+  // Add-visuals (charts) drawer + the chart element currently being edited.
+  const [visualsOpen, setVisualsOpen] = useState(false);
+  const [editingChart, setEditingChart] = useState<{ id: string; spec: ChartSpec } | null>(null);
 
   // Load the user's saved custom templates for the gallery.
   useEffect(() => {
@@ -326,6 +331,62 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
         i === active ? { ...s, uploadedImages: [...(slide.uploadedImages || []), newImage] } : s,
       ),
     });
+  };
+
+  /* ------------------------------- Visuals -------------------------------- */
+
+  const clampN = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
+
+  // Place a chart as a free, draggable element on the current slide. When
+  // dropped, atX/atY (slide inches) center it on the drop point.
+  const addChartToCurrent = (spec: ChartSpec, atX?: number, atY?: number) => {
+    const w = 5.2, h = 3.25; // chart SVG is 16:10
+    const x = atX != null ? clampN(atX - w / 2, 0, 13.333 - w) : (13.333 - w) / 2;
+    const y = atY != null ? clampN(atY - h / 2, 0, 7.5 - h) : (7.5 - h) / 2;
+    const id = `chart_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+    const newImage: UploadedImage = { id, kind: "chart", chartSpec: spec, dataUrl: "", x, y, w, h };
+    const slide = deck.slides[active];
+    setDeck({
+      ...deck,
+      slides: deck.slides.map((s, i) =>
+        i === active ? { ...s, uploadedImages: [...(slide.uploadedImages || []), newImage] } : s,
+      ),
+    });
+    setSelectedImageId(id);
+  };
+
+  // Insert a brand-new chart slide right after the current one.
+  const addChartNewSlide = (spec: ChartSpec) => {
+    const newSlide: Slide = { layout: "chart", title: spec.title || "Chart", chart: spec, bullets: [] };
+    const next = [...deck.slides];
+    next.splice(active + 1, 0, newSlide);
+    setDeck({ ...deck, slides: next });
+    setActive(active + 1);
+  };
+
+  // Update an existing chart's spec (data / type / colors). Handles both a
+  // floating chart element and the dedicated chart-layout slide's chart.
+  const updateChartElement = (id: string, spec: ChartSpec) => {
+    if (id === "__slide__chart") { updateActive({ chart: spec }); return; }
+    const slide = deck.slides[active];
+    setDeck({
+      ...deck,
+      slides: deck.slides.map((s, i) =>
+        i === active
+          ? { ...s, uploadedImages: (slide.uploadedImages || []).map((im) => im.id === id ? { ...im, chartSpec: spec } : im) }
+          : s,
+      ),
+    });
+  };
+
+  const editChartElement = (id: string) => {
+    if (id === "__slide__chart") {
+      const spec = deck.slides[active]?.chart;
+      if (spec) { setEditingChart({ id, spec }); setVisualsOpen(true); }
+      return;
+    }
+    const img = (deck.slides[active]?.uploadedImages || []).find((im) => im.id === id);
+    if (img?.chartSpec) { setEditingChart({ id, spec: img.chartSpec }); setVisualsOpen(true); }
   };
 
   /* ------------------------------- Export -------------------------------- */
@@ -912,7 +973,27 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
         />
 
         <div className="min-w-0">
-          <div className="overflow-hidden rounded-2xl border border-white/10 shadow-2xl">
+          <div
+            className="overflow-hidden rounded-2xl border border-white/10 shadow-2xl"
+            onDragOver={(e) => {
+              if (e.dataTransfer.types.includes("application/x-exdeck-chart")) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "copy";
+              }
+            }}
+            onDrop={(e) => {
+              const raw = e.dataTransfer.getData("application/x-exdeck-chart");
+              if (!raw) return;
+              e.preventDefault();
+              try {
+                const spec = JSON.parse(raw) as ChartSpec;
+                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                const x = ((e.clientX - rect.left) / rect.width) * 13.333;
+                const y = ((e.clientY - rect.top) / rect.height) * 7.5;
+                addChartToCurrent(spec, x, y);
+              } catch { /* ignore malformed drop */ }
+            }}
+          >
             <SlideCanvas
               slide={enrichedSlides[active]}
               theme={theme}
@@ -926,6 +1007,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
               onUpdate={updateActive}
               selectedImageId={selectedImageId}
               onSelectImage={setSelectedImageId}
+              onEditChart={editChartElement}
               placingText={placingText}
               onPlaceText={(x, y) => {
                 const id = `tb_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
@@ -1085,6 +1167,18 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
         onQAPrep={() => requireFeatureOrUpgrade("qaPrep", "Q&A prep is a Pro feature. Upgrade to use it.", () => setQaOpen(true))}
         translateLocked={!planHasFeature(plan, "translate")}
         qaLocked={!planHasFeature(plan, "qaPrep")}
+        onAddVisuals={() => { setEditingChart(null); setVisualsOpen(true); }}
+      />
+
+      <VisualsDrawer
+        open={visualsOpen}
+        onClose={() => { setVisualsOpen(false); setEditingChart(null); }}
+        theme={theme}
+        editing={editingChart}
+        getToken={() => getIdToken()}
+        onInsertCurrent={(spec) => addChartToCurrent(spec)}
+        onInsertNewSlide={(spec) => addChartNewSlide(spec)}
+        onUpdate={(id, spec) => updateChartElement(id, spec)}
       />
 
       {/* Mandatory one-time review before the first export (free). */}
@@ -1698,7 +1792,7 @@ function InsertSidebar({
   decoSelection, decoState, onUpdateDeco, onDeleteDeco,
   elementSelection, elementSize, elementText, onUpdateElementSize, onFormatElement, onResetElement, onDeleteElement,
   onTranslate, translating,
-  onQAPrep, translateLocked, qaLocked,
+  onQAPrep, translateLocked, qaLocked, onAddVisuals,
 }: {
   open: boolean;
   onToggle: () => void;
@@ -1726,6 +1820,7 @@ function InsertSidebar({
   onQAPrep: () => void;
   translateLocked: boolean;
   qaLocked: boolean;
+  onAddVisuals: () => void;
 }) {
   const SIZES = [12, 14, 16, 18, 20, 24, 28, 32, 40, 54, 72];
   const COLORS = ["", theme.fg, theme.accent, "#0F172A", "#FFFFFF", "#22D3EE", "#1D4ED8", "#DC2626", "#F59E0B", "#047857", "#7C3AED"];
@@ -1803,6 +1898,16 @@ function InsertSidebar({
                 <span>
                   <span className="block font-medium">Add image</span>
                   <span className="block text-[11px] text-white/45">Upload a photo or logo</span>
+                </span>
+              </button>
+              <button
+                onClick={onAddVisuals}
+                className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white/85 transition hover:bg-white/[0.06]"
+              >
+                <BarChart3 size={16} />
+                <span className="flex-1">
+                  <span className="block font-medium">Add visuals</span>
+                  <span className="block text-[11px] text-white/45">Charts &amp; graphs from your data or a topic</span>
                 </span>
               </button>
               <button

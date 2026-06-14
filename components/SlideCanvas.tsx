@@ -65,6 +65,7 @@ export default function SlideCanvas({
   onUpdate,
   selectedImageId,
   onSelectImage,
+  onEditChart,
   placingText = false,
   onPlaceText,
   selectedTextId,
@@ -86,6 +87,8 @@ export default function SlideCanvas({
   onUpdate?: SlideUpdater;
   selectedImageId?: string | null;
   onSelectImage?: ImageSelector;
+  /** Open the visuals editor for a chart element. */
+  onEditChart?: (id: string) => void;
   /** When true, the next click on the canvas drops a new text box. */
   placingText?: boolean;
   /** Called with slide-inch coordinates where the user clicked to place text. */
@@ -209,12 +212,15 @@ export default function SlideCanvas({
       <Inner
         slide={slide} theme={effective} idx={idx} total={total} deckTitle={deckTitle}
         interactive={interactive} onUpdate={onUpdate} canvasRef={containerRef}
+        onEditChart={onEditChart}
       />
       <ImageLayer
+        key="imagelayer"
         slide={slide} interactive={interactive} onUpdate={onUpdate}
         canvasRef={containerRef} theme={effective}
         selectedImageId={selectedImageId}
         onSelectImage={onSelectImage}
+        onEditChart={onEditChart}
       />
       <AnnotationLayer slide={slide} theme={effective} interactive={interactive} onUpdate={onUpdate} />
       <FreeTextLayer
@@ -295,7 +301,7 @@ function Footer({ theme, deckTitle, idx, total }: any) {
 
 function Movable({
   id, slide, theme, interactive, onUpdate, canvasRef,
-  baseStyle, children,
+  baseStyle, children, onActivate,
 }: {
   id: ElementId;
   slide: Slide;
@@ -305,6 +311,8 @@ function Movable({
   canvasRef: React.RefObject<HTMLDivElement>;
   baseStyle: React.CSSProperties;
   children: React.ReactNode;
+  /** When set, a click activates this instead of selecting the element. */
+  onActivate?: () => void;
 }) {
   const offset = slide.elementOffsets?.[id] || { dx: 0, dy: 0 };
   const sel = useCanvasSelection();
@@ -424,6 +432,7 @@ function Movable({
         if (!interactive || !onUpdate) return;
         if (movedRef.current) { movedRef.current = false; return; }
         e.stopPropagation();
+        if (onActivate) { onActivate(); return; }
         sel.select({ kind: "element", id, defaultColor: theme.accent });
       }}
       onMouseEnter={() => setHover(true)}
@@ -780,6 +789,11 @@ function TitleHero(props: any) {
   if (variant === "asymmetric")  return <TitleHeroAsymmetric {...props} />;
   if (variant === "big-initial") return <TitleHeroBigInitial {...props} />;
   if (variant === "concept-hero") return <TitleHeroConcept {...props} />;
+  if (variant === "grain-sphere") return <TitleHeroGrainSphere {...props} />;
+  if (variant === "editorial-classic") return <TitleHeroEditorialClassic {...props} />;
+  if (variant === "display-serif") return <TitleHeroDisplaySerif {...props} />;
+  if (variant === "stacked-bold") return <TitleHeroStackedBold {...props} />;
+  if (variant === "centered-serif") return <TitleHeroCenteredSerif {...props} />;
   if (variant === "numbered")    return <TitleHeroNumbered {...props} />;
   if (variant === "underlined")  return <TitleHeroUnderlined {...props} />;
   if (variant === "editorial-serif") return <TitleHeroEditorial {...props} />;
@@ -856,6 +870,183 @@ function TitleHeroConcept({ slide, theme, deckTitle, interactive, onUpdate, canv
           )}
         </div>
       </Movable>
+    </>
+  );
+}
+
+/** Length-aware title size: shrinks across four steps so long titles never
+ *  overflow. Honors a manual titleScale override. */
+function fitTitleSize(title: string, big: number, mid: number, small: number, tiny: number, scale = 1): number {
+  const n = String(title || "").trim().length;
+  const base = n <= 14 ? big : n <= 26 ? mid : n <= 44 ? small : tiny;
+  return base * scale;
+}
+
+/* ---- Ref 1: bold left title, accent rule, serif company, caps label, grain sphere ---- */
+function TitleHeroGrainSphere({ slide, theme, deckTitle, interactive, onUpdate, canvasRef }: any) {
+  const title = slide.title || deckTitle || "Presentation";
+  const sub = slide.subtitle || "";
+  const fs = fitTitleSize(title, 76, 58, 44, 34, slide.titleScale || 1);
+  return (
+    <>
+      {/* Soft grainy sphere bleeding off the right */}
+      <div aria-hidden style={{
+        position: "absolute", right: inches(-2), top: "50%", transform: "translateY(-50%)",
+        width: inches(8.2), height: inches(8.2), borderRadius: "50%", pointerEvents: "none",
+        background: `radial-gradient(circle at 42% 40%, ${theme.accent}55, ${theme.accent}1f 42%, ${theme.accent}00 70%)`,
+      }} />
+      <Movable id="title" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{ position: "absolute", left: "7%", right: "44%", top: "16%", bottom: "14%", display: "flex", flexDirection: "column", justifyContent: "center" }}
+      >
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <div style={{ fontSize: pt(fs), fontWeight: 800, lineHeight: 1.0, letterSpacing: "-0.03em", color: theme.fg, overflowWrap: "anywhere" }}>
+            <EditableText value={title} interactive={interactive} onCommit={(v) => onUpdate?.({ title: v })} />
+          </div>
+          <div aria-hidden style={{ width: inches(0.7), height: pt(4), background: theme.accent, borderRadius: pt(2), margin: `${pt(22)} 0 ${pt(16)}` }} />
+          {sub && (
+            <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: pt(Math.min(22, subtitleSize(sub, "title-hero", slide) * 1.15)), color: theme.fg, lineHeight: 1.3, overflowWrap: "anywhere" }}>
+              <EditableText value={sub} interactive={interactive} onCommit={(v) => onUpdate?.({ subtitle: v })} />
+            </div>
+          )}
+          <div style={{ marginTop: pt(8), fontSize: pt(10), letterSpacing: "0.2em", textTransform: "uppercase", color: theme.muted, fontWeight: 600 }}>
+            <EditableText value={slide.kicker || "PRESENTED BY"} interactive={interactive} onCommit={(v) => onUpdate?.({ kicker: v })} />
+          </div>
+        </div>
+      </Movable>
+    </>
+  );
+}
+
+/* ---- Ref 2: classic serif title, full-width rule, uppercase subtitle, bottom meta ---- */
+function TitleHeroEditorialClassic({ slide, theme, deckTitle, interactive, onUpdate, canvasRef }: any) {
+  const title = slide.title || deckTitle || "Presentation";
+  const sub = slide.subtitle || "";
+  const fs = fitTitleSize(title, 82, 64, 48, 36, slide.titleScale || 1);
+  return (
+    <>
+      <Movable id="title" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{ position: "absolute", left: "8%", right: "8%", top: "16%", bottom: "32%", display: "flex", flexDirection: "column", justifyContent: "center" }}
+      >
+        <div>
+          <div style={{ fontSize: pt(fs), fontWeight: 600, lineHeight: 1.02, letterSpacing: "-0.01em", color: theme.fg, overflowWrap: "anywhere" }}>
+            <EditableText value={title} interactive={interactive} onCommit={(v) => onUpdate?.({ title: v })} />
+          </div>
+          <div aria-hidden style={{ width: "100%", height: pt(1.5), background: `${theme.fg}55`, margin: `${pt(16)} 0 ${pt(14)}` }} />
+          {sub && (
+            <div style={{ fontSize: pt(15), letterSpacing: "0.28em", textTransform: "uppercase", color: theme.fg, fontWeight: 600, overflowWrap: "anywhere" }}>
+              <EditableText value={sub} interactive={interactive} onCommit={(v) => onUpdate?.({ subtitle: v })} />
+            </div>
+          )}
+        </div>
+      </Movable>
+      <div style={{ position: "absolute", left: "8%", right: "30%", bottom: "10%", fontSize: pt(11), color: theme.muted, lineHeight: 1.6 }}>
+        <EditableText value={slide.kicker || "Presented by · Date"} interactive={interactive} onCommit={(v) => onUpdate?.({ kicker: v })} />
+      </div>
+    </>
+  );
+}
+
+/* ---- Ref 3: top divider + corner label, centered huge display serif, bottom divider ---- */
+function TitleHeroDisplaySerif({ slide, theme, deckTitle, interactive, onUpdate, canvasRef }: any) {
+  const title = slide.title || deckTitle || "Portfolio";
+  const sub = slide.subtitle || "";
+  const fs = fitTitleSize(title, 96, 74, 54, 40, slide.titleScale || 1);
+  return (
+    <>
+      {/* Top rule + corner label */}
+      <div aria-hidden style={{ position: "absolute", left: "5%", right: "5%", top: "11%", height: pt(1.2), background: `${theme.fg}40` }} />
+      <div style={{ position: "absolute", left: "5%", top: "6%", fontSize: pt(10), letterSpacing: "0.18em", textTransform: "uppercase", color: theme.fg, fontWeight: 600 }}>
+        <EditableText value={slide.kicker || "AUTHOR"} interactive={interactive} onCommit={(v) => onUpdate?.({ kicker: v })} />
+      </div>
+      {/* Centered title + subtitle */}
+      <Movable id="title" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{ position: "absolute", left: "6%", right: "6%", top: "18%", bottom: "18%", display: "flex", flexDirection: "column", justifyContent: "center", textAlign: "center" }}
+      >
+        <div>
+          <div style={{ fontSize: pt(fs), fontWeight: 500, lineHeight: 1.0, letterSpacing: "-0.01em", color: theme.fg, overflowWrap: "anywhere" }}>
+            <EditableText value={title} interactive={interactive} onCommit={(v) => onUpdate?.({ title: v })} />
+          </div>
+          {sub && (
+            <div style={{ marginTop: pt(14), fontSize: pt(13), letterSpacing: "0.2em", textTransform: "uppercase", color: theme.muted, fontWeight: 500, overflowWrap: "anywhere" }}>
+              <EditableText value={sub} interactive={interactive} onCommit={(v) => onUpdate?.({ subtitle: v })} />
+            </div>
+          )}
+        </div>
+      </Movable>
+      <div aria-hidden style={{ position: "absolute", left: "5%", right: "5%", bottom: "11%", height: pt(1.2), background: `${theme.fg}40` }} />
+    </>
+  );
+}
+
+/* ---- Ref 4: brand, two-line bold title, dashed rule, contact, corner blocks ---- */
+function TitleHeroStackedBold({ slide, theme, deckTitle, interactive, onUpdate, canvasRef }: any) {
+  const title = slide.title || deckTitle || "Company Profile";
+  const sub = slide.subtitle || "";
+  const fs = fitTitleSize(title, 60, 50, 40, 32, slide.titleScale || 1);
+  return (
+    <>
+      {/* Decorative rounded squares, corners */}
+      <div aria-hidden style={{ position: "absolute", right: inches(-0.6), top: inches(-0.6), width: inches(2.6), height: inches(2.6), borderRadius: pt(28), background: theme.accent, transform: "rotate(12deg)" }} />
+      <div aria-hidden style={{ position: "absolute", right: inches(1.1), top: inches(1.6), width: inches(1.8), height: inches(1.8), borderRadius: pt(22), background: `${theme.accent}40`, transform: "rotate(12deg)" }} />
+      <div aria-hidden style={{ position: "absolute", right: inches(-0.4), bottom: inches(-0.7), width: inches(2.2), height: inches(2.2), borderRadius: pt(24), background: `${theme.accent}26`, transform: "rotate(12deg)" }} />
+      <div aria-hidden style={{ position: "absolute", left: inches(-0.7), bottom: inches(-0.7), width: inches(2), height: inches(2), borderRadius: pt(22), background: `${theme.accent}14`, transform: "rotate(12deg)" }} />
+
+      {/* Brand */}
+      <div style={{ position: "absolute", left: "9%", top: "13%", fontSize: pt(15), fontWeight: 800, fontStyle: "italic", color: theme.fg }}>
+        <EditableText value={slide.kicker || "Your Brand"} interactive={interactive} onCommit={(v) => onUpdate?.({ kicker: v })} />
+      </div>
+
+      <Movable id="title" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{ position: "absolute", left: "9%", right: "34%", top: "28%", bottom: "16%", display: "flex", flexDirection: "column", justifyContent: "center" }}
+      >
+        <div>
+          <div style={{ fontSize: pt(fs), fontWeight: 800, lineHeight: 1.05, letterSpacing: "0.01em", textTransform: "uppercase", color: theme.fg, overflowWrap: "anywhere" }}>
+            <EditableText value={title} interactive={interactive} onCommit={(v) => onUpdate?.({ title: v })} />
+          </div>
+          <div aria-hidden style={{ marginTop: pt(14), borderTop: `${pt(2)} dashed ${theme.fg}`, opacity: 0.7 }} />
+          {sub && (
+            <div style={{ marginTop: pt(16), fontSize: pt(Math.min(15, subtitleSize(sub, "title-hero", slide))), color: theme.muted, lineHeight: 1.4, overflowWrap: "anywhere" }}>
+              <EditableText value={sub} interactive={interactive} onCommit={(v) => onUpdate?.({ subtitle: v })} />
+            </div>
+          )}
+        </div>
+      </Movable>
+    </>
+  );
+}
+
+/* ---- Ref 5: dot+line decoration, centered serif-italic title, subtitle, symmetric ---- */
+function TitleHeroCenteredSerif({ slide, theme, deckTitle, interactive, onUpdate, canvasRef }: any) {
+  const title = slide.title || deckTitle || "Presentation";
+  const sub = slide.subtitle || "";
+  const fs = fitTitleSize(title, 72, 58, 44, 34, slide.titleScale || 1);
+  const dotRow = (top: boolean) => (
+    <div aria-hidden style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", [top ? "top" : "bottom"]: "9%", display: "flex", alignItems: "center", gap: pt(8) }}>
+      {[0, 1, 2, 3, 4].map((i) => <span key={i} style={{ width: pt(8), height: pt(8), borderRadius: "50%", background: theme.accent }} />)}
+      <span style={{ width: inches(1.4), height: pt(2), background: theme.accent, marginLeft: pt(6) }} />
+    </div>
+  );
+  return (
+    <>
+      {dotRow(true)}
+      <Movable id="title" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{ position: "absolute", left: "8%", right: "8%", top: "20%", bottom: "20%", display: "flex", flexDirection: "column", justifyContent: "center", textAlign: "center" }}
+      >
+        <div>
+          <div style={{ fontSize: pt(11), letterSpacing: "0.06em", color: theme.muted, marginBottom: pt(10) }}>
+            <EditableText value={slide.kicker || "Prepared by"} interactive={interactive} onCommit={(v) => onUpdate?.({ kicker: v })} />
+          </div>
+          <div style={{ fontSize: pt(fs), fontWeight: 600, fontStyle: "italic", lineHeight: 1.04, letterSpacing: "-0.01em", color: theme.accent, overflowWrap: "anywhere" }}>
+            <EditableText value={title} interactive={interactive} onCommit={(v) => onUpdate?.({ title: v })} />
+          </div>
+          {sub && (
+            <div style={{ marginTop: pt(12), fontSize: pt(Math.min(19, subtitleSize(sub, "title-hero", slide) * 1.1)), color: theme.muted, lineHeight: 1.35, overflowWrap: "anywhere" }}>
+              <EditableText value={sub} interactive={interactive} onCommit={(v) => onUpdate?.({ subtitle: v })} />
+            </div>
+          )}
+        </div>
+      </Movable>
+      {dotRow(false)}
     </>
   );
 }
@@ -2006,6 +2197,7 @@ function TableLayout(props: any) {
 
 function ChartLayout(props: any) {
   const { slide, theme, idx, total, deckTitle, interactive, onUpdate, canvasRef } = props;
+  const [chartHover, setChartHover] = useState(false);
   const spec = slide.chart;
   const src = spec ? chartDataUri(spec, theme) : "";
   // chartScale lets the user grow/shrink the chart. 1 = fill the box.
@@ -2017,9 +2209,14 @@ function ChartLayout(props: any) {
       <ContentTitle {...props} />
       <Movable id="chart" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
         baseStyle={{ position: "absolute", left: inches(0.6), top: inches(2.5), right: inches(0.6), bottom: inches(0.9) }}
+        onActivate={interactive && props.onEditChart ? () => props.onEditChart("__slide__chart") : undefined}
       >
         {spec && src ? (
-          <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div
+            style={{ position: "relative", width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", cursor: interactive && props.onEditChart ? "pointer" : undefined }}
+            onMouseEnter={() => setChartHover(true)}
+            onMouseLeave={() => setChartHover(false)}
+          >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={src}
@@ -2032,6 +2229,25 @@ function ChartLayout(props: any) {
                 pointerEvents: "none",
               }}
             />
+            {interactive && props.onEditChart && chartHover && (
+              <button
+                data-no-drag
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => { e.stopPropagation(); props.onEditChart("__slide__chart"); }}
+                style={{
+                  position: "absolute", top: pt(4), right: pt(4),
+                  display: "inline-flex", alignItems: "center", gap: pt(4),
+                  padding: `${pt(4)} ${pt(9)}`,
+                  background: "rgba(20,20,22,0.92)", color: "#fff",
+                  border: "1px solid rgba(255,255,255,0.2)", borderRadius: pt(999),
+                  fontSize: pt(11), cursor: "pointer",
+                  fontFamily: "ui-sans-serif, system-ui, sans-serif",
+                }}
+                aria-label="Edit chart"
+              >
+                ✎ Edit chart
+              </button>
+            )}
           </div>
         ) : (
           <div style={{ color: theme.muted, fontSize: pt(14) }}>
@@ -2717,12 +2933,13 @@ function ClosingSignature({ slide, theme, interactive, onUpdate, canvasRef }: an
 
 function ImageLayer({
   slide, interactive, onUpdate, canvasRef, theme,
-  selectedImageId, onSelectImage,
+  selectedImageId, onSelectImage, onEditChart,
 }: {
   slide: Slide; interactive: boolean; onUpdate?: SlideUpdater;
   canvasRef: React.RefObject<HTMLDivElement>; theme: Theme;
   selectedImageId?: string | null;
   onSelectImage?: ImageSelector;
+  onEditChart?: (id: string) => void;
 }) {
   const images = slide.uploadedImages || [];
   if (images.length === 0) return null;
@@ -2736,6 +2953,7 @@ function ImageLayer({
           theme={theme}
           selected={selectedImageId === img.id}
           onSelect={onSelectImage}
+          onEditChart={onEditChart}
         />
       ))}
     </>
@@ -2744,12 +2962,13 @@ function ImageLayer({
 
 function ImageBox({
   img, slide, interactive, onUpdate, canvasRef, theme,
-  selected, onSelect,
+  selected, onSelect, onEditChart,
 }: {
   img: UploadedImage; slide: Slide; interactive: boolean;
   onUpdate?: SlideUpdater; canvasRef: React.RefObject<HTMLDivElement>; theme: Theme;
   selected?: boolean;
   onSelect?: ImageSelector;
+  onEditChart?: (id: string) => void;
 }) {
   const [hover, setHover] = useState(false);
   const dragRef = useRef<{ startX: number; startY: number; ox: number; oy: number; mode: "move" | "resize" } | null>(null);
@@ -2795,9 +3014,15 @@ function ImageBox({
     }
   };
   const onPointerUp = (e: React.PointerEvent) => {
-    if (!dragRef.current) return;
+    const d = dragRef.current;
+    if (!d) return;
     (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
     dragRef.current = null;
+    // A click (negligible drag) on a chart opens the visuals editor.
+    if (d.mode === "move" && img.kind === "chart" && onEditChart) {
+      const moved = Math.hypot(e.clientX - d.startX, e.clientY - d.startY);
+      if (moved < 5) onEditChart(img.id);
+    }
   };
 
   return (
@@ -2832,7 +3057,9 @@ function ImageBox({
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={
-          img.kind === "decoration" && img.decorationId
+          img.kind === "chart" && img.chartSpec
+            ? chartDataUri(img.chartSpec, theme)
+          : img.kind === "decoration" && img.decorationId
             ? decorationDataUri(img.decorationId, applyDecorationOverrides(theme, img.colorOverrides))
           : img.kind === "icon" && img.iconId
             ? iconifySvgUrl(img.iconId, img.colorOverrides?.accent || theme.accent)
@@ -2868,6 +3095,25 @@ function ImageBox({
           >
             ✕
           </button>
+          {img.kind === "chart" && onEditChart && (
+            <button
+              data-no-drag
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); onEditChart(img.id); }}
+              style={{
+                position: "absolute", top: pt(-10), left: pt(-10),
+                width: pt(20), height: pt(20),
+                background: "rgba(20,20,22,0.9)",
+                color: "#fff",
+                border: "1px solid rgba(255,255,255,0.18)",
+                borderRadius: "50%", cursor: "pointer", fontSize: pt(10),
+                lineHeight: 1, fontFamily: "ui-sans-serif, system-ui, sans-serif",
+              }}
+              aria-label="Edit chart"
+            >
+              ✎
+            </button>
+          )}
           <div
             data-no-drag
             onPointerDown={(e) => onPointerDown(e, "resize")}

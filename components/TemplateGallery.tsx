@@ -3,9 +3,9 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, LayoutGrid, Sparkles, Trash2, X } from "lucide-react";
 import { DECK_TEMPLATES, type DeckTemplate } from "@/lib/templates";
 import { getTheme, type Theme } from "@/lib/themes";
-import { getGraphic } from "@/lib/graphics";
-import { resolveFontFamily } from "@/lib/fonts";
 import type { CustomTemplate } from "@/lib/customTemplates";
+import type { Slide } from "@/lib/types";
+import SlideCanvas from "./SlideCanvas";
 import Skeleton from "./Skeleton";
 
 const PAGE_SIZE_DESKTOP = 6;
@@ -245,134 +245,31 @@ function TemplateCard({ template, onPick }: { template: DeckTemplate; onPick: ()
 /* --------------------------- Preview component ---------------------------- */
 
 /**
- * Fixed-height preview card. Real pixel font sizes, no scaling, no
- * container queries. Same approach the working ThemeStep uses.
+ * Accurate preview: renders the template's real title slide through the same
+ * SlideCanvas used in the editor (theme, font, graphic, and the actual
+ * title-hero variant), so the card matches exactly what you'll get.
  */
 function TemplatePreview({ template, theme }: { template: DeckTemplate; theme: Theme }) {
-  const graphic = getGraphic(template.graphicId);
-  const themeForGraphic = template.graphicAccent ? { ...theme, accent: template.graphicAccent } : theme;
-  const fontFamily = resolveFontFamily(
-    template.fontId,
-    theme.font === "serif" ? "Georgia, serif" : "ui-sans-serif, system-ui",
-  );
-
-  const v = template.variants;
-  const showBigInitial = v.titleVariant === "big-initial";
-  const showNumbered   = v.titleVariant === "numbered";
-  const showUnderlined = v.titleVariant === "underlined";
-  const showAsymmetric = v.titleVariant === "asymmetric";
-
-  const fg = theme.fg;
-  const ac = template.graphicAccent || theme.accent;
-  const muted = theme.muted;
-
+  const sample: Slide = {
+    layout: "title-hero",
+    title: "Pitch Deck",
+    subtitle: "Business Presentation",
+    kicker: (template.category || "Presentation").toUpperCase(),
+    titleVariant: template.variants.titleVariant,
+  };
   return (
-    <div
-      className="relative h-56 w-full overflow-hidden"
-      style={{ background: theme.bg, fontFamily }}
-    >
-      {/* Graphic background */}
-      {graphic.id !== "none" && (
-        <div
-          aria-hidden
-          style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
-          dangerouslySetInnerHTML={{
-            __html: graphic.render(themeForGraphic).replace(
-              /^<svg /,
-              `<svg style="display:block;width:100%;height:100%;" `,
-            ),
-          }}
+    <div className="relative w-full overflow-hidden border-b border-white/10">
+      <div className="pointer-events-none">
+        <SlideCanvas
+          slide={sample}
+          theme={theme}
+          idx={0}
+          total={1}
+          deckTitle={sample.title}
+          graphicId={template.graphicId}
+          graphicAccent={template.graphicAccent}
+          fontId={template.fontId}
         />
-      )}
-
-      {/* Asymmetric: half-bleed accent panel */}
-      {showAsymmetric && (
-        <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "38%", background: ac }} />
-      )}
-
-      {/* Big-initial faded letter */}
-      {showBigInitial && (
-        <div style={{
-          position: "absolute", left: 8, top: -28,
-          fontSize: 180, lineHeight: 1, fontWeight: 900,
-          color: ac, opacity: 0.16, letterSpacing: "-0.04em",
-          pointerEvents: "none",
-          fontFamily,
-        }}>
-          {(template.name || "D").trim().charAt(0).toUpperCase()}
-        </div>
-      )}
-
-      {/* Numbered: "01" in top-right */}
-      {showNumbered && (
-        <div style={{
-          position: "absolute", right: 18, top: 6,
-          fontSize: 56, lineHeight: 1, fontWeight: 900,
-          color: ac, letterSpacing: "-0.02em", opacity: 0.9,
-          fontFamily,
-        }}>
-          01
-        </div>
-      )}
-
-      {/* Brand chip — hidden when "01" occupies the same corner */}
-      <div style={{
-        position: "absolute", right: 14, top: 12,
-        fontSize: 9, letterSpacing: "0.22em",
-        color: muted, opacity: showNumbered ? 0 : 0.65, fontWeight: 700,
-      }}>
-        EXDECK
-      </div>
-
-      {/* Content stack — vertically centered */}
-      <div style={{
-        position: "absolute",
-        left: showAsymmetric ? "44%" : 18,
-        right: 18,
-        top: "50%",
-        transform: "translateY(-50%)",
-      }}>
-        <div style={{
-          fontSize: 9,
-          letterSpacing: "0.22em",
-          color: showAsymmetric ? muted : ac,
-          fontWeight: 700,
-          marginBottom: 8,
-          textTransform: "uppercase",
-        }}>
-          {template.category}
-        </div>
-
-        <div style={{
-          fontSize: 22,
-          fontWeight: 800,
-          lineHeight: 1.05,
-          color: fg,
-          letterSpacing: "-0.015em",
-          display: "-webkit-box",
-          WebkitLineClamp: 2,
-          WebkitBoxOrient: "vertical",
-          overflow: "hidden",
-        }}>
-          {template.name}
-        </div>
-
-        {showUnderlined && (
-          <div style={{ marginTop: 8, width: 48, height: 3, background: ac }} />
-        )}
-
-        <div style={{
-          marginTop: 8,
-          fontSize: 11,
-          color: muted,
-          lineHeight: 1.4,
-          display: "-webkit-box",
-          WebkitLineClamp: 2,
-          WebkitBoxOrient: "vertical",
-          overflow: "hidden",
-        }}>
-          {template.tagline}
-        </div>
       </div>
     </div>
   );

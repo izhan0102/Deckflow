@@ -46,9 +46,125 @@ export type DeckTemplate = {
 
 export const DECK_TEMPLATES: DeckTemplate[] = [
   /* ============================================================
+   * REFERENCE-BUILT TITLE SETS — five title-slide designs matched
+   * from real decks: grain sphere, classic editorial, display serif,
+   * stacked bold profile, and centered serif. Each sets its own
+   * title-hero variant so the cover reads exactly like the reference.
+   * ============================================================ */
+  {
+    id: "crimson-grain",
+    name: "Crimson Grain",
+    tagline: "Bold left title, a red accent rule, and a soft grain sphere. Clean, premium pitch cover.",
+    category: "Pitch",
+    themeId: "blush-grain",
+    fontId: "inter",
+    graphicId: "none",
+    density: "balanced",
+    includeReferences: false,
+    samplePrompt: "Investor pitch for a new product: the problem, our solution, traction, market, and the ask.",
+    variants: {
+      titleVariant: "grain-sphere",
+      bulletsVariant: "dashed",
+      twoColumnVariant: "divider",
+      tableVariant: "minimal",
+      quoteVariant: "editorial",
+      sectionVariant: "minimal",
+      closingVariant: "signature",
+    },
+    isNew: true,
+  },
+  {
+    id: "editorial-classic",
+    name: "Editorial Classic",
+    tagline: "A serif headline over a full-width rule with a tracked subtitle. Timeless and corporate.",
+    category: "Editorial",
+    themeId: "ink-paper",
+    fontId: "playfair",
+    graphicId: "none",
+    density: "detailed",
+    includeReferences: true,
+    samplePrompt: "A new business opportunity brief for the leadership team: context, the opportunity, the plan, and next steps.",
+    variants: {
+      titleVariant: "editorial-classic",
+      bulletsVariant: "dashed",
+      twoColumnVariant: "divider",
+      tableVariant: "minimal",
+      quoteVariant: "editorial",
+      sectionVariant: "minimal",
+      closingVariant: "contact",
+    },
+    isNew: true,
+  },
+  {
+    id: "display-folio",
+    name: "Display Folio",
+    tagline: "A framed cover with a giant display-serif title between two rules. Editorial portfolio energy.",
+    category: "Portfolio",
+    themeId: "cream-noir",
+    fontId: "fraunces",
+    graphicId: "none",
+    density: "balanced",
+    includeReferences: false,
+    samplePrompt: "A creative portfolio overview: who I am, selected work, the process, results, and how to get in touch.",
+    variants: {
+      titleVariant: "display-serif",
+      bulletsVariant: "dashed",
+      twoColumnVariant: "divider",
+      tableVariant: "minimal",
+      quoteVariant: "giant-mark",
+      sectionVariant: "chapter",
+      closingVariant: "signature",
+    },
+    isNew: true,
+  },
+  {
+    id: "company-profile",
+    name: "Company Profile",
+    tagline: "A heavy uppercase title with a dashed rule and bold corner blocks. Confident business profile.",
+    category: "Business",
+    themeId: "crimson-blocks",
+    fontId: "montserrat",
+    graphicId: "none",
+    density: "balanced",
+    includeReferences: false,
+    samplePrompt: "A company profile: who we are, what we do, our services, our results, and how to reach us.",
+    variants: {
+      titleVariant: "stacked-bold",
+      bulletsVariant: "icon-check",
+      twoColumnVariant: "cards",
+      tableVariant: "accent-header",
+      quoteVariant: "card",
+      sectionVariant: "panel",
+      closingVariant: "contact",
+    },
+    isNew: true,
+  },
+  {
+    id: "group-serif",
+    name: "Group Serif",
+    tagline: "A symmetric cover with a serif-italic title framed by dot-and-line accents. Academic and calm.",
+    category: "Academic",
+    themeId: "navy-serif",
+    fontId: "playfair",
+    graphicId: "none",
+    density: "balanced",
+    includeReferences: true,
+    samplePrompt: "A group project on enhancing product sales strategy: background, research, our proposal, and results.",
+    variants: {
+      titleVariant: "centered-serif",
+      bulletsVariant: "numbered",
+      twoColumnVariant: "classic",
+      tableVariant: "zebra",
+      quoteVariant: "centered",
+      sectionVariant: "minimal",
+      closingVariant: "centered",
+    },
+    isNew: true,
+  },
+
+  /* ============================================================
    * PREMIUM SET (Canva/Gamma-grade) — five fresh templates pairing
-   * new palettes with new low-opacity textured backgrounds. They lead
-   * the gallery's first page.
+   * new palettes with new low-opacity textured backgrounds.
    * ============================================================ */
   {
     id: "aurora-nights",

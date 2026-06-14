@@ -1,7 +1,7 @@
 import Groq from "groq-sdk";
 import type { Deck, Slide, SlideLayout, ContentDensity, Reference, TableData } from "./types";
 import { withGroqClient } from "./groqClient";
-import { cleanChartSpec } from "./charts";
+import { cleanChartSpec, type ChartType, type ChartSpec } from "./charts";
 
 const VALID_LAYOUTS: SlideLayout[] = [
   "title-hero",
@@ -1436,4 +1436,73 @@ export async function answerDeckQuestion(opts: {
   } catch {
     return "";
   }
+}
+
+
+/* -------------------------------- Visuals -------------------------------- */
+
+/**
+ * Turn a short description of a topic or dataset into a single chart spec
+ * with realistic, plausible data. If `type` is given the chart uses it;
+ * otherwise the model picks the best-fitting type. Returns undefined when
+ * the model can't produce a usable chart.
+ */
+export async function generateChart(opts: {
+  description: string;
+  type?: ChartType;
+}): Promise<ChartSpec | undefined> {
+  const desc = (opts.description || "").trim().slice(0, 600);
+  if (!desc) return undefined;
+
+  const typeHint = opts.type
+    ? `Use chart type "${opts.type}".`
+    : `Choose the chart type that best fits the data (bar, line, area, pie, or donut).`;
+
+  const system = `You build ONE data chart for a slide. Accuracy and honesty about the data are the absolute priority. You have no live internet — use only what you actually know from training.
+
+Follow this algorithm IN ORDER:
+
+1. RECALL: Decide whether you genuinely know real, factual figures for this topic from your training (world/economic/scientific statistics, historical series, well-known public figures, etc.).
+
+2. KNOWN DATA → use the real, accurate values you remember. Do not fabricate precision you don't have; round sensibly. Set "dataQuality":"actual" and put the source + coverage in "note" (e.g. "World Bank · global · through 2021").
+
+3. RECENT / FUTURE beyond your knowledge (e.g. "latest", this year, next year): still include those periods, but mark each such point "estimated": true and base it on the REAL historical trend you know — a reasoned projection, never a random guess. Set "dataQuality":"projected" (or "mixed" if some points are real and some projected) and explain in "note" (e.g. "through 2021 actual; 2022–2025 projected from trend").
+
+4. NO REAL BASIS (private/internal numbers like "our revenue", obscure or fictional topics you can't know): produce clearly illustrative placeholder values, set "dataQuality":"estimated", and in "note" say the figures are illustrative and should be replaced with the user's real data.
+
+HARD RULES:
+- NEVER present estimated or projected numbers as established facts.
+- NEVER invent specific real-world statistics you do not actually remember. If unsure of exact values, prefer fewer points you're confident in, or mark them estimated.
+- The "note" must honestly tell the viewer where the numbers come from.
+
+Output ONLY JSON:
+{
+  "type": "bar"|"line"|"area"|"pie"|"donut",
+  "title": string,            // <= 48 chars
+  "unit": string,             // "%","M","k","B","yrs" or ""
+  "dataQuality": "actual"|"estimated"|"projected"|"mixed",
+  "note": string,             // honest one-line basis/source, <= 120 chars
+  "data": [ { "label": string, "value": number, "estimated": boolean } ]
+}
+
+Constraints: 3 to 7 data points; labels <= 16 chars; ${typeHint}; for pie/donut the values represent parts of a whole. No commentary, no markdown — JSON only.`;
+
+  const completion = await withGroqClient((client) =>
+    client.chat.completions.create({
+      model: "meta-llama/llama-4-scout-17b-16e-instruct",
+      temperature: 0.15,
+      max_tokens: 1100,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: `Topic / data: "${desc}"\nReturn ONLY the JSON chart spec.` },
+      ],
+    }),
+  );
+
+  const raw = completion.choices[0]?.message?.content || "{}";
+  let parsed: any = {};
+  try { parsed = JSON.parse(extractJson(raw)); } catch { return undefined; }
+  if (opts.type) parsed.type = opts.type;
+  return cleanChartSpec(parsed);
 }

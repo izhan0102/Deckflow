@@ -60,12 +60,15 @@ export type Reference = {
 
 export type UploadedImage = {
   id: string;
-  /** "user" = uploaded photo. "decoration" = SVG decoration. "icon" = Iconify icon. "templateBg" = full-bleed template background. */
-  kind?: "user" | "decoration" | "icon" | "templateBg";
-  dataUrl: string;     // for "user": base64 data: URL. Empty for decoration/icon.
+  /** "user" = uploaded photo. "decoration" = SVG decoration. "icon" = Iconify icon. "templateBg" = full-bleed template background. "chart" = data chart rendered from chartSpec. */
+  kind?: "user" | "decoration" | "icon" | "templateBg" | "chart";
+  dataUrl: string;     // for "user": base64 data: URL. Empty for decoration/icon/chart.
   decorationId?: string;
   /** Iconify id like "tabler:rocket" or "mdi:home" — used when kind === "icon". */
   iconId?: string;
+  /** Chart spec — used when kind === "chart". Rendered live so it recolors
+   *  with the theme and stays editable (data, type, colors). */
+  chartSpec?: ChartSpec;
   /** Per-element color overrides applied on top of the slide theme. */
   colorOverrides?: { accent?: string; muted?: string; fg?: string };
   /** Optional opacity, 0..1. When undefined the element is fully opaque. */
@@ -94,7 +97,7 @@ export type Slide = {
   chart?: ChartSpec;
   references?: Reference[];
   /** Optional variant for the title-hero layout. */
-  titleVariant?: "centered" | "asymmetric" | "big-initial" | "numbered" | "underlined" | "editorial-serif" | "concept-hero";
+  titleVariant?: "centered" | "asymmetric" | "big-initial" | "numbered" | "underlined" | "editorial-serif" | "concept-hero" | "grain-sphere" | "editorial-classic" | "display-serif" | "stacked-bold" | "centered-serif";
   /** Bullets layout style. */
   bulletsVariant?: "standard" | "numbered" | "cards" | "icon-check" | "dashed" | "concept-cards";
   /** Two-column layout style. */

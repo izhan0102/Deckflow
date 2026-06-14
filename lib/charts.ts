@@ -33,6 +33,12 @@ export type ChartSpec = {
   title?: string;
   /** Optional unit suffix appended to value labels, e.g. "%", "M", "k". */
   unit?: string;
+  /** Honest one-line basis/source caption shown under the chart, e.g.
+   *  "World Bank · through 2021 · 2022–25 projected". */
+  note?: string;
+  /** Data provenance: actual (known facts), estimated (illustrative
+   *  placeholders), projected (forecast beyond knowledge), or mixed. */
+  dataQuality?: "actual" | "estimated" | "projected" | "mixed";
 };
 
 const VW = 480;
@@ -182,6 +188,12 @@ function titleBlock(spec: ChartSpec, theme: Theme): { svg: string; top: number }
   return { svg, top: 50 };
 }
 
+/** Honest provenance/source caption rendered at the very bottom. */
+function noteBlock(spec: ChartSpec, theme: Theme): string {
+  if (!spec.note) return "";
+  return `<text x="${VW / 2}" y="${VH - 6}" text-anchor="middle" font-size="11" fill="${alpha(theme.fg, 0.5)}">${esc(clip(spec.note, 78))}</text>`;
+}
+
 function renderBarOrLine(spec: ChartSpec, theme: Theme, mode: "bar" | "line" | "area"): string {
   const { data } = spec;
   const cols = palette(theme, data.length);
@@ -241,7 +253,7 @@ function renderBarOrLine(spec: ChartSpec, theme: Theme, mode: "bar" | "line" | "
   }
 
   const axis = `<line x1="${left}" y1="${baseY}" x2="${left + plotW}" y2="${baseY}" stroke="${alpha(theme.fg, 0.4)}" stroke-width="1.5"/>`;
-  return svgWrap(tSvg + grid + axis + body + labels);
+  return svgWrap(tSvg + grid + axis + body + labels + noteBlock(spec, theme));
 }
 
 function renderPieOrDonut(spec: ChartSpec, theme: Theme, mode: "pie" | "donut"): string {
@@ -286,7 +298,7 @@ function renderPieOrDonut(spec: ChartSpec, theme: Theme, mode: "pie" | "donut"):
     legend += `<text x="${lx + 22}" y="${y.toFixed(1)}" font-size="14" fill="${theme.fg}">${esc(clip(d.label, 14))} <tspan fill="${alpha(theme.fg, 0.6)}" font-weight="700">${pct}%</tspan></text>`;
   });
 
-  return svgWrap(tSvg + segs + legend);
+  return svgWrap(tSvg + segs + legend + noteBlock(spec, theme));
 }
 
 /* -------------------------------- public API ------------------------------ */
@@ -329,5 +341,9 @@ export function cleanChartSpec(raw: any): ChartSpec | undefined {
   if (data.length < 2) return undefined; // a chart needs at least 2 points
   const unit = typeof raw.unit === "string" ? raw.unit.slice(0, 6) : undefined;
   const title = typeof raw.title === "string" ? raw.title.slice(0, 60) : undefined;
-  return { type, data, unit, title };
+  const note = typeof raw.note === "string" && raw.note.trim() ? raw.note.trim().slice(0, 160) : undefined;
+  const dataQuality = ["actual", "estimated", "projected", "mixed"].includes(raw.dataQuality)
+    ? raw.dataQuality as ChartSpec["dataQuality"]
+    : undefined;
+  return { type, data, unit, title, note, dataQuality };
 }
