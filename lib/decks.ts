@@ -189,7 +189,7 @@ export async function publishDeck(uid: string, deckId: string): Promise<string> 
 
   // Strip presenter notes from the public shared copy
   const cleanSlides = stored.deck.slides.map((s) => {
-    const { notes, ...rest } = s;
+    const { notes, noteSegments, ...rest } = s;
     return rest;
   });
   const cleanDeck = {
