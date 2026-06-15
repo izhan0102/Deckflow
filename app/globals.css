@@ -471,6 +471,23 @@ textarea {
 }
 .ezd-panel-pop { animation: ezd-panel-pop 260ms cubic-bezier(0.2, 0.8, 0.2, 1); }
 
+/* Hero template showcase — the top card "falls away" revealing the next
+   template underneath, which gently rises into place. */
+@keyframes ezd-tpl-fall {
+  0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(118%) rotate(4deg); opacity: 0; }
+}
+@keyframes ezd-tpl-rise {
+  0%   { transform: scale(0.965); opacity: 0.45; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.ezd-tpl-fall { animation: ezd-tpl-fall 0.78s cubic-bezier(0.55, 0, 0.85, 0.35) both; }
+.ezd-tpl-rise { animation: ezd-tpl-rise 0.72s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .ezd-tpl-fall { animation: none; opacity: 0; }
+  .ezd-tpl-rise { animation: none; }
+}
+
 /* ============================================================
  * MONOCHROME ACCENT LAYER  (applies in BOTH themes)
  *

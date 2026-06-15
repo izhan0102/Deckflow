@@ -25,7 +25,7 @@ import { useEffect, useState } from "react";
 
 export type Theme = "dark" | "light";
 
-const STORAGE_KEY = "ezdeck_theme";
+const STORAGE_KEY = "ezdeck_theme_v2";
 const EVENT = "ezdeck:theme-changed";
 
 /**
@@ -35,16 +35,12 @@ const EVENT = "ezdeck:theme-changed";
  */
 export const THEME_BOOT_SCRIPT = `
 (function () {
+  // Brand default: the site ALWAYS boots in light mode. The header toggle
+  // still flips dark live for the current session, but a reload returns to
+  // light — so the site can never "auto-switch" to dark on refresh.
   try {
-    var stored = localStorage.getItem("ezdeck_theme");
-    // New visitors default to light. Existing users keep their explicit
-    // stored choice; OS preference is intentionally ignored so the brand
-    // look stays consistent.
-    var resolved = (stored === "light" || stored === "dark") ? stored : "light";
-    document.documentElement.setAttribute("data-theme", resolved);
-  } catch (e) {
     document.documentElement.setAttribute("data-theme", "light");
-  }
+  } catch (e) {}
 })();
 `;
 
@@ -55,10 +51,10 @@ function readCurrent(): Theme {
   return v === "dark" ? "dark" : "light";
 }
 
-/** Apply a theme: persist, set DOM attribute, notify listeners. */
+/** Apply a theme live for this session. NOT persisted — the boot script
+ *  always starts the site in light, so dark never comes back on refresh. */
 function applyTheme(next: Theme) {
   if (typeof window === "undefined") return;
-  try { window.localStorage.setItem(STORAGE_KEY, next); } catch { /* private mode */ }
   document.documentElement.setAttribute("data-theme", next);
   window.dispatchEvent(new CustomEvent(EVENT, { detail: { theme: next } }));
 }

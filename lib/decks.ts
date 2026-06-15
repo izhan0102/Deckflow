@@ -150,6 +150,32 @@ export async function deleteDeck(uid: string, deckId: string): Promise<void> {
   }
 }
 
+/** Rename a deck. Updates the list meta and the deck's own title so the
+ *  editor opens with the new title. Deliberately does NOT touch
+ *  `updatedAt` — a rename shouldn't bump the deck to most-recent (which
+ *  would move it into "Continue working"). */
+export async function renameDeck(uid: string, deckId: string, title: string): Promise<void> {
+  const db = getFirebaseDb();
+  if (!db) throw new Error("Cloud sync unavailable.");
+  const clean = (title || "").trim().slice(0, 200) || "Untitled deck";
+  await update(ref(db, `decks/${uid}/${deckId}`), sanitize({
+    "meta/title": clean,
+    "deck/title": clean,
+  }));
+}
+
+/** Duplicate a deck into a brand-new row ("… (copy)"). Returns the new id,
+ *  or null if the source couldn't be loaded. */
+export async function duplicateDeck(uid: string, deckId: string): Promise<string | null> {
+  const stored = await loadDeck(uid, deckId);
+  if (!stored) return null;
+  const copy: Deck = {
+    ...stored.deck,
+    title: `${stored.deck.title || "Untitled deck"} (copy)`,
+  };
+  return createDeck(uid, copy, stored.theme);
+}
+
 export function watchDeckList(
   uid: string, cb: (items: DeckListItem[]) => void,
 ): () => void {
