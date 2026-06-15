@@ -45,6 +45,10 @@ export default function ClarifyDialog({
   const [questions, setQuestions] = useState<Question[]>([]);
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string[]>>({});
+  // Free-text topic the user types when they ask for visuals (e.g. "fertility
+  // rate"). Folded into the generation directives so the deck builds real
+  // data charts on it. Only shown for the visuals question when affirmative.
+  const [visualTopic, setVisualTopic] = useState("");
   const reqIdRef = useRef(0);
   // Guards against double-completion. onComplete triggers generate(), which
   // creates a deck and burns quota — firing it twice (e.g. an auto-advance
@@ -60,6 +64,7 @@ export default function ClarifyDialog({
     setQuestions([]);
     setStep(0);
     setAnswers({});
+    setVisualTopic("");
     completedRef.current = false;
     if (advanceTimerRef.current) {
       window.clearTimeout(advanceTimerRef.current);
@@ -109,6 +114,19 @@ export default function ClarifyDialog({
   const total = questions.length;
   const current = questions[step];
 
+  // The first clarify question is always the visuals one (enforced server-
+  // side). Treat index 0, or any id mentioning visual/chart/graphic, as it.
+  const isVisualsQuestion = (q: Question, idx: number) =>
+    idx === 0 || /visual|chart|graphic/i.test(q.id);
+  // An option means "wants visuals" unless it's a text-only / no-charts choice.
+  const isAffirmativeVisual = (value: string) =>
+    !!value && !/text[\s-]?only|no[\s-]?(charts?|visuals?|diagrams?)|without|don'?t include|none/i.test(value);
+  const visualsWanted = (final: Record<string, string[]>) => {
+    const idx = questions.findIndex((q, i) => isVisualsQuestion(q, i));
+    if (idx < 0) return false;
+    return isAffirmativeVisual((final[questions[idx].id] || [])[0] || "");
+  };
+
   const assembleDirectives = (final: Record<string, string[]>): string => {
     const parts: string[] = [];
     for (const q of questions) {
@@ -116,8 +134,22 @@ export default function ClarifyDialog({
       if (chosen.length === 0) continue;
       parts.push(chosen.join("; "));
     }
-    if (parts.length === 0) return "";
-    return "User preferences for this deck (honor strictly):\n- " + parts.join("\n- ");
+    let directive = parts.length === 0
+      ? ""
+      : "User preferences for this deck (honor strictly):\n- " + parts.join("\n- ");
+
+    // When the user asked for visuals AND named a topic, instruct the
+    // generator to build real, honest data charts on it (same approach as
+    // the editor's "add a visual" tool), placed where they fit the deck.
+    const topic = visualTopic.trim();
+    if (topic && visualsWanted(final)) {
+      const line = `Data charts: include data chart slide(s) (use the "chart" layout) with real, honest figures specifically covering ${topic}. Match the chart type to the data (bar/line/area/pie/donut). If exact numbers aren't known, use clearly-labelled estimates rather than skipping the chart.`;
+      directive = directive
+        ? `${directive}\n- ${line}`
+        : `User preferences for this deck (honor strictly):\n- ${line}`;
+    }
+    if (!directive) return "";
+    return directive;
   };
 
   // Single entry point for finishing. The ref guard ensures generate()
@@ -150,6 +182,16 @@ export default function ClarifyDialog({
     // effect lives OUTSIDE the state updater (updaters must stay pure —
     // React may call them twice, which previously fired generate() twice).
     if (!q.multi) {
+      // Visuals question + affirmative choice: DON'T auto-advance — reveal the
+      // topic input so the user can say what the charts should show, then
+      // continue with the Next button.
+      if (isVisualsQuestion(q, step) && isAffirmativeVisual(value)) {
+        if (advanceTimerRef.current) {
+          window.clearTimeout(advanceTimerRef.current);
+          advanceTimerRef.current = null;
+        }
+        return;
+      }
       if (advanceTimerRef.current) window.clearTimeout(advanceTimerRef.current);
       advanceTimerRef.current = window.setTimeout(() => {
         if (step < total - 1) {
@@ -270,28 +312,46 @@ export default function ClarifyDialog({
                     <button
                       key={opt.value}
                       onClick={() => choose(current, opt.value)}
-                      className="group flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition"
+                      className="flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left text-[14px] transition"
                       style={{
                         borderColor: selected ? "var(--ezd-fg-strong)" : "var(--ezd-divider)",
                         background: selected ? "var(--ezd-bg-hover)" : "transparent",
-                        color: "var(--ezd-fg)",
+                        color: selected ? "var(--ezd-fg-strong)" : "var(--ezd-fg-muted)",
+                        fontWeight: selected ? 600 : 500,
                       }}
                     >
-                      <span className="text-[14px] font-medium">{opt.label}</span>
-                      <span
-                        className="grid h-5 w-5 shrink-0 place-items-center rounded-full border transition"
-                        style={{
-                          borderColor: selected ? "var(--ezd-fg-strong)" : "var(--ezd-divider)",
-                          background: selected ? "var(--ezd-fg-strong)" : "transparent",
-                          color: selected ? "var(--ezd-bg-elev)" : "transparent",
-                        }}
-                      >
-                        <Check size={12} />
-                      </span>
+                      <span>{opt.label}</span>
+                      {selected && <Check size={15} style={{ color: "var(--ezd-fg-strong)" }} />}
                     </button>
                   );
                 })}
               </div>
+
+              {/* Visuals topic input — only when the visuals question is
+                  answered affirmatively. Mirrors the editor's add-visual field. */}
+              {isVisualsQuestion(current, step) &&
+                isAffirmativeVisual((answers[current.id] || [])[0] || "") && (
+                  <div className="clarify-fade mt-4">
+                    <label
+                      className="mb-1.5 block text-[11px] font-medium uppercase tracking-[0.16em]"
+                      style={{ color: "var(--ezd-fg-quiet)" }}
+                    >
+                      What should the charts show?
+                    </label>
+                    <input
+                      value={visualTopic}
+                      onChange={(e) => setVisualTopic(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter" && canContinue) next(); }}
+                      autoFocus
+                      placeholder="e.g. fertility rate by country, EV market share"
+                      className="w-full rounded-xl border px-3.5 py-2.5 text-[13.5px] outline-none transition"
+                      style={{ borderColor: "var(--ezd-divider)", background: "var(--ezd-bg-page)", color: "var(--ezd-fg-strong)" }}
+                    />
+                    <p className="mt-1.5 text-[11.5px] leading-snug" style={{ color: "var(--ezd-fg-quiet)" }}>
+                      We&rsquo;ll build real, honest data charts on this. Leave blank to let the AI choose.
+                    </p>
+                  </div>
+                )}
             </div>
           )}
         </div>

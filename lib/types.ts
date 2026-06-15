@@ -97,9 +97,11 @@ export type Slide = {
   chart?: ChartSpec;
   references?: Reference[];
   /** Optional variant for the title-hero layout. */
-  titleVariant?: "centered" | "asymmetric" | "big-initial" | "numbered" | "underlined" | "editorial-serif" | "concept-hero" | "grain-sphere" | "editorial-classic" | "display-serif" | "stacked-bold" | "centered-serif";
+  titleVariant?: "centered" | "asymmetric" | "big-initial" | "numbered" | "underlined" | "editorial-serif" | "concept-hero" | "grain-sphere" | "editorial-classic" | "display-serif" | "stacked-bold" | "centered-serif" | "image-cover" | "image-center" | "image-editorial";
   /** Bullets layout style. */
-  bulletsVariant?: "standard" | "numbered" | "cards" | "icon-check" | "dashed" | "concept-cards";
+  bulletsVariant?: "standard" | "numbered" | "cards" | "icon-check" | "dashed" | "concept-cards" | "bands" | "chevron" | "numbered-cards" | "timeline";
+  /** Optional Iconify ids, one per bullet (same order), for icon-bearing variants. */
+  bulletIcons?: string[];
   /** Two-column layout style. */
   twoColumnVariant?: "classic" | "divider" | "cards" | "numbered" | "compare";
   /** Table layout style. */
@@ -109,7 +111,7 @@ export type Slide = {
   /** Section divider style. */
   sectionVariant?: "panel" | "split" | "minimal" | "chapter" | "kicker-hero";
   /** Closing slide style. */
-  closingVariant?: "centered" | "qa" | "contact" | "cta" | "signature";
+  closingVariant?: "centered" | "qa" | "contact" | "cta" | "signature" | "image";
   /** Small uppercase line shown above the title (e.g. "Q3 INVESTOR UPDATE"). */
   kicker?: string;
 
@@ -139,6 +141,14 @@ export type Slide = {
 
   annotations?: Annotation[];
   uploadedImages?: UploadedImage[];
+  /** When true, the content text is constrained to the left column so a photo
+   *  can sit in an invisible panel on the right (AI side-by-side image slides). */
+  imageRight?: boolean;
+  /** Cover photos (URLs) for the intro's image title variants (index 0/1/2)
+   *  and the image closing variant (index 0). Only an active image variant
+   *  renders one — text variants show none. Separate from uploadedImages so
+   *  switching to a text variant cleanly hides the photo. */
+  coverImages?: string[];
   /** Optional per-slide background pattern (see lib/patterns.ts). */
   pattern?: { id: string; color?: string; opacity?: number };
   /** Per-role font preset ids from a custom template (title/subtitle/kicker/body). */

@@ -25,6 +25,17 @@ const pt = (p: number) => `${p * PT}cqw`;
 const inches = (i: number) => `${i * IN}cqw`;
 function clamp(n: number, lo: number, hi: number) { return Math.max(lo, Math.min(hi, n)); }
 
+/** Mix a hex color toward white by t (0..1). Used for accent-gradient bands. */
+function shadeHex(hex: string, t: number): string {
+  const h = (hex || "#888888").replace("#", "");
+  const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+  const r = parseInt(full.slice(0, 2), 16) || 0;
+  const g = parseInt(full.slice(2, 4), 16) || 0;
+  const b = parseInt(full.slice(4, 6), 16) || 0;
+  const m = (c: number) => Math.round(c + (255 - c) * Math.max(0, Math.min(1, t)));
+  return `rgb(${m(r)}, ${m(g)}, ${m(b)})`;
+}
+
 /** Resolve a per-role template font-family (title/subtitle/kicker/body),
  *  falling back to undefined so the slide's base font applies. */
 function roleFontFamily(slide: Slide | undefined, role: "title" | "subtitle" | "kicker" | "body"): string | undefined {
@@ -786,6 +797,9 @@ function Deco({
 function TitleHero(props: any) {
   const { slide } = props;
   const variant = slide.titleVariant || "centered";
+  if (variant === "image-cover")  return <TitleHeroImageCover {...props} />;
+  if (variant === "image-center")  return <TitleHeroImageCenter {...props} />;
+  if (variant === "image-editorial")  return <TitleHeroImageEditorial {...props} />;
   if (variant === "asymmetric")  return <TitleHeroAsymmetric {...props} />;
   if (variant === "big-initial") return <TitleHeroBigInitial {...props} />;
   if (variant === "concept-hero") return <TitleHeroConcept {...props} />;
@@ -798,6 +812,117 @@ function TitleHero(props: any) {
   if (variant === "underlined")  return <TitleHeroUnderlined {...props} />;
   if (variant === "editorial-serif") return <TitleHeroEditorial {...props} />;
   return <TitleHeroCentered {...props} />;
+}
+
+/** Full-bleed photo cover: the slide's photo fills the slide behind a dark
+ *  scrim, with a left-aligned white title + subtitle. The photo is the
+ *  slide's first user image (added via the Images button); with no photo it
+ *  falls back to a themed gradient so the layout still reads. */
+function TitleHeroImageCover({ slide, theme, deckTitle, interactive, onUpdate, canvasRef }: any) {
+  const title = slide.title || deckTitle || "Presentation";
+  const sub = slide.subtitle || "";
+  const tlen = String(title).trim().length;
+  const titleFs = (tlen <= 22 ? 56 : tlen <= 40 ? 46 : tlen <= 64 ? 38 : 32) * (slide.titleScale || 1);
+  return (
+    <>
+      <CoverBackground slide={slide} theme={theme} index={0} scrim="linear-gradient(90deg, rgba(0,0,0,0.74) 0%, rgba(0,0,0,0.55) 42%, rgba(0,0,0,0.22) 100%)" />
+
+      {/* brand accent corners */}
+      <div aria-hidden style={{ position: "absolute", top: 0, right: 0, width: 0, height: 0, borderTop: `${inches(1.0)} solid ${theme.accent}`, borderLeft: `${inches(1.0)} solid transparent` }} />
+      <div aria-hidden style={{ position: "absolute", bottom: 0, left: 0, width: 0, height: 0, borderBottom: `${inches(1.0)} solid ${theme.accent}`, borderRight: `${inches(1.0)} solid transparent` }} />
+
+      <Movable id="title" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{ position: "absolute", left: "7%", right: "26%", top: "34%", bottom: "12%", display: "flex", flexDirection: "column", justifyContent: "center", gap: pt(14) }}
+      >
+        <div style={{ fontSize: pt(titleFs), fontWeight: 800, color: "#ffffff", lineHeight: 1.04, letterSpacing: "-0.025em", textShadow: "0 2px 14px rgba(0,0,0,0.45)" }}>
+          <EditableText value={title} interactive={interactive} onCommit={(v) => onUpdate?.({ title: v })} />
+        </div>
+        {sub && (
+          <div style={{ fontSize: pt(15), fontWeight: 500, color: "rgba(255,255,255,0.92)", lineHeight: 1.45, textShadow: "0 1px 10px rgba(0,0,0,0.45)" }}>
+            <EditableText value={sub} multiline interactive={interactive} onCommit={(v) => onUpdate?.({ subtitle: v })} />
+          </div>
+        )}
+      </Movable>
+    </>
+  );
+}
+
+function CoverBackground({ slide, theme, scrim, index = 0 }: { slide: Slide; theme: Theme; scrim: string; index?: number }) {
+  const covers = slide.coverImages || [];
+  const manual = (slide.uploadedImages || []).find((im) => !im.kind || im.kind === "user")?.dataUrl;
+  const bg = covers[index] || covers[0] || manual;
+  return (
+    <div aria-hidden style={{ position: "absolute", inset: 0, overflow: "hidden", background: theme.accent }}>
+      {bg ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={bg} alt="" crossOrigin="anonymous" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+      ) : (
+        <div style={{ position: "absolute", inset: 0, background: `linear-gradient(135deg, ${theme.fg}22, ${theme.accent}66)` }} />
+      )}
+      <div style={{ position: "absolute", inset: 0, background: scrim }} />
+    </div>
+  );
+}
+
+/** Image cover — centered white title over an even scrim. */
+function TitleHeroImageCenter({ slide, theme, deckTitle, interactive, onUpdate, canvasRef }: any) {
+  const title = slide.title || deckTitle || "Presentation";
+  const sub = slide.subtitle || "";
+  const tlen = String(title).trim().length;
+  const titleFs = (tlen <= 22 ? 58 : tlen <= 40 ? 48 : tlen <= 64 ? 38 : 32) * (slide.titleScale || 1);
+  return (
+    <>
+      <CoverBackground slide={slide} theme={theme} index={1} scrim="linear-gradient(0deg, rgba(0,0,0,0.55), rgba(0,0,0,0.45))" />
+      <Movable id="title" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{ position: "absolute", left: "10%", right: "10%", top: "28%", bottom: "16%", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", textAlign: "center", gap: pt(14) }}
+      >
+        <div style={{ fontSize: pt(titleFs), fontWeight: 800, color: "#fff", lineHeight: 1.05, letterSpacing: "-0.02em", textShadow: "0 2px 16px rgba(0,0,0,0.5)" }}>
+          <EditableText value={title} interactive={interactive} onCommit={(v) => onUpdate?.({ title: v })} />
+        </div>
+        {sub && (
+          <div style={{ maxWidth: "82%", fontSize: pt(15.5), fontWeight: 500, color: "rgba(255,255,255,0.9)", lineHeight: 1.45, textShadow: "0 1px 10px rgba(0,0,0,0.5)" }}>
+            <EditableText value={sub} multiline interactive={interactive} onCommit={(v) => onUpdate?.({ subtitle: v })} />
+          </div>
+        )}
+      </Movable>
+    </>
+  );
+}
+
+/** Image cover — serif title bottom-left with a kicker and accent rule. */
+function TitleHeroImageEditorial({ slide, theme, deckTitle, interactive, onUpdate, canvasRef }: any) {
+  const title = slide.title || deckTitle || "Presentation";
+  const sub = slide.subtitle || "";
+  const kicker = slide.kicker || "";
+  const tlen = String(title).trim().length;
+  const titleFs = (tlen <= 22 ? 52 : tlen <= 40 ? 42 : tlen <= 64 ? 34 : 30) * (slide.titleScale || 1);
+  return (
+    <>
+      <CoverBackground slide={slide} theme={theme} index={2} scrim="linear-gradient(0deg, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.35) 55%, rgba(0,0,0,0.12) 100%)" />
+      {kicker && (
+        <Movable id="kicker" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+          baseStyle={{ position: "absolute", left: "7%", right: "40%", top: "11%" }}
+        >
+          <span style={{ fontSize: pt(11), letterSpacing: "0.22em", textTransform: "uppercase", color: "#fff", fontWeight: 700, opacity: 0.88 }}>
+            <EditableText value={kicker} interactive={interactive} onCommit={(v) => onUpdate?.({ kicker: v })} />
+          </span>
+        </Movable>
+      )}
+      <Movable id="title" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{ position: "absolute", left: "7%", right: "28%", bottom: "13%" }}
+      >
+        <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontSize: pt(titleFs), fontWeight: 700, color: "#fff", lineHeight: 1.08, textShadow: "0 2px 14px rgba(0,0,0,0.5)" }}>
+          <EditableText value={title} interactive={interactive} onCommit={(v) => onUpdate?.({ title: v })} />
+        </div>
+        <div aria-hidden style={{ marginTop: pt(10), width: inches(1.0), height: pt(3), background: theme.accent }} />
+        {sub && (
+          <div style={{ marginTop: pt(10), fontFamily: "Georgia, 'Times New Roman', serif", fontSize: pt(14.5), color: "rgba(255,255,255,0.9)", lineHeight: 1.4 }}>
+            <EditableText value={sub} multiline interactive={interactive} onCommit={(v) => onUpdate?.({ subtitle: v })} />
+          </div>
+        )}
+      </Movable>
+    </>
+  );
 }
 
 function TitleHeroConcept({ slide, theme, deckTitle, interactive, onUpdate, canvasRef }: any) {
@@ -1472,7 +1597,7 @@ function ContentTitle({ slide, theme, interactive, onUpdate, canvasRef }: any) {
         )}
       />
       <Movable id="title" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
-        baseStyle={{ position: "absolute", left: inches(0.6), top: inches(1.0), right: inches(0.6) }}
+        baseStyle={{ position: "absolute", left: inches(0.6), top: inches(1.0), right: inches(slide.imageRight ? 5.9 : 0.6) }}
       >
         <div style={{
           fontSize: pt(titleSize(slide.title, slide.layout, slide)),
@@ -1488,7 +1613,7 @@ function ContentTitle({ slide, theme, interactive, onUpdate, canvasRef }: any) {
       </Movable>
       {slide.subtitle && (
         <Movable id="subtitle" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
-          baseStyle={{ position: "absolute", left: inches(0.6), top: inches(1.95), right: inches(0.6) }}
+          baseStyle={{ position: "absolute", left: inches(0.6), top: inches(1.95), right: inches(slide.imageRight ? 5.9 : 0.6) }}
         >
           <div style={{
             fontSize: pt(subtitleSize(slide.subtitle, slide.layout, slide)),
@@ -1513,6 +1638,10 @@ function Bullets(props: any) {
   if (variant === "numbered")  return <BulletsNumbered {...props} />;
   if (variant === "cards")     return <BulletsCards {...props} />;
   if (variant === "concept-cards") return <BulletsConcept {...props} />;
+  if (variant === "bands")     return <BulletsBands {...props} />;
+  if (variant === "chevron")   return <BulletsChevron {...props} />;
+  if (variant === "numbered-cards") return <BulletsNumberedCards {...props} />;
+  if (variant === "timeline")  return <BulletsTimeline {...props} />;
   if (variant === "icon-check") return <BulletsIconCheck {...props} />;
   if (variant === "dashed")    return <BulletsDashed {...props} />;
   return <BulletsStandard {...props} />;
@@ -1525,13 +1654,13 @@ function BulletsStandard(props: any) {
       <AccentBar theme={theme} slide={slide} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef} />
       <ContentTitle {...props} />
       <Movable id="bullets" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
-        baseStyle={{ position: "absolute", left: inches(0.6), top: inches(2.6), right: inches(0.6) }}
+        baseStyle={{ position: "absolute", left: inches(0.6), top: inches(2.6), right: inches(slide.imageRight ? 5.9 : 0.6) }}
       >
         <BulletList
           interactive={interactive}
           theme={theme}
           slide={slide}
-          fontSize={pt(bulletSize(slide.bullets?.length || 0, slide))}
+          fontSize={pt(bulletSize(slide.bullets?.length || 0, slide) * (slide.imageRight ? 0.86 : 1))}
           bullets={slide.bullets || []}
           onCommit={(text) => {
             const next = text.split("\n").map((b) => b.trim()).filter(Boolean);
@@ -1672,6 +1801,7 @@ function BulletsConcept(props: any) {
         }}>
           {bullets.map((b, i) => {
             const c = PALETTE[i % PALETTE.length];
+            const icon = slide.bulletIcons?.[i];
             return (
               <div key={i} style={{
                 width: cardWidth,
@@ -1699,7 +1829,7 @@ function BulletsConcept(props: any) {
                   fontSize: pt(15),
                   letterSpacing: "0.01em",
                 }}>
-                  {String(i + 1).padStart(2, "0")}
+                  {icon ? <BulletIcon id={icon} color="#FFFFFF" size={pt(22)} /> : String(i + 1).padStart(2, "0")}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <EditableText
@@ -1712,6 +1842,190 @@ function BulletsConcept(props: any) {
             );
           })}
         </div>
+      </Movable>
+      <Footer theme={theme} deckTitle={deckTitle} idx={idx} total={total} />
+    </>
+  );
+}
+
+/** Renders a per-bullet Iconify icon (recolored) when one was resolved. */
+function BulletIcon({ id, color, size }: { id?: string; color: string; size: string }) {
+  if (!id) return null;
+  const url = iconifySvgUrl(id, color);
+  if (!url) return null;
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={url} alt="" style={{ width: size, height: size, objectFit: "contain", display: "block", flexShrink: 0 }} />;
+}
+
+/** Color bands — full-width stacked bands in an accent gradient, each with a
+ *  number and white text. Great for 3-5 parallel points (problems, outcomes,
+ *  highlights). Matches premium "banded list" slides. */
+function BulletsBands(props: any) {
+  const { slide, theme, idx, total, deckTitle, interactive, onUpdate, canvasRef } = props;
+  const bullets: string[] = slide.bullets || [];
+  const n = bullets.length || 1;
+  const editBullet = (i: number, value: string) => {
+    const next = [...bullets]; next[i] = value; onUpdate?.({ bullets: next });
+  };
+  const fs = bulletSize(n, slide) * 0.92;
+  return (
+    <>
+      <ContentTitle {...props} />
+      <Movable id="bullets" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{ position: "absolute", left: inches(0.6), top: inches(slide.subtitle ? 2.7 : 2.2), right: inches(0.6), bottom: inches(0.7), display: "flex", flexDirection: "column", borderRadius: pt(12), overflow: "hidden" }}
+      >
+        {bullets.map((b, i) => {
+          const t = n > 1 ? (i / (n - 1)) * 0.42 : 0;
+          const icon = slide.bulletIcons?.[i];
+          return (
+            <div key={i} style={{
+              flex: 1, minHeight: 0, display: "flex", alignItems: "center", gap: pt(16),
+              padding: `0 ${pt(22)}`, background: shadeHex(theme.accent, t), color: "#ffffff",
+            }}>
+              <span style={{
+                flexShrink: 0, width: pt(30), height: pt(30), borderRadius: pt(8),
+                background: "rgba(255,255,255,0.22)", display: "flex", alignItems: "center", justifyContent: "center",
+                fontWeight: 800, fontSize: pt(12),
+              }}>{icon ? <BulletIcon id={icon} color="#ffffff" size={pt(17)} /> : String(i + 1).padStart(2, "0")}</span>
+              <div style={{ flex: 1, minWidth: 0, fontSize: pt(fs), fontWeight: 600, lineHeight: 1.3, textShadow: "0 1px 6px rgba(0,0,0,0.18)" }}>
+                <EditableText value={b} interactive={interactive} onCommit={(v) => editBullet(i, v)} />
+              </div>
+            </div>
+          );
+        })}
+      </Movable>
+      <Footer theme={theme} deckTitle={deckTitle} idx={idx} total={total} />
+    </>
+  );
+}
+
+/** Process arrows — horizontal chevrons in an accent gradient. Best for 3-4
+ *  SEQUENTIAL steps with short labels (a flow/pipeline). */
+function BulletsChevron(props: any) {
+  const { slide, theme, idx, total, deckTitle, interactive, onUpdate, canvasRef } = props;
+  const bullets: string[] = slide.bullets || [];
+  const n = bullets.length || 1;
+  const editBullet = (i: number, value: string) => {
+    const next = [...bullets]; next[i] = value; onUpdate?.({ bullets: next });
+  };
+  return (
+    <>
+      <ContentTitle {...props} />
+      <Movable id="bullets" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{ position: "absolute", left: inches(0.6), top: inches(slide.subtitle ? 3.0 : 2.6), right: inches(0.6), display: "flex", gap: pt(6), alignItems: "stretch" }}
+      >
+        {bullets.map((b, i) => {
+          const clip = i === 0
+            ? "polygon(0 0, 90% 0, 100% 50%, 90% 100%, 0 100%)"
+            : "polygon(0 0, 90% 0, 100% 50%, 90% 100%, 0 100%, 10% 50%)";
+          const icon = slide.bulletIcons?.[i];
+          return (
+            <div key={i} style={{
+              flex: 1, minWidth: 0, background: shadeHex(theme.accent, n > 1 ? (i / (n - 1)) * 0.4 : 0),
+              color: "#ffffff", clipPath: clip, minHeight: pt(132),
+              padding: `${pt(16)} ${pt(20)} ${pt(16)} ${i === 0 ? pt(20) : pt(36)}`,
+              display: "flex", flexDirection: "column", justifyContent: "center", gap: pt(7),
+            }}>
+              {icon && <BulletIcon id={icon} color="#ffffff" size={pt(24)} />}
+              <span style={{ fontSize: pt(10.5), fontWeight: 800, letterSpacing: "0.12em", opacity: 0.85 }}>STEP {i + 1}</span>
+              <div style={{ fontSize: pt(13), fontWeight: 600, lineHeight: 1.3, textShadow: "0 1px 6px rgba(0,0,0,0.2)" }}>
+                <EditableText value={b} interactive={interactive} onCommit={(v) => editBullet(i, v)} />
+              </div>
+            </div>
+          );
+        })}
+      </Movable>
+      <Footer theme={theme} deckTitle={deckTitle} idx={idx} total={total} />
+    </>
+  );
+}
+
+/** Numbered cards — a row of solid colored cards each with a big translucent
+ *  numeral and bold text. For 3-5 distinct items (differentiators, principles).
+ *  Mirrors the premium "01/02/03 colorful cards" reference. */
+function BulletsNumberedCards(props: any) {
+  const { slide, theme, idx, total, deckTitle, interactive, onUpdate, canvasRef } = props;
+  const bullets: string[] = slide.bullets || [];
+  const PALETTE = ["#F97316", "#C026D3", "#7C3AED", "#2563EB", "#E5645A", "#0D9488", "#DB2777", "#CA8A04"];
+  const editBullet = (i: number, value: string) => {
+    const next = [...bullets]; next[i] = value; onUpdate?.({ bullets: next });
+  };
+  return (
+    <>
+      <ContentTitle {...props} />
+      <Movable id="bullets" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{ position: "absolute", left: inches(0.6), top: inches(slide.subtitle ? 3.0 : 2.6), right: inches(0.6), display: "flex", gap: pt(14), alignItems: "stretch", justifyContent: "center" }}
+      >
+        {bullets.map((b, i) => {
+          const c = PALETTE[i % PALETTE.length];
+          const icon = slide.bulletIcons?.[i];
+          return (
+            <div key={i} style={{
+              flex: 1, minWidth: 0, maxWidth: pt(220), background: c, color: "#ffffff",
+              borderRadius: pt(16), padding: `${pt(16)} ${pt(16)} ${pt(18)}`,
+              display: "flex", flexDirection: "column", gap: pt(8), minHeight: pt(150),
+            }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: pt(34), fontWeight: 800, lineHeight: 1, color: "rgba(255,255,255,0.45)" }}>{String(i + 1).padStart(2, "0")}</span>
+                {icon && <BulletIcon id={icon} color="#ffffff" size={pt(22)} />}
+              </div>
+              <div style={{ flex: 1, fontSize: pt(12.5), fontWeight: 600, lineHeight: 1.35, textShadow: "0 1px 6px rgba(0,0,0,0.18)" }}>
+                <EditableText value={b} interactive={interactive} onCommit={(v) => editBullet(i, v)} />
+              </div>
+            </div>
+          );
+        })}
+      </Movable>
+      <Footer theme={theme} deckTitle={deckTitle} idx={idx} total={total} />
+    </>
+  );
+}
+
+/** Timeline — vertical sequential stages on a connecting line, each with a
+ *  numbered/icon node, a bold step title and a detail line. For 4-6 phases /
+ *  a roadmap. Bullets may be "Title — detail" (split on a dash). */
+function BulletsTimeline(props: any) {
+  const { slide, theme, idx, total, deckTitle, interactive, onUpdate, canvasRef } = props;
+  const bullets: string[] = slide.bullets || [];
+  const editBullet = (i: number, value: string) => {
+    const next = [...bullets]; next[i] = value; onUpdate?.({ bullets: next });
+  };
+  return (
+    <>
+      <AccentBar theme={theme} slide={slide} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef} />
+      <ContentTitle {...props} />
+      <Movable id="bullets" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{ position: "absolute", left: inches(0.7), top: inches(slide.subtitle ? 2.8 : 2.4), right: inches(0.7), display: "flex", flexDirection: "column" }}
+      >
+        {bullets.map((b, i) => {
+          const last = i === bullets.length - 1;
+          const icon = slide.bulletIcons?.[i];
+          const c = shadeHex(theme.accent, bullets.length > 1 ? (i / (bullets.length - 1)) * 0.38 : 0);
+          const m = b.match(/^(.{2,42}?)\s*[—–-]\s+(.*)$/);
+          const titleText = m ? m[1] : b;
+          const detailText = m ? m[2] : "";
+          return (
+            <div key={i} style={{ display: "flex", gap: pt(14), alignItems: "stretch" }}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: pt(34), flexShrink: 0 }}>
+                <span style={{
+                  width: pt(34), height: pt(34), borderRadius: "50%", background: c, color: "#ffffff",
+                  display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: pt(13), flexShrink: 0,
+                }}>{icon ? <BulletIcon id={icon} color="#ffffff" size={pt(18)} /> : i + 1}</span>
+                {!last && <span style={{ flex: 1, width: pt(2), background: `${theme.fg}22`, minHeight: pt(10) }} />}
+              </div>
+              <div style={{ flex: 1, minWidth: 0, paddingBottom: last ? 0 : pt(14), color: theme.fg }}>
+                <div style={{ fontSize: pt(14), fontWeight: 800, lineHeight: 1.25 }}>
+                  <EditableText value={titleText} interactive={interactive} onCommit={(v) => editBullet(i, detailText ? `${v} — ${detailText}` : v)} />
+                </div>
+                {detailText && (
+                  <div style={{ fontSize: pt(11.5), fontWeight: 500, lineHeight: 1.4, opacity: 0.8, marginTop: pt(2) }}>
+                    <EditableText value={detailText} interactive={interactive} onCommit={(v) => editBullet(i, `${titleText} — ${v}`)} />
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </Movable>
       <Footer theme={theme} deckTitle={deckTitle} idx={idx} total={total} />
     </>
@@ -1737,7 +2051,16 @@ function BulletsIconCheck(props: any) {
             const next = text.split("\n").map((b) => b.trim()).filter(Boolean);
             onUpdate?.({ bullets: next });
           }}
-          renderMarker={() => (
+          renderMarker={(_b, i) => {
+            const icon = slide.bulletIcons?.[i];
+            if (icon) {
+              const url = iconifySvgUrl(icon, theme.accent);
+              if (url) {
+                // eslint-disable-next-line @next/next/no-img-element
+                return <img src={url} alt="" style={{ minWidth: pt(18), width: pt(18), height: pt(18), objectFit: "contain", display: "block" }} />;
+              }
+            }
+            return (
             <span style={{
               minWidth: pt(18), width: pt(18), height: pt(18),
               display: "inline-flex", alignItems: "center", justifyContent: "center",
@@ -1748,7 +2071,8 @@ function BulletsIconCheck(props: any) {
               fontSize: pt(11), fontWeight: 800,
               lineHeight: 1,
             }}>✓</span>
-          )}
+            );
+          }}
         />
       </Movable>
       <Footer theme={theme} deckTitle={deckTitle} idx={idx} total={total} />
@@ -2760,11 +3084,36 @@ function ReferencesLayout(props: any) {
 function Closing(props: any) {
   const { slide } = props;
   const variant = slide.closingVariant || "centered";
+  if (variant === "image")     return <ClosingImage {...props} />;
   if (variant === "qa")        return <ClosingQA {...props} />;
   if (variant === "contact")   return <ClosingContact {...props} />;
   if (variant === "cta")       return <ClosingCta {...props} />;
   if (variant === "signature") return <ClosingSignature {...props} />;
   return <ClosingCentered {...props} />;
+}
+
+/** Closing over a full-bleed photo: centered white sign-off + accent corner. */
+function ClosingImage({ slide, theme, interactive, onUpdate, canvasRef }: any) {
+  const title = slide.title || "Thank you";
+  const sub = slide.subtitle || "";
+  return (
+    <>
+      <CoverBackground slide={slide} theme={theme} scrim="linear-gradient(0deg, rgba(0,0,0,0.64), rgba(0,0,0,0.5))" />
+      <div aria-hidden style={{ position: "absolute", bottom: 0, left: 0, width: 0, height: 0, borderBottom: `${inches(1.0)} solid ${theme.accent}`, borderRight: `${inches(1.0)} solid transparent` }} />
+      <Movable id="title" slide={slide} theme={theme} interactive={interactive} onUpdate={onUpdate} canvasRef={canvasRef}
+        baseStyle={{ position: "absolute", left: "8%", right: "8%", top: "30%", bottom: "22%", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", textAlign: "center", gap: pt(12) }}
+      >
+        <div style={{ fontSize: pt(titleSize(title, "closing", slide)), fontWeight: 800, color: "#fff", lineHeight: 1.1, textShadow: "0 2px 16px rgba(0,0,0,0.5)" }}>
+          <EditableText value={title} interactive={interactive} onCommit={(v) => onUpdate?.({ title: v })} />
+        </div>
+        {sub && (
+          <div style={{ fontSize: pt(17), color: "rgba(255,255,255,0.9)", textShadow: "0 1px 10px rgba(0,0,0,0.5)" }}>
+            <EditableText value={sub} interactive={interactive} onCommit={(v) => onUpdate?.({ subtitle: v })} />
+          </div>
+        )}
+      </Movable>
+    </>
+  );
 }
 
 function ClosingCentered({ slide, theme, interactive, onUpdate, canvasRef }: any) {

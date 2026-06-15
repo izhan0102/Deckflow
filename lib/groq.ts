@@ -2,6 +2,8 @@ import Groq from "groq-sdk";
 import type { Deck, Slide, SlideLayout, ContentDensity, Reference, TableData } from "./types";
 import { withGroqClient } from "./groqClient";
 import { cleanChartSpec, type ChartType, type ChartSpec } from "./charts";
+import { searchStockImages } from "./pexelsServer";
+import { searchIconify } from "./iconify";
 
 const VALID_LAYOUTS: SlideLayout[] = [
   "title-hero",
@@ -49,7 +51,8 @@ Schema:
       "columnLabels": { "left": string, "right": string },  // ONLY for "two-column". Whatever the two sides actually are for this topic. Pick labels that fit the content; do not default to any fixed pairing.
       "kicker": string,         // OPTIONAL. ONLY for the first "title-hero" slide. Short uppercase context line shown above the title (e.g. "Q3 INVESTOR UPDATE", "INTRO LECTURE"). 2-5 words, always uppercase.
       "titleVariant": "centered" | "asymmetric" | "big-initial" | "numbered" | "underlined",  // OPTIONAL. ONLY for "title-hero".
-      "bulletsVariant": "standard" | "numbered" | "cards" | "icon-check" | "dashed",  // OPTIONAL. ONLY for "bullets". Choose by content: "cards" for distinct features/pillars, "icon-check" for benefits/advantages, "numbered" for ordered steps, "standard"/"dashed" for plain points.
+      "bulletsVariant": "standard" | "numbered" | "cards" | "icon-check" | "dashed" | "concept-cards" | "bands" | "chevron" | "numbered-cards" | "timeline",  // OPTIONAL. ONLY for "bullets". ALWAYS set one, and VARY it across slides. Pick by what the content IS: "bands" = 3-5 parallel points/problems/outcomes (bold full-width color bands); "chevron" = 3-4 SHORT sequential steps shown as horizontal arrows; "timeline" = 4-6 sequential stages/phases/roadmap (vertical, with a step title + detail each); "numbered-cards" = 3-5 distinct items each deserving a big number (differentiators, principles); "concept-cards"/"cards" = a set of distinct features/pillars; "numbered" = ordered list; "icon-check" = benefits/advantages/checklist; "standard"/"dashed" = plain points.
+      "iconKeywords": [string],  // OPTIONAL but ENCOURAGED for "bullets" using bands/chevron/timeline/concept-cards/cards/numbered-cards/icon-check. ONE plain keyword per bullet, SAME ORDER as "bullets", naming a concrete icon for that point (e.g. "trash", "shopping cart", "shield", "rocket", "chart", "users", "clock", "lock"). Use simple common nouns; they are matched to a real icon automatically.
       "twoColumnVariant": "classic" | "divider" | "cards" | "numbered" | "compare",  // OPTIONAL. ONLY for "two-column". Use "compare" ONLY for genuine pros/cons.
       "notes": string
     }
@@ -135,12 +138,40 @@ HARD RULES on layout choice (this is what makes decks feel custom):
   find yourself wanting to put points on it, it should be a "bullets" slide.
 
 Visual variety and meaning (NO random decoration):
-- Pick the "bulletsVariant" that matches the content, don't leave everything
-  "standard". Use "cards" for a set of distinct pillars/features, "icon-check"
-  for benefits or a checklist, "numbered" ONLY for genuinely ordered steps. The
-  "cards" and "icon-check" variants read as visual blocks with markers rather
-  than a plain numeric list — prefer them over a bare "1. 2. 3." when the points
-  aren't strictly sequential.
+- ALWAYS set "bulletsVariant" on every bullets slide, and deliberately VARY it
+  across the deck — a deck where every slide uses the same variant looks cheap.
+  NEVER use "standard" or "dashed" for a normal content slide — those read as
+  plain text and look unfinished. ALWAYS pick a COLORFUL visual variant
+  (bands / chevron / timeline / numbered-cards / concept-cards / cards /
+  icon-check). Match the variant to what the content IS, and shape the bullets
+  to fit it:
+    * "bands" — 3-5 PARALLEL points (problems, outcomes, highlights, reasons).
+      Each bullet a punchy one-liner (6-12 words). Reads as bold color bands.
+    * "chevron" — 3-4 SEQUENTIAL steps / a process / pipeline. Each bullet a
+      SHORT step label (3-7 words), in order. Don't use for non-sequential lists.
+    * "timeline" — 4-6 sequential stages / phases / a roadmap. Each bullet
+      "Stage title — what happens" (a short label, a dash, then a brief detail).
+    * "numbered-cards" — 3-5 distinct items each worth a BIG number
+      (differentiators, principles, reasons). Each bullet self-contained.
+    * "concept-cards" / "cards" — a set of DISTINCT features/pillars/modules
+      (3-6). Each bullet self-contained.
+    * "numbered" — an ordered list where order matters but it isn't a visual flow.
+    * "icon-check" — benefits / advantages / a checklist.
+    * "standard" / "dashed" — plain supporting points or detailed prose bullets.
+  Divide the data to suit: steps -> "chevron" (few, short) or "timeline" (more,
+  with detail); a punchy problem or outcomes list -> "bands"; distinct offerings
+  -> cards or "numbered-cards". Never force a variant whose shape the content
+  doesn't fit (e.g. don't put 6 long sentences in "chevron").
+- Keep ALL the points the chosen density calls for. NEVER drop, merge, or
+  shorten content just to fit a visual layout — instead pick a layout that fits
+  the amount of content (lots of points -> bands/timeline/concept-cards; a few
+  short ones -> numbered-cards/chevron).
+- Whenever you use a visual bullets variant (bands/chevron/timeline/cards/
+  concept-cards/numbered-cards/icon-check), ALSO provide "iconKeywords" — one
+  simple icon word per bullet, in the same order — so each point gets a fitting
+  icon. Use concrete common nouns (e.g. "trash", "shield", "rocket", "chart").
+- For a head-to-head COMPARISON of options/plans/modes, use a "table" slide with
+  a column per option and set "tableVariant": "accent-header".
 - For "two-column", set "twoColumnVariant": use "compare" for pros/cons,
   "cards" for two sets of grouped points, "numbered" for paired ordered items.
 - Every visual choice must be MEANINGFUL. Never add a chart, card grid, or
@@ -405,6 +436,96 @@ function dedupeBullets(bullets: string[]): string[] {
   return out;
 }
 
+/* ----------------------------- AI images ----------------------------- *
+ * Photos go ONLY on the intro (a full-bleed cover — the default look) and the
+ * closing (a full-bleed background). The intro's three image style variants
+ * each get their OWN photo via slide.coverImages[0|1|2]; text variants show
+ * none. Middle/content slides never get an auto image — the user adds those
+ * manually with the Images button. */
+
+/** Search the topic broadly and return up to n DISTINCT photo URLs, shuffled,
+ *  so each generation looks fresh and the three intro variants differ. */
+async function pickStockMany(query: string, n: number): Promise<string[]> {
+  const q = query.trim();
+  if (!q) return [];
+  const results = await searchStockImages(q, { perPage: 24, orientation: "landscape" });
+  const urls = Array.from(new Set(results.map((r) => r.url).filter(Boolean)));
+  for (let i = urls.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [urls[i], urls[j]] = [urls[j], urls[i]];
+  }
+  return urls.slice(0, Math.max(0, n));
+}
+
+/** Add cover photos to the intro (3 distinct, for its image variants) and the
+ *  closing (1+). Everything else is left untouched. Best-effort: with no
+ *  Pexels key the searches return nothing and the slides stay text-only. */
+async function finalizeImages(slides: Slide[], topic?: string): Promise<Slide[]> {
+  try {
+    const cleanTopic = clean(topic || "");
+    const out = [...slides];
+
+    if (out.length > 0 && out[0].layout === "title-hero") {
+      const q = [cleanTopic, clean(out[0].title)].filter(Boolean).join(" ").trim() || cleanTopic || clean(out[0].title);
+      const covers = await pickStockMany(q, 3);
+      if (covers.length > 0) out[0] = { ...out[0], titleVariant: "image-cover", coverImages: covers };
+    }
+
+    const li = out.length - 1;
+    if (li > 0 && out[li].layout === "closing") {
+      const q = [cleanTopic, clean(out[li].title) || "conclusion"].filter(Boolean).join(" ").trim() || cleanTopic;
+      const covers = await pickStockMany(q, 2);
+      if (covers.length > 0) out[li] = { ...out[li], closingVariant: "image", coverImages: covers };
+    }
+
+    return out;
+  } catch {
+    return slides;
+  }
+}
+
+/** Resolve AI-supplied per-bullet icon KEYWORDS (captured transiently on
+ *  `_iconKeywords`) into real Iconify ids via the search API, then store them
+ *  on `slide.bulletIcons`. Only slides whose bullets variant actually shows
+ *  icons get resolved, and total lookups are capped to keep generation fast.
+ *  Lookups are deduped through a keyword->id cache. Failures degrade silently
+ *  (the variant just falls back to its number/marker). */
+const ICON_BEARING_VARIANTS = new Set(["bands", "chevron", "concept-cards", "cards", "icon-check", "numbered-cards", "timeline"]);
+async function resolveBulletIcons(slides: Slide[]): Promise<Slide[]> {
+  const cache = new Map<string, string>();
+  let budget = 36;
+  const resolveOne = async (kw: string): Promise<string> => {
+    const key = kw.toLowerCase().trim();
+    if (!key) return "";
+    if (cache.has(key)) return cache.get(key)!;
+    if (budget <= 0) return "";
+    budget--;
+    try {
+      const hits = await searchIconify(key, 4);
+      // Prefer a Tabler hit (clean, uniform line icons) when present.
+      const pick = hits.find((h) => h.id.startsWith("tabler:")) || hits[0];
+      const id = pick?.id || "";
+      cache.set(key, id);
+      return id;
+    } catch {
+      cache.set(key, "");
+      return "";
+    }
+  };
+  await Promise.all(
+    slides.map(async (s) => {
+      const kws: string[] | undefined = (s as any)._iconKeywords;
+      delete (s as any)._iconKeywords;
+      if (!kws || !ICON_BEARING_VARIANTS.has(s.bulletsVariant || "")) return;
+      const n = (s.bullets || []).length;
+      if (n === 0) return;
+      const ids = await Promise.all(kws.slice(0, n).map(resolveOne));
+      if (ids.some(Boolean)) s.bulletIcons = ids;
+    })
+  );
+  return slides;
+}
+
 /** Map one raw model slide object to a clean, validated Slide. Shared by
  *  the prompt path and the import-from-content path so both apply the same
  *  layout validation, variant whitelisting, and text cleaning. */
@@ -415,7 +536,7 @@ function mapRawSlide(s: any, i: number, total: number): Slide {  const rawLayout
     : i === total - 1 ? "closing"
     : "bullets";
 
-  return {
+  const mapped: Slide = {
     layout: layout === "references" ? ("bullets" as SlideLayout) : layout,
     title: clean(s.title),
     subtitle: s.subtitle ? clean(s.subtitle) : undefined,
@@ -433,7 +554,7 @@ function mapRawSlide(s: any, i: number, total: number): Slide {  const rawLayout
       s.titleVariant === "editorial-serif" ? "editorial-serif" :
       s.titleVariant === "centered"    ? "centered"    : undefined,
     bulletsVariant:
-      ["standard", "numbered", "cards", "icon-check", "dashed"].includes(s.bulletsVariant)
+      ["standard", "numbered", "cards", "icon-check", "dashed", "concept-cards", "bands", "chevron", "numbered-cards", "timeline"].includes(s.bulletsVariant)
         ? s.bulletsVariant : undefined,
     twoColumnVariant:
       ["classic", "divider", "cards", "numbered", "compare"].includes(s.twoColumnVariant)
@@ -445,6 +566,12 @@ function mapRawSlide(s: any, i: number, total: number): Slide {  const rawLayout
         : undefined,
     annotations: [],
   };
+  // Capture per-bullet icon keywords (resolved to Iconify ids after parsing).
+  if (Array.isArray(s.iconKeywords)) {
+    const kw = s.iconKeywords.map((k: any) => (typeof k === "string" ? clean(k) : "")).slice(0, 8);
+    if (kw.some((k: string) => k)) (mapped as any)._iconKeywords = kw;
+  }
+  return mapped;
 }
 
 /** A slide is empty if its layout-specific content field is missing. */
@@ -675,6 +802,9 @@ export async function generateDeck(opts: {
     ];
   }
 
+  filledSlides = await finalizeImages(filledSlides, opts.prompt);
+  filledSlides = await resolveBulletIcons(filledSlides);
+
   const deck: Deck = {
     title: tentative.title,
     subtitle: tentative.subtitle,
@@ -859,6 +989,9 @@ Return ONLY the JSON object.`;
       filledSlides[filledSlides.length - 1],
     ];
   }
+
+  filledSlides = await finalizeImages(filledSlides, tentative.topic || tentative.title);
+  filledSlides = await resolveBulletIcons(filledSlides);
 
   return {
     title: tentative.title,

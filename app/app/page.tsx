@@ -90,6 +90,10 @@ function PageInner() {
   const [audience, setAudience] = useState("");
   const [tone, setTone] = useState("");
   const [density, setDensity] = useState<ContentDensity>("balanced");
+  // Tracks whether the user explicitly chose a density. Once they have,
+  // picking a template must NOT override that choice.
+  const [densityTouched, setDensityTouched] = useState(false);
+  const chooseDensity = (d: ContentDensity) => { setDensity(d); setDensityTouched(true); };
   const [includeReferences, setIncludeReferences] = useState(false);
   const [theme, setTheme] = useState<Theme>(PRESET_THEMES[0]);
   const [graphicId, setGraphicId] = useState<string>("none");
@@ -270,18 +274,67 @@ const retryGenerate = () => {
       // exactly what they previewed.
       const bundle = templateVariants ? null : getStyleBundle(styleBundleId);
       const styledSlides = bundle
-        ? data.deck.slides.map((s: any) => applyBundleToSlide(s, bundle))
+        ? data.deck.slides.map((s: any) => {
+            const styled = applyBundleToSlide(s, bundle);
+            // Respect the AI's deliberate per-slide bullets layout (bands /
+            // chevron / cards / …) so the deck varies instead of one repeated
+            // look. The bundle still sets the other layout variants.
+            return s.bulletsVariant ? { ...styled, bulletsVariant: s.bulletsVariant } : styled;
+          })
         : templateVariants
           ? data.deck.slides.map((s: any) => applyTemplateToSlide(s, templateVariants))
           : data.deck.slides;
       // Concept is the default style only where a template hasn't specified
       // its own — so templates with a bespoke title/bullets design (e.g. the
       // reference-built covers) keep their look, while plain decks get Concept.
-      const slides = styledSlides.map((s: any) => ({
-        ...s,
-        bulletsVariant: s.bulletsVariant || "concept-cards",
-        ...(s.layout === "title-hero" && !s.titleVariant ? { titleVariant: "concept-hero" } : {}),
-      }));
+      // Auto-assign a COLORFUL bullets layout per slide, chosen by what the
+      // content is and varied so no two adjacent slides look the same. We only
+      // override plain/empty choices ("standard"/"dashed"/"numbered"/none) —
+      // a deliberate colorful variant from the AI or bundle is kept.
+      const COLORFUL = new Set(["bands", "chevron", "timeline", "numbered-cards", "concept-cards", "cards", "icon-check"]);
+      const isPlain = (v?: string) => !v || v === "standard" || v === "dashed" || v === "numbered";
+      let prevVar = "";
+      const pickColorful = (s: any, i: number): string => {
+        const bs: string[] = s.bullets || [];
+        const n = bs.length;
+        const title = (s.title || "").toLowerCase();
+        const hasDetail = bs.some((b) => /\s[—–-]\s/.test(b));
+        const avgLen = n ? bs.reduce((a, b) => a + b.length, 0) / n : 0;
+        const sequential =
+          /(process|pipeline|timeline|roadmap|journey|workflow|step|phase|stage|how it works|life ?cycle|sequence)/.test(title) ||
+          bs.some((b) => /^(step|phase|stage)\s*\d/i.test(b));
+        let cand: string;
+        if (sequential && n <= 4 && !hasDetail && avgLen <= 42) cand = "chevron";
+        else if (sequential || hasDetail) cand = "timeline";
+        else if (n <= 3) cand = i % 2 ? "numbered-cards" : "concept-cards";
+        else if (n <= 5) cand = i % 2 ? "bands" : "concept-cards";
+        else cand = "concept-cards";
+        if (cand === prevVar) {
+          const alts = ["bands", "numbered-cards", "concept-cards", "timeline"].filter((x) => x !== prevVar);
+          cand = alts[i % alts.length];
+        }
+        return cand;
+      };
+      const slides = styledSlides.map((s: any, i: number) => {
+        // AI side-by-side image slides must keep the simple "standard" bullets
+        // variant (the left-column layout the renderer constrains for an image).
+        if (s.imageRight) return { ...s, bulletsVariant: "standard" };
+        let v: string | undefined = s.bulletsVariant;
+        if (s.layout === "bullets") {
+          // Respect ONLY a deliberate colorful pick from the AI itself; a
+          // bundle/template default (or a plain pick) gets replaced with a
+          // varied colorful layout so the deck doesn't repeat one style.
+          const aiVar: string | undefined = data.deck.slides[i]?.bulletsVariant;
+          if (aiVar && COLORFUL.has(aiVar) && !isPlain(aiVar)) v = aiVar;
+          else v = pickColorful(s, i);
+          prevVar = v;
+        }
+        return {
+          ...s,
+          bulletsVariant: v || "concept-cards",
+          ...(s.layout === "title-hero" && !s.titleVariant ? { titleVariant: "concept-hero" } : {}),
+        };
+      });
       const baseDeck: Deck = { ...data.deck, slides, graphic: graphicId, graphicAccent, fontId };
 
       // If the user picked one of their custom templates, re-skin the whole
@@ -460,7 +513,7 @@ const retryGenerate = () => {
           tone={tone}
           setTone={setTone}
           density={density}
-          setDensity={setDensity}
+          setDensity={chooseDensity}
           includeReferences={includeReferences}
           setIncludeReferences={setIncludeReferences}
           onNext={() => setStep("theme")}
@@ -570,7 +623,7 @@ const retryGenerate = () => {
           setFontId(t.fontId);
           setGraphicId(t.graphicId);
           setGraphicAccent(t.graphicAccent);
-          if (t.density) setDensity(t.density);
+          if (t.density && !densityTouched) setDensity(t.density);
           if (typeof t.includeReferences === "boolean") setIncludeReferences(t.includeReferences);
           // Seed the prompt only when empty so we don't trample what the user
           // has already typed.

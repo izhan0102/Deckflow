@@ -404,7 +404,16 @@ async function renderBullets(
   addAccentBar(s, theme, slide);
   addContentTitle(s, slide, theme);
 
-  if (!isHidden(slide, "bullets")) {
+  const variant = slide.bulletsVariant;
+  if (!isHidden(slide, "bullets") && (slide.bullets || []).length > 0 &&
+      (variant === "bands" || variant === "chevron" || variant === "numbered-cards" ||
+       variant === "timeline" || variant === "concept-cards" || variant === "cards")) {
+    if (variant === "bands")          await drawBandsPptx(s, slide, theme);
+    else if (variant === "chevron")   await drawChevronPptx(s, slide, theme);
+    else if (variant === "numbered-cards") await drawNumberedCardsPptx(s, slide, theme);
+    else if (variant === "timeline")  await drawTimelinePptx(s, slide, theme);
+    else                              await drawConceptCardsPptx(s, slide, theme); // concept-cards / cards
+  } else if (!isHidden(slide, "bullets")) {
     const o = offset(slide, "bullets");
     const bullets = (slide.bullets || []).map((b) => ({
       text: b,
@@ -421,6 +430,149 @@ async function renderBullets(
   addFooter(s, theme, deck.title, idx, total);
   if (slide.notes) s.addNotes(slide.notes);
   return s;
+}
+
+/** Fetch a recolored Iconify SVG and inline it as a data URI for embedding. */
+async function iconDataUri(iconId: string | undefined, color: string): Promise<string | null> {
+  if (!iconId) return null;
+  try {
+    const url = iconifySvgUrl(iconId, color);
+    if (!url) return null;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const svg = await res.text();
+    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+  } catch {
+    return null;
+  }
+}
+
+const CONTENT_TOP = 2.7;
+const CONTENT_BOTTOM = 6.85;
+const RAINBOW = ["8B5CF6", "E5645A", "2BB3A3", "E0A82E", "EC4899", "3B82F6", "10B981", "F97316"];
+const CARD_PALETTE = ["F97316", "C026D3", "7C3AED", "2563EB", "E5645A", "0D9488", "DB2777", "CA8A04"];
+
+/** Full-width stacked accent-gradient bands with number/icon + white text. */
+async function drawBandsPptx(s: PptxGenJS.Slide, slide: Slide, theme: Theme) {
+  const bullets = slide.bullets || [];
+  const n = bullets.length || 1;
+  const top = slide.subtitle ? 2.85 : CONTENT_TOP;
+  const bandH = (CONTENT_BOTTOM - top) / n;
+  const Wc = W - 2 * PAD;
+  for (let i = 0; i < n; i++) {
+    const t = n > 1 ? (i / (n - 1)) * 0.42 : 0;
+    const color = hex(mix(theme.accent, "#ffffff", t));
+    const y = top + i * bandH;
+    s.addShape("rect", { x: PAD, y, w: Wc, h: bandH - 0.07, fill: { color }, line: { type: "none" } } as any);
+    const bs = Math.min(0.42, bandH - 0.4);
+    const by = y + (bandH - 0.07 - bs) / 2;
+    const icon = await iconDataUri(slide.bulletIcons?.[i], "FFFFFF");
+    if (icon) {
+      s.addImage({ data: icon, x: PAD + 0.22, y: by, w: bs, h: bs });
+    } else {
+      s.addShape("roundRect", { x: PAD + 0.22, y: by, w: bs, h: bs, rectRadius: 0.08, fill: { color: "FFFFFF", transparency: 78 }, line: { type: "none" } } as any);
+      s.addText(String(i + 1).padStart(2, "0"), { x: PAD + 0.22, y: by, w: bs, h: bs, align: "center", valign: "middle", fontSize: 12, bold: true, color: "FFFFFF" });
+    }
+    s.addText(bullets[i], {
+      x: PAD + 0.9, y, w: Wc - 1.2, h: bandH - 0.07, valign: "middle",
+      fontSize: Math.max(11, bulletSize(n, slide) - 1), bold: true, color: "FFFFFF", fontFace: fontFor(theme, slide),
+    });
+  }
+}
+
+/** Horizontal chevron arrows for a short ordered process. */
+async function drawChevronPptx(s: PptxGenJS.Slide, slide: Slide, theme: Theme) {
+  const bullets = slide.bullets || [];
+  const n = bullets.length || 1;
+  const top = slide.subtitle ? 3.3 : 2.9;
+  const h = 1.9;
+  const Wc = W - 2 * PAD;
+  const cw = Wc / n;
+  for (let i = 0; i < n; i++) {
+    const color = hex(mix(theme.accent, "#ffffff", n > 1 ? (i / (n - 1)) * 0.4 : 0));
+    const x = PAD + i * cw;
+    s.addShape("chevron", { x, y: top, w: cw - 0.04, h, fill: { color }, line: { type: "none" } } as any);
+    const inset = i === 0 ? 0.2 : 0.5;
+    const icon = await iconDataUri(slide.bulletIcons?.[i], "FFFFFF");
+    if (icon) s.addImage({ data: icon, x: x + cw / 2 - 0.18, y: top + 0.25, w: 0.36, h: 0.36 });
+    s.addText([
+      { text: `STEP ${i + 1}`, options: { fontSize: 9, bold: true, charSpacing: 2, color: "FFFFFF", breakLine: true } },
+      { text: bullets[i], options: { fontSize: 11, bold: true, color: "FFFFFF" } },
+    ] as any, { x: x + inset, y: top + (icon ? 0.65 : 0.2), w: cw - inset - 0.35, h: h - (icon ? 0.85 : 0.4), align: "center", valign: "middle", fontFace: fontFor(theme, slide) });
+  }
+}
+
+/** Row of solid colored cards with a big numeral + white text. */
+async function drawNumberedCardsPptx(s: PptxGenJS.Slide, slide: Slide, theme: Theme) {
+  const bullets = slide.bullets || [];
+  const n = bullets.length || 1;
+  const top = slide.subtitle ? 3.2 : 2.9;
+  const h = 2.4;
+  const gap = 0.22;
+  const Wc = W - 2 * PAD;
+  const cw = Math.min(2.4, (Wc - (n - 1) * gap) / n);
+  const totalW = cw * n + gap * (n - 1);
+  const startX = (W - totalW) / 2;
+  for (let i = 0; i < n; i++) {
+    const color = CARD_PALETTE[i % CARD_PALETTE.length];
+    const x = startX + i * (cw + gap);
+    s.addShape("roundRect", { x, y: top, w: cw, h, rectRadius: 0.14, fill: { color }, line: { type: "none" } } as any);
+    s.addText(String(i + 1).padStart(2, "0"), { x: x + 0.18, y: top + 0.14, w: cw - 0.36, h: 0.7, fontSize: 30, bold: true, color: "FFFFFF", transparency: 55, fontFace: fontFor(theme, slide) } as any);
+    const icon = await iconDataUri(slide.bulletIcons?.[i], "FFFFFF");
+    if (icon) s.addImage({ data: icon, x: x + cw - 0.5, y: top + 0.2, w: 0.32, h: 0.32 });
+    s.addText(bullets[i], { x: x + 0.18, y: top + 0.85, w: cw - 0.36, h: h - 1.0, fontSize: 11, bold: true, color: "FFFFFF", valign: "top", fontFace: fontFor(theme, slide) });
+  }
+}
+
+/** Vertical timeline: numbered/icon nodes on a connecting line + title/detail. */
+async function drawTimelinePptx(s: PptxGenJS.Slide, slide: Slide, theme: Theme) {
+  const bullets = slide.bullets || [];
+  const n = bullets.length || 1;
+  const top = slide.subtitle ? 2.9 : CONTENT_TOP;
+  const rowH = (CONTENT_BOTTOM - top) / n;
+  const node = 0.46;
+  const nodeX = PAD + 0.1;
+  for (let i = 0; i < n; i++) {
+    const y = top + i * rowH;
+    const color = hex(mix(theme.accent, "#ffffff", n > 1 ? (i / (n - 1)) * 0.38 : 0));
+    // Connecting line to the next node.
+    if (i < n - 1) {
+      s.addShape("line", { x: nodeX + node / 2 - 0.01, y: y + node, w: 0, h: rowH - node, line: { color: hex(theme.fg), width: 1.5, transparency: 80 } } as any);
+    }
+    s.addShape("ellipse", { x: nodeX, y, w: node, h: node, fill: { color }, line: { type: "none" } } as any);
+    const icon = await iconDataUri(slide.bulletIcons?.[i], "FFFFFF");
+    if (icon) s.addImage({ data: icon, x: nodeX + 0.1, y: y + 0.1, w: node - 0.2, h: node - 0.2 });
+    else s.addText(String(i + 1), { x: nodeX, y, w: node, h: node, align: "center", valign: "middle", fontSize: 13, bold: true, color: "FFFFFF" });
+    const m = bullets[i].match(/^(.{2,42}?)\s*[—–-]\s+(.*)$/);
+    const titleText = m ? m[1] : bullets[i];
+    const detailText = m ? m[2] : "";
+    const tx = nodeX + node + 0.3;
+    const tw = W - tx - PAD;
+    s.addText(titleText, { x: tx, y: y - 0.04, w: tw, h: 0.4, fontSize: 14, bold: true, color: hex(theme.fg), valign: "top", fontFace: fontFor(theme, slide) });
+    if (detailText) s.addText(detailText, { x: tx, y: y + 0.36, w: tw, h: rowH - 0.4, fontSize: 11, color: hex(theme.fg), transparency: 22, valign: "top", fontFace: fontFor(theme, slide) } as any);
+  }
+}
+
+/** Colorful numbered cards (concept / cards) as full-width rounded rows. */
+async function drawConceptCardsPptx(s: PptxGenJS.Slide, slide: Slide, theme: Theme) {
+  const bullets = slide.bullets || [];
+  const n = bullets.length || 1;
+  const top = CONTENT_TOP;
+  const gap = 0.16;
+  const rowH = (CONTENT_BOTTOM - top - (n - 1) * gap) / n;
+  const Wc = W - 2 * PAD;
+  const badge = Math.min(0.5, rowH - 0.2);
+  for (let i = 0; i < n; i++) {
+    const color = RAINBOW[i % RAINBOW.length];
+    const y = top + i * (rowH + gap);
+    s.addShape("roundRect", { x: PAD, y, w: Wc, h: rowH, rectRadius: 0.1, fill: { color, transparency: 86 }, line: { type: "none" } } as any);
+    const by = y + (rowH - badge) / 2;
+    s.addShape("ellipse", { x: PAD + 0.2, y: by, w: badge, h: badge, fill: { color }, line: { type: "none" } } as any);
+    const icon = await iconDataUri(slide.bulletIcons?.[i], "FFFFFF");
+    if (icon) s.addImage({ data: icon, x: PAD + 0.2 + badge * 0.22, y: by + badge * 0.22, w: badge * 0.56, h: badge * 0.56 });
+    else s.addText(String(i + 1).padStart(2, "0"), { x: PAD + 0.2, y: by, w: badge, h: badge, align: "center", valign: "middle", fontSize: 13, bold: true, color: "FFFFFF" });
+    s.addText(bullets[i], { x: PAD + 0.2 + badge + 0.25, y, w: Wc - badge - 0.7, h: rowH, valign: "middle", fontSize: Math.max(11, bulletSize(n, slide) - 1), color: hex(theme.fg), fontFace: fontFor(theme, slide) });
+  }
 }
 
 async function renderTwoColumn(
@@ -933,6 +1085,20 @@ async function drawUploadedImages(s: PptxGenJS.Slide, slide: Slide, theme: Theme
       data = img.dataUrl;
     }
     if (!data) continue;
+    // Uploaded photos are base64 data: URIs (pass straight through). Stock
+    // photos (AI-placed or added from the image search) are remote URLs —
+    // fetch and inline them as a data URI so pptxgenjs embeds them reliably.
+    if (/^https?:\/\//i.test(data)) {
+      try {
+        const res = await fetch(data);
+        if (!res.ok) continue;
+        const buf = Buffer.from(await res.arrayBuffer());
+        const ct = res.headers.get("content-type") || "image/jpeg";
+        data = `data:${ct};base64,${buf.toString("base64")}`;
+      } catch {
+        continue;
+      }
+    }
     s.addImage({ data, x: img.x, y: img.y, w: img.w, h: img.h });
   }
 }

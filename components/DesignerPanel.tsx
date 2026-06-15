@@ -1,8 +1,9 @@
 "use client";
 import type { Slide, UploadedImage, Deck } from "@/lib/types";
 import type { Theme } from "@/lib/themes";
-import { Eye, Maximize2, Palette, Shapes, Trash2 } from "lucide-react";
+import { Eye, ImageIcon, Loader2, Maximize2, Palette, Shapes, Trash2 } from "lucide-react";
 import { getDecoration } from "@/lib/decorations";
+import type { PexelsPhoto } from "@/lib/pexels";
 import StyleVariants from "./StyleVariants";
 
 const ELEMENTS: { id: keyof NonNullable<Slide["elementHidden"]>; label: string }[] = [
@@ -17,6 +18,7 @@ const ELEMENTS: { id: keyof NonNullable<Slide["elementHidden"]>; label: string }
 export default function DesignerPanel({
   slide, theme, deck, onUpdate, onReplace,
   selectedImageId, onDeselectImage,
+  relatedImages, relatedLoading, onReplaceImage, onSearchImages,
 }: {
   slide: Slide;
   theme: Theme;
@@ -25,6 +27,11 @@ export default function DesignerPanel({
   onReplace?: (next: Slide) => void;
   selectedImageId?: string | null;
   onDeselectImage?: () => void;
+  /** Related Pexels images for the selected photo (one-click replace). */
+  relatedImages?: PexelsPhoto[];
+  relatedLoading?: boolean;
+  onReplaceImage?: (photo: PexelsPhoto) => void;
+  onSearchImages?: () => void;
 }) {
   const selectedImage =
     selectedImageId
@@ -39,6 +46,10 @@ export default function DesignerPanel({
         image={selectedImage}
         onUpdate={onUpdate}
         onDeselect={onDeselectImage}
+        relatedImages={relatedImages}
+        relatedLoading={relatedLoading}
+        onReplaceImage={onReplaceImage}
+        onSearchImages={onSearchImages}
       />
     );
   }
@@ -128,15 +139,21 @@ const SWATCH_PRESETS = [
 
 function GraphicPanel({
   slide, theme, image, onUpdate, onDeselect,
+  relatedImages, relatedLoading, onReplaceImage, onSearchImages,
 }: {
   slide: Slide;
   theme: Theme;
   image: UploadedImage;
   onUpdate: (patch: Partial<Slide>) => void;
   onDeselect?: () => void;
+  relatedImages?: PexelsPhoto[];
+  relatedLoading?: boolean;
+  onReplaceImage?: (photo: PexelsPhoto) => void;
+  onSearchImages?: () => void;
 }) {
   const isDecoration = image.kind === "decoration" && !!image.decorationId;
   const isIcon = image.kind === "icon" && !!image.iconId;
+  const isPhoto = !isDecoration && !isIcon && image.kind !== "chart";
   const dec = isDecoration ? getDecoration(image.decorationId) : undefined;
 
   const updateImage = (patch: Partial<UploadedImage>) => {
@@ -250,6 +267,50 @@ function GraphicPanel({
         >
           <Palette size={10} className="mr-1 inline" /> Reset to theme
         </button>
+      )}
+
+      {isPhoto && (
+        <div>
+          <div className="mb-2 flex items-center justify-between">
+            <span className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-white/50">
+              <ImageIcon size={11} /> Replace with a similar image
+            </span>
+            {onSearchImages && (
+              <button onClick={onSearchImages} className="text-[10px] text-white/50 hover:text-white/85">
+                Search more
+              </button>
+            )}
+          </div>
+          {relatedLoading ? (
+            <div className="grid h-20 place-items-center text-white/40">
+              <Loader2 size={16} className="animate-spin" />
+            </div>
+          ) : relatedImages && relatedImages.length > 0 ? (
+            <div className="grid grid-cols-3 gap-1.5">
+              {relatedImages.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => onReplaceImage?.(p)}
+                  title={p.alt ? `${p.alt} — ${p.photographer}` : p.photographer}
+                  className="overflow-hidden rounded-md border border-white/10 transition hover:border-white/50"
+                  style={{ background: p.avg_color || "#222" }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={p.src.tiny}
+                    alt={p.alt || "Related image"}
+                    loading="lazy"
+                    className="aspect-[4/3] w-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="text-[11px] text-white/40">
+              No related images yet. Use &ldquo;Search more&rdquo; to find one.
+            </p>
+          )}
+        </div>
       )}
 
       <div className="mt-auto">

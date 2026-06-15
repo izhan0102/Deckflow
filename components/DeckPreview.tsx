@@ -40,6 +40,8 @@ import { type DeckTemplate } from "@/lib/templates";
 import { applyCustomTemplateToDeck } from "@/lib/applyCustomTemplate";
 import { watchCustomTemplates, deleteCustomTemplate, type CustomTemplate } from "@/lib/customTemplates";
 import VisualsDrawer from "./VisualsDrawer";
+import ImagesDrawer from "./ImagesDrawer";
+import { searchPexels, type PexelsPhoto } from "@/lib/pexels";
 import type { ChartSpec } from "@/lib/charts";
 
 const DENSITY_TABS: { id: ContentDensity; label: string }[] = [
@@ -93,6 +95,12 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
   // Add-visuals (charts) drawer + the chart element currently being edited.
   const [visualsOpen, setVisualsOpen] = useState(false);
   const [editingChart, setEditingChart] = useState<{ id: string; spec: ChartSpec } | null>(null);
+  // Pexels image drawer + "related images" sidebar state.
+  const [imagesOpen, setImagesOpen] = useState(false);
+  const [imageReplaceId, setImageReplaceId] = useState<string | null>(null);
+  const [imageQuery, setImageQuery] = useState("");
+  const [relatedImages, setRelatedImages] = useState<PexelsPhoto[]>([]);
+  const [relatedLoading, setRelatedLoading] = useState(false);
 
   // Load the user's saved custom templates for the gallery.
   useEffect(() => {
@@ -224,6 +232,31 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
   // Clear graphic selection when switching slides.
   useEffect(() => { setSelectedImageId(null); }, [active]);
 
+  // When a photo (kind "user", incl. AI-placed) is selected, fetch related
+  // images for the slide topic so the sidebar offers one-click replacements.
+  useEffect(() => {
+    const img = (deck.slides[active]?.uploadedImages || []).find((im) => im.id === selectedImageId);
+    if (!selectedImageId || !img || (img.kind && img.kind !== "user")) { setRelatedImages([]); return; }
+    let cancelled = false;
+    setRelatedLoading(true);
+    const q = deck.slides[active]?.title || deck.topic || deck.title || "background";
+    searchPexels(q, { perPage: 9 })
+      .then((r) => { if (!cancelled) setRelatedImages(r); })
+      .catch(() => { if (!cancelled) setRelatedImages([]); })
+      .finally(() => { if (!cancelled) setRelatedLoading(false); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedImageId, active]);
+
+  // Is the active slide an intro/closing slide that uses a cover photo?
+  const slideIsCover = (s?: Slide): boolean => {
+    if (!s) return false;
+    const tv = s.titleVariant;
+    return (s.layout === "title-hero" && (tv === "image-cover" || tv === "image-center" || tv === "image-editorial")) ||
+      (s.layout === "closing" && s.closingVariant === "image");
+  };
+  const coverMode = slideIsCover(deck.slides[active]);
+
   // Patches accept an opts param so the canvas can flag drag-only updates;
   // we currently treat all updates the same since undo/redo is removed.
   const updateActive = (patch: Partial<Slide>) => {
@@ -331,6 +364,71 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
         i === active ? { ...s, uploadedImages: [...(slide.uploadedImages || []), newImage] } : s,
       ),
     });
+  };
+
+  /* ------------------------------- Images --------------------------------- */
+
+  // Append a Pexels photo to the active slide as a movable/resizable image.
+  const addStockImage = (photo: PexelsPhoto) => {
+    const slide = deck.slides[active];
+    const tv = slide?.titleVariant;
+    const isCover =
+      (slide?.layout === "title-hero" && (tv === "image-cover" || tv === "image-center" || tv === "image-editorial")) ||
+      (slide?.layout === "closing" && slide?.closingVariant === "image");
+    // On an image title/closing slide, the photo IS that variant's cover —
+    // set it on coverImages at the variant's index, not as a floating image.
+    if (isCover) {
+      const idx = tv === "image-center" ? 1 : tv === "image-editorial" ? 2 : 0;
+      const covers = [...(slide.coverImages || [])];
+      while (covers.length <= idx) covers.push("");
+      covers[idx] = photo.src.large;
+      setDeck({
+        ...deck,
+        slides: deck.slides.map((s, i) => i === active ? { ...s, coverImages: covers } : s),
+      });
+      return;
+    }
+    const ar = photo.width > 0 && photo.height > 0 ? photo.width / photo.height : 1.5;
+    const w = 5.4;
+    const h = Math.max(0.8, Math.min(6.6, w / ar));
+    const newImage: UploadedImage = {
+      id: `img_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+      kind: "user",
+      dataUrl: photo.src.large,
+      x: (13.333 - w) / 2, y: (7.5 - h) / 2, w, h,
+    };
+    setDeck({
+      ...deck,
+      slides: deck.slides.map((s, i) =>
+        i === active ? { ...s, uploadedImages: [...(slide.uploadedImages || []), newImage] } : s,
+      ),
+    });
+  };
+
+  // Swap the photo behind an existing image element, keeping its position
+  // and width (height re-derived from the new aspect ratio).
+  const replaceImageWith = (id: string, photo: PexelsPhoto) => {
+    const ar = photo.width > 0 && photo.height > 0 ? photo.width / photo.height : 1.5;
+    setDeck({
+      ...deck,
+      slides: deck.slides.map((s, i) => i === active ? {
+        ...s,
+        uploadedImages: (s.uploadedImages || []).map((im) =>
+          im.id === id ? { ...im, dataUrl: photo.src.large, h: Math.max(0.8, Math.min(6.6, im.w / ar)) } : im,
+        ),
+      } : s),
+    });
+  };
+
+  const onPickImage = (photo: PexelsPhoto) => {
+    if (imageReplaceId) replaceImageWith(imageReplaceId, photo);
+    else addStockImage(photo);
+  };
+
+  const openAddImages = () => {
+    setImageReplaceId(null);
+    setImageQuery(deck.topic || deck.title || "");
+    setImagesOpen(true);
   };
 
   /* ------------------------------- Visuals -------------------------------- */
@@ -635,22 +733,30 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
       graphic: t.graphicId,
       graphicAccent: t.graphicAccent,
       fontId: t.fontId,
-      slides: deck.slides.map((s) => ({
-        ...s,
-        titleVariant: v.titleVariant ?? s.titleVariant,
-        bulletsVariant: v.bulletsVariant ?? s.bulletsVariant,
-        twoColumnVariant: v.twoColumnVariant ?? s.twoColumnVariant,
-        tableVariant: v.tableVariant ?? s.tableVariant,
-        quoteVariant: v.quoteVariant ?? s.quoteVariant,
-        sectionVariant: v.sectionVariant ?? s.sectionVariant,
-        closingVariant: v.closingVariant ?? s.closingVariant,
-        // Drop overrides a previous template applied so the new look shows.
-        textColorOverride: undefined,
-        accentColorOverride: undefined,
-        backgroundColorOverride: undefined,
-        templateFonts: undefined,
-        uploadedImages: (s.uploadedImages || []).filter((im) => im.kind !== "templateBg"),
-      })),
+      slides: deck.slides.map((s) => {
+        // The intro's image cover and the image closing are deliberate photo
+        // slides — keep them intact across a template swap (their photos live
+        // in coverImages, which the spread preserves).
+        const keepTitle = s.layout === "title-hero" &&
+          (s.titleVariant === "image-cover" || s.titleVariant === "image-center" || s.titleVariant === "image-editorial");
+        const keepClosing = s.layout === "closing" && s.closingVariant === "image";
+        return {
+          ...s,
+          titleVariant: keepTitle ? s.titleVariant : (v.titleVariant ?? s.titleVariant),
+          bulletsVariant: v.bulletsVariant ?? s.bulletsVariant,
+          twoColumnVariant: v.twoColumnVariant ?? s.twoColumnVariant,
+          tableVariant: v.tableVariant ?? s.tableVariant,
+          quoteVariant: v.quoteVariant ?? s.quoteVariant,
+          sectionVariant: v.sectionVariant ?? s.sectionVariant,
+          closingVariant: keepClosing ? s.closingVariant : (v.closingVariant ?? s.closingVariant),
+          // Drop overrides a previous template applied so the new look shows.
+          textColorOverride: undefined,
+          accentColorOverride: undefined,
+          backgroundColorOverride: undefined,
+          templateFonts: undefined,
+          uploadedImages: (s.uploadedImages || []).filter((im) => im.kind !== "templateBg"),
+        };
+      }),
     });
     setTemplateGalleryOpen(false);
   };
@@ -868,13 +974,6 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
             <Undo2 size={14} /> Undo
           </button>
           <button
-            onClick={() => setPatternOpen(true)}
-            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
-            title="Add a background pattern to this slide"
-          >
-            <Grid3x3 size={14} /> Add pattern
-          </button>
-          <button
             onClick={() => requireFeatureOrUpgrade("icons", "Adding icons is a Pro feature. Upgrade to use the icon library.", () => setIconOpen(true))}
             data-tour="tour-icon"
             className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
@@ -883,17 +982,6 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
             <Smile size={14} /> Add icon
             {!planHasFeature(plan, "icons") && <Lock size={12} className="opacity-60" />}
           </button>
-          {setTheme && (
-            <button
-              onClick={() => setThemeTransferOpen(true)}
-              data-tour="tour-theme"
-              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
-              title="Apply a different theme to the whole deck"
-            >
-              <span className="inline-block h-3 w-3 rounded-full" style={{ background: theme.accent }} />
-              Theme
-            </button>
-          )}
           <button
             onClick={openTemplateGallery}
             data-tour="tour-template"
@@ -916,30 +1004,16 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
               <LinkIcon size={14} /> {sharing ? "Sharing…" : "Share"}
             </button>
           )}
-          <div className="relative" data-tour="tour-notes">
-            <button
-              onClick={() => {
-                if (hasNotes) { setNotesViewOpen(true); return; }
-                requireFeatureOrUpgrade("speakerNotes", "Speaker notes are a Pro feature. Upgrade to generate them.", () => setNotesMenuOpen(true));
-              }}
-              disabled={notesState === "loading"}
-              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 disabled:opacity-60"
-              title={hasNotes ? "View speaker notes" : "Generate spoken speaker notes for every slide"}
+          <div className="relative" data-tour="tour-notes" />
+          {coverMode && (            <button
+              onClick={openAddImages}
+              className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition hover:opacity-90"
+              style={{ background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)" }}
+              title="Replace this slide's photo with a relevant one"
             >
-              {notesState === "loading"
-                ? <Loader2 size={14} className="animate-spin" />
-                : <NotebookText size={14} />}
-              {notesState === "loading" ? "Writing notes…"
-                : notesState === "error" ? "Try again"
-                : hasNotes ? "Show notes"
-                : "Generate notes"}
-              {!hasNotes && notesState !== "loading" && (
-                planHasFeature(plan, "speakerNotes")
-                  ? <ChevronDown size={13} className="opacity-60" />
-                  : <Lock size={12} className="opacity-60" />
-              )}
+              <ImageIcon size={14} /> Replace image
             </button>
-          </div>
+          )}
           <button
             onClick={() => setPresenting(true)}
             data-tour="tour-present"
@@ -1076,6 +1150,15 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
             onReplace={replaceActive}
             selectedImageId={selectedImageId}
             onDeselectImage={() => setSelectedImageId(null)}
+            relatedImages={relatedImages}
+            relatedLoading={relatedLoading}
+            onReplaceImage={(photo) => { if (selectedImageId) replaceImageWith(selectedImageId, photo); }}
+            onSearchImages={() => {
+              if (!selectedImageId) return;
+              setImageReplaceId(selectedImageId);
+              setImageQuery(deck.slides[active]?.title || deck.topic || deck.title || "");
+              setImagesOpen(true);
+            }}
           />
         </div>
       </div>
@@ -1113,6 +1196,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
         placingText={placingText}
         onStartPlaceText={() => { setPlacingText(true); setSelectedTextId(null); setCanvasSelection(null); }}
         onAddImage={() => fileInputRef.current?.click()}
+        onAddPhoto={openAddImages}
         selectedText={selectedTextId ? (deck.slides[active]?.textBoxes || []).find((t) => t.id === selectedTextId) || null : null}
         onUpdateText={(patch) => {
           if (!selectedTextId) return;
@@ -1168,6 +1252,15 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
         translateLocked={!planHasFeature(plan, "translate")}
         qaLocked={!planHasFeature(plan, "qaPrep")}
         onAddVisuals={() => { setEditingChart(null); setVisualsOpen(true); }}
+        onGenerateNotes={() => {
+          if (hasNotes) { setNotesViewOpen(true); return; }
+          requireFeatureOrUpgrade("speakerNotes", "Speaker notes are a Pro feature. Upgrade to generate them.", () => setNotesMenuOpen(true));
+        }}
+        notesLoading={notesState === "loading"}
+        notesLabel={notesState === "loading" ? "Writing notes…" : notesState === "error" ? "Try again" : hasNotes ? "Show notes" : "Generate notes"}
+        onOpenTheme={() => setThemeTransferOpen(true)}
+        onOpenPattern={() => setPatternOpen(true)}
+        themeAvailable={!!setTheme}
       />
 
       <VisualsDrawer
@@ -1179,6 +1272,14 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
         onInsertCurrent={(spec) => addChartToCurrent(spec)}
         onInsertNewSlide={(spec) => addChartNewSlide(spec)}
         onUpdate={(id, spec) => updateChartElement(id, spec)}
+      />
+
+      <ImagesDrawer
+        open={imagesOpen}
+        onClose={() => { setImagesOpen(false); setImageReplaceId(null); }}
+        initialQuery={imageQuery}
+        replacing={!!imageReplaceId}
+        onPick={onPickImage}
       />
 
       {/* Mandatory one-time review before the first export (free). */}
@@ -1787,12 +1888,13 @@ function PatternPicker({
  * (size, bold/italic/underline, color, alignment, delete).
  */
 function InsertSidebar({
-  open, onToggle, theme, placingText, onStartPlaceText, onAddImage,
+  open, onToggle, theme, placingText, onStartPlaceText, onAddImage, onAddPhoto,
   selectedText, onUpdateText, onDeleteText, onClearSelection,
   decoSelection, decoState, onUpdateDeco, onDeleteDeco,
   elementSelection, elementSize, elementText, onUpdateElementSize, onFormatElement, onResetElement, onDeleteElement,
   onTranslate, translating,
   onQAPrep, translateLocked, qaLocked, onAddVisuals,
+  onGenerateNotes, notesLoading, notesLabel, onOpenTheme, onOpenPattern, themeAvailable,
 }: {
   open: boolean;
   onToggle: () => void;
@@ -1800,6 +1902,7 @@ function InsertSidebar({
   placingText: boolean;
   onStartPlaceText: () => void;
   onAddImage: () => void;
+  onAddPhoto: () => void;
   selectedText: TextBox | null;
   onUpdateText: (patch: Partial<TextBox>) => void;
   onDeleteText: () => void;
@@ -1821,12 +1924,18 @@ function InsertSidebar({
   translateLocked: boolean;
   qaLocked: boolean;
   onAddVisuals: () => void;
+  onGenerateNotes: () => void;
+  notesLoading: boolean;
+  notesLabel: string;
+  onOpenTheme: () => void;
+  onOpenPattern: () => void;
+  themeAvailable: boolean;
 }) {
   const SIZES = [12, 14, 16, 18, 20, 24, 28, 32, 40, 54, 72];
   const COLORS = ["", theme.fg, theme.accent, "#0F172A", "#FFFFFF", "#22D3EE", "#1D4ED8", "#DC2626", "#F59E0B", "#047857", "#7C3AED"];
   const decoActive = decoSelection?.kind === "deco";
   const elementActive = !!elementSelection;
-  const panelTitle = selectedText ? "Text settings" : decoActive ? "Element settings" : elementActive ? "Text settings" : "Insert";
+  const panelTitle = selectedText ? "Text settings" : decoActive ? "Element settings" : elementActive ? "Text settings" : "Slide tools";
 
   return (
     <>
@@ -1901,6 +2010,16 @@ function InsertSidebar({
                 </span>
               </button>
               <button
+                onClick={onAddPhoto}
+                className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white/85 transition hover:bg-white/[0.06]"
+              >
+                <ImageIcon size={16} />
+                <span className="flex-1">
+                  <span className="block font-medium">Search photos</span>
+                  <span className="block text-[11px] text-white/45">Find a stock image (Pexels)</span>
+                </span>
+              </button>
+              <button
                 onClick={onAddVisuals}
                 className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white/85 transition hover:bg-white/[0.06]"
               >
@@ -1932,6 +2051,39 @@ function InsertSidebar({
                   <span className="block text-[11px] text-white/45">Likely questions, answers, and ask your own</span>
                 </span>
                 {qaLocked && <Lock size={14} className="text-white/40" />}
+              </button>
+              <button
+                onClick={onGenerateNotes}
+                disabled={notesLoading}
+                className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white/85 transition hover:bg-white/[0.06] disabled:opacity-60"
+              >
+                {notesLoading ? <Loader2 size={16} className="animate-spin" /> : <NotebookText size={16} />}
+                <span className="flex-1">
+                  <span className="block font-medium">{notesLabel}</span>
+                  <span className="block text-[11px] text-white/45">Spoken speaker notes for every slide</span>
+                </span>
+              </button>
+              {themeAvailable && (
+                <button
+                  onClick={onOpenTheme}
+                  className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white/85 transition hover:bg-white/[0.06]"
+                >
+                  <span className="inline-block h-4 w-4 shrink-0 rounded-full" style={{ background: theme.accent, boxShadow: "0 0 0 1px rgba(255,255,255,0.25)" }} />
+                  <span className="flex-1">
+                    <span className="block font-medium">Theme</span>
+                    <span className="block text-[11px] text-white/45">Recolor the whole deck</span>
+                  </span>
+                </button>
+              )}
+              <button
+                onClick={onOpenPattern}
+                className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white/85 transition hover:bg-white/[0.06]"
+              >
+                <Grid3x3 size={16} />
+                <span className="flex-1">
+                  <span className="block font-medium">Background pattern</span>
+                  <span className="block text-[11px] text-white/45">Add a subtle pattern to this slide</span>
+                </span>
               </button>
             </div>
           ) : (

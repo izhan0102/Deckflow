@@ -23,6 +23,9 @@ type Variant = {
 };
 
 const TITLE_VARIANTS: Variant[] = [
+  { id: "image-cover",     label: "Image · Left",      apply: (s) => ({ ...s, titleVariant: "image-cover" }),     current: (s) => s.titleVariant || "centered" },
+  { id: "image-center",    label: "Image · Center",    apply: (s) => ({ ...s, titleVariant: "image-center" }),    current: (s) => s.titleVariant || "centered" },
+  { id: "image-editorial", label: "Image · Editorial", apply: (s) => ({ ...s, titleVariant: "image-editorial" }), current: (s) => s.titleVariant || "centered" },
   { id: "concept-hero", label: "Concept", apply: (s) => ({ ...s, titleVariant: "concept-hero" }), current: (s) => s.titleVariant || "centered" },
   { id: "centered",    label: "Centered",    apply: (s) => ({ ...s, titleVariant: "centered"    }), current: (s) => s.titleVariant || "centered" },
   { id: "asymmetric",  label: "Asymmetric",  apply: (s) => ({ ...s, titleVariant: "asymmetric"  }), current: (s) => s.titleVariant || "centered" },
@@ -34,6 +37,10 @@ const TITLE_VARIANTS: Variant[] = [
 
 const BULLETS_VARIANTS: Variant[] = [
   { id: "concept-cards", label: "Concept", apply: (s) => ({ ...s, bulletsVariant: "concept-cards" }), current: (s) => s.bulletsVariant || "standard" },
+  { id: "bands",      label: "Color bands",   apply: (s) => ({ ...s, bulletsVariant: "bands"      }), current: (s) => s.bulletsVariant || "standard" },
+  { id: "chevron",    label: "Process arrows", apply: (s) => ({ ...s, bulletsVariant: "chevron"   }), current: (s) => s.bulletsVariant || "standard" },
+  { id: "numbered-cards", label: "Number cards", apply: (s) => ({ ...s, bulletsVariant: "numbered-cards" }), current: (s) => s.bulletsVariant || "standard" },
+  { id: "timeline",   label: "Timeline",   apply: (s) => ({ ...s, bulletsVariant: "timeline"   }), current: (s) => s.bulletsVariant || "standard" },
   { id: "standard",   label: "Standard",   apply: (s) => ({ ...s, bulletsVariant: "standard"   }), current: (s) => s.bulletsVariant || "standard" },
   { id: "numbered",   label: "Numbered",   apply: (s) => ({ ...s, bulletsVariant: "numbered"   }), current: (s) => s.bulletsVariant || "standard" },
   { id: "cards",      label: "Cards",      apply: (s) => ({ ...s, bulletsVariant: "cards"      }), current: (s) => s.bulletsVariant || "standard" },
@@ -74,6 +81,7 @@ const SECTION_VARIANTS: Variant[] = [
 ];
 
 const CLOSING_VARIANTS: Variant[] = [
+  { id: "image",     label: "Image",      apply: (s) => ({ ...s, closingVariant: "image"     }), current: (s) => s.closingVariant || "centered" },
   { id: "centered",  label: "Centered",   apply: (s) => ({ ...s, closingVariant: "centered"  }), current: (s) => s.closingVariant || "centered" },
   { id: "qa",        label: "Q&A",        apply: (s) => ({ ...s, closingVariant: "qa"        }), current: (s) => s.closingVariant || "centered" },
   { id: "contact",   label: "Contact",    apply: (s) => ({ ...s, closingVariant: "contact"   }), current: (s) => s.closingVariant || "centered" },

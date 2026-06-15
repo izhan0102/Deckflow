@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -659,10 +659,14 @@ function TemplateFrameSlide({ t }: { t: DeckTemplate }) {
 }
 
 function TemplateShowcase() {
-  // Fresh random order across ALL categories on each load → random start.
-  const order = useMemo(() => shuffle(DECK_TEMPLATES), []);
+  // Start with a deterministic order so server and first client render match
+  // (a random shuffle during render caused a hydration mismatch). Shuffle
+  // AFTER mount so each visit still starts on a random template.
+  const [order, setOrder] = useState<DeckTemplate[]>(() => DECK_TEMPLATES);
   const [step, setStep] = useState(0);
   const [paused, setPaused] = useState(false);
+
+  useEffect(() => { setOrder(shuffle(DECK_TEMPLATES)); }, []);
 
   useEffect(() => {
     if (paused || order.length < 2) return;
