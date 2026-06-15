@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Github, X } from "lucide-react";
 import PricingPlans from "./PricingPlans";
@@ -20,11 +20,20 @@ export default function UpgradeDialog({
   onClose: () => void;
 }) {
   const [comingSoon, setComingSoon] = useState(false);
+  const timeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
 
   const onUpgrade = () => {
     setComingSoon(true);
-    window.setTimeout(() => setComingSoon(false), 3000);
+    timeoutRef.current = window.setTimeout(() => setComingSoon(false), 3000);
   };
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        window.clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div
