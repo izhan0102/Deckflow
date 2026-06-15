@@ -20,7 +20,7 @@ export default function UpgradeDialog({
   onClose: () => void;
 }) {
   const [comingSoon, setComingSoon] = useState(false);
-  const timeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
+  const timeoutRef = useRef<number | null>(null);
 
   const onUpgrade = () => {
     setComingSoon(true);
