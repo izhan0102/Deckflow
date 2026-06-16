@@ -18,10 +18,31 @@ const VALID_LAYOUTS: SlideLayout[] = [
 ];
 
 const DENSITY_GUIDE: Record<ContentDensity, string> = {
-  concise:        `Density: CONCISE. Keep it tight.\n- 3 bullets per content slide.\n- Each bullet 4-8 words. Short, scannable phrases.`,
-  balanced:       `Density: BALANCED.\n- 4 bullets per content slide.\n- Each bullet 8-14 words. A clear, complete thought each.`,
-  detailed:       `Density: DETAILED. The user wants substance — fill the slide.\n- 4 to 5 bullets per content slide.\n- Each bullet is a full, informative sentence of 14-24 words that actually teaches something. Do NOT write short fragments.\n- Aim to use the whole slide. A near-empty detailed slide is a failure.\n- Cap each bullet at ~150 characters so it still fits on one line or two.`,
-  comprehensive:  `Density: COMPREHENSIVE. Pack the slide with real depth.\n- 5 substantial bullets per content slide.\n- Each bullet is a rich, specific sentence of 18-30 words with concrete detail, examples, or reasoning — not a vague one-liner.\n- Use the full slide. Thin content here is wrong.\n- Cap each bullet at ~180 characters so it fits the slide without overflowing.`,
+  concise:        `Density: CONCISE — lean but never empty.
+- 3-4 bullets per content slide.
+- Each bullet 6-10 words: a crisp, complete phrase (NOT one or two words).
+- A two-column slide = the same per SIDE (so 6-8 bullets total).`,
+  balanced:       `Density: BALANCED — a solid, well-explained slide.
+- 4-5 bullets per content slide.
+- Each bullet 10-16 words, a clear complete thought that stands on its own.
+- A two-column slide = 4-5 bullets per SIDE (8-10 total).`,
+  detailed:       `Density: DETAILED — the user explicitly wants substance. FILL THE SLIDE.
+- 5-6 bullets per content slide. Never fewer than 5.
+- Each bullet is a full, informative SENTENCE of 16-26 words that actually
+  teaches something specific (a mechanism, a reason, an example, a number).
+- A slide with 5 short fragments is a FAILURE — write real sentences.
+- A two-column slide = 3-4 substantive bullets per SIDE (6-8 total).
+- Cap each bullet at ~170 characters so it still fits; aim near that cap, do
+  not undershoot.`,
+  comprehensive:  `Density: IN-DEPTH — maximum real depth. Pack every slide.
+- 6 substantial bullets per content slide (5 only if the point genuinely
+  can't be split further). Never thin.
+- Each bullet is a rich, specific sentence of 20-32 words with concrete detail:
+  a how/why, a real example, a mechanism, a trade-off, or a figure. No vague
+  one-liners, no filler.
+- A two-column slide = 4 rich bullets per SIDE (8 total).
+- Cap each bullet at ~190 characters; write to near that length.
+- If you wrote only a few short lines on a slide, you did it WRONG — expand it.`,
 };
 
 const SYSTEM_PROMPT = `You are SlideGen, a senior presentation designer.
@@ -169,6 +190,12 @@ Visual variety and meaning (NO random decoration):
   with detail); a punchy problem or outcomes list -> "bands"; distinct offerings
   -> cards or "numbered-cards". Never force a variant whose shape the content
   doesn't fit (e.g. don't put 6 long sentences in "chevron").
+- DENSITY ↔ VARIANT FIT: "bands" and "chevron" hold only SHORT text, so use them
+  for concise/balanced or genuinely short points. For "detailed" / "in-depth"
+  slides whose bullets are full sentences, prefer "concept-cards",
+  "numbered-cards", "timeline" (title + detail), or "icon-check" — they
+  accommodate fuller text. Either way, NEVER drop content to fit a variant:
+  choose the variant that fits the amount of content the density requires.
 - Keep ALL the points the chosen density calls for. NEVER drop, merge, or
   shorten content just to fit a visual layout — instead pick a layout that fits
   the amount of content (lots of points -> bands/timeline/concept-cards; a few
@@ -256,7 +283,9 @@ References — REAL OR NONE:
 Text — HARD LIMITS so nothing overflows the 16:9 canvas (13.33 x 7.5in, ~0.6in padding):
 - Title: <= 60 characters. Subtitle: <= 100 characters. Split into two slides if needed.
 - Body (quote / section lead-in): <= 240 characters.
-- Bullets: see density guide. Strict caps. The model often overshoots — DO NOT.
+- Bullets: follow the DENSITY GUIDE for count and length. Hit the target — the
+  common failure is writing too LITTLE, so fill each slide to the density. Stay
+  under the per-bullet character cap only so text doesn't overflow the canvas.
 - Notes 2-4 sentences per slide.
 - No emojis unless the topic invites them.
 
@@ -362,7 +391,38 @@ slide ${opts.slideCount} is "closing". For every slide in between, YOU choose th
 title, the layout, and the content based on what actually serves the topic and
 the user's choices above. Don't follow a template. Don't force any layout.
 
+PLAN THE DECK FIRST (think like an expert on THIS topic, then build):
+- You have a huge toolkit — many layouts (bullets, chart, table, two-column,
+  section, quote) and many colourful bullet styles (bands, chevron, timeline,
+  numbered-cards, concept-cards, icon-check). Choose ONLY the ones this specific
+  topic genuinely needs. Do not add a slide type just because it exists, and do
+  not turn everything into plain bullets.
+- Decide per topic what the content demands:
+    * A genuine head-to-head (e.g. electric vs petrol/diesel cars, SQL vs NoSQL,
+      iOS vs Android) -> a "two-column" compare OR a "table" with a column per
+      option. A topic with no real opposing sides (e.g. photosynthesis, the
+      water cycle, company history) needs NO comparison — don't invent one.
+    * A process / lifecycle / how-it-works (photosynthesis stages, a sales
+      funnel, a deployment pipeline) -> "chevron" (few short steps) or
+      "timeline" (more stages with detail).
+    * Distinct features / pillars / modules / principles -> "concept-cards" or
+      "numbered-cards".
+    * Parallel problems, drivers, benefits, risks -> "bands" or "icon-check".
+    * Real, known numbers that compare or trend -> a "chart" (never fabricate).
+- INCLUDE A CASE STUDY / REAL-WORLD EXAMPLE when it strengthens the argument
+  (a named company, project, study, event, or product the topic is actually
+  associated with). Use a bullets or two-column slide titled like "Case Study:
+  …". Only use real, well-known examples — never invent one. Skip it for purely
+  abstract/scientific topics where a case study doesn't fit.
+- Match each middle slide's layout to its content; vary layouts across the deck
+  so no two neighbours look the same.
+
 ${DENSITY_GUIDE[opts.density]}
+
+DENSITY IS A HARD REQUIREMENT, not a suggestion. Before you finish, re-read
+every content slide and make sure it hits the bullet COUNT and the per-bullet
+LENGTH above. If any slide is thinner than the target, expand it with real,
+specific substance. A deck that under-fills the chosen density is wrong output.
 
 ${refLine}
 
