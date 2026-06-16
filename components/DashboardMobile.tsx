@@ -261,6 +261,7 @@ export default function DashboardMobile({
           currentPlan={plan}
           reason={upgradeReason}
           onClose={() => setUpgradeOpen(false)}
+          email={user.email}
         />
       )}
 

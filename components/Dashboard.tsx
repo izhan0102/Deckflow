@@ -204,6 +204,7 @@ export default function Dashboard({
             currentPlan={plan}
             reason={upgradeReason}
             onClose={() => setUpgradeOpen(false)}
+            email={user.email}
           />
         )}
 

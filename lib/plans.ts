@@ -68,7 +68,7 @@ export const PLANS: Record<PlanId, Plan> = {
   pro: {
     id: "pro",
     name: "Pro",
-    price: 5,
+    price: 1,
     decksPerMonth: 10,
     tagline: "For people who present often.",
     features: {
@@ -125,7 +125,7 @@ export const DEFAULT_PLAN: PlanId = "free";
  * Set back to false to restore normal plan gating (no other code changes
  * needed; this is the single switch honored by both client and server).
  */
-export const FREE_FOR_ALL = true;
+export const FREE_FOR_ALL = false;
 
 /**
  * Contributor free-Pro-Plus promo deadline. New activations are accepted
