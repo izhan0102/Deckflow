@@ -120,6 +120,14 @@ export const PLAN_ORDER: PlanId[] = ["free", "pro", "proplus"];
 export const DEFAULT_PLAN: PlanId = "free";
 
 /**
+ * TEMPORARY: drop the paywall. While true, every user gets every feature,
+ * unlimited decks, and no export watermark — regardless of their stored plan.
+ * Set back to false to restore normal plan gating (no other code changes
+ * needed; this is the single switch honored by both client and server).
+ */
+export const FREE_FOR_ALL = true;
+
+/**
  * Contributor free-Pro-Plus promo deadline. New activations are accepted
  * only up to this moment; the granted pass itself still lasts a month from
  * whenever it's activated. (June 25, 2026, end of day UTC.)
@@ -163,11 +171,13 @@ export function getPlan(id: PlanId): Plan {
 
 /** Whether a plan unlocks a given feature. */
 export function planHasFeature(id: PlanId, feature: PlanFeature): boolean {
+  if (FREE_FOR_ALL) return true;
   return !!PLANS[normalizePlan(id)].features[feature];
 }
 
 /** Monthly deck allowance for a plan (Infinity = unlimited). */
 export function planDeckLimit(id: PlanId): number {
+  if (FREE_FOR_ALL) return Infinity;
   return PLANS[normalizePlan(id)].decksPerMonth;
 }
 
@@ -179,5 +189,6 @@ export function deckLimitLabel(id: PlanId): string {
 
 /** Free plans carry the "Made with EXdeck" watermark on slides/exports. */
 export function planShowsWatermark(id: PlanId): boolean {
+  if (FREE_FOR_ALL) return false;
   return normalizePlan(id) === "free";
 }
