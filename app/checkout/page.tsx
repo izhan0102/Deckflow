@@ -210,8 +210,8 @@ function CheckoutInner() {
           <button
             onClick={pay}
             disabled={paying || checking}
-            className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-[14px] font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
-            style={{ background: ACCENT }}
+            className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-[14px] font-semibold transition hover:opacity-90 disabled:opacity-60"
+            style={{ background: ACCENT, color: "#ffffff" }}
           >
             {paying ? <><Loader2 size={16} className="animate-spin" /> Processing…</>
               : quote.free ? <>Activate free <ArrowRight size={16} /></>
@@ -270,26 +270,42 @@ function SuccessOverlay({ plan, period, onClose }: { plan: PlanId; period: Billi
   const name = PLANS[plan].name;
   return (
     <div className="fixed inset-0 z-[120] grid place-items-center px-6"
-      style={{ background: "radial-gradient(120% 120% at 50% 10%, #1b1145 0%, #0a0a14 55%, #05050a 100%)" }}>
+      style={{ background: "var(--ezd-bg-page)", color: "var(--ezd-fg)" }}>
       <style>{successCss}</style>
-      <div className="ck-pop relative w-full max-w-md rounded-3xl border border-white/10 bg-white/[0.04] p-8 text-center text-white">
-        {/* confetti */}
+
+      {/* soft accent glow */}
+      <div className="ck-glow" />
+
+      {/* full-screen confetti burst */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
         {CONFETTI.map((c, i) => (
-          <span key={i} className="ck-confetti" style={{ left: `${c.x}%`, background: c.c, animationDelay: `${c.d}s` }} />
+          <span key={i} className="ck-confetti" style={{ left: `${c.x}%`, background: c.col, animationDelay: `${c.d}s`, animationDuration: `${c.dur}s` }} />
         ))}
-        <div className="ck-badge mx-auto grid h-20 w-20 place-items-center rounded-full" style={{ background: ACCENT }}>
-          <Check size={40} strokeWidth={3} />
+      </div>
+
+      <div className="ck-pop relative w-full max-w-md rounded-3xl border p-8 text-center"
+        style={{ borderColor: "var(--ezd-divider)", background: "var(--ezd-bg-card)" }}>
+        {/* check badge with expanding rings */}
+        <div className="relative mx-auto grid h-24 w-24 place-items-center">
+          <span className="ck-ring" />
+          <span className="ck-ring ck-ring2" />
+          <span className="ck-badge grid h-[68px] w-[68px] place-items-center rounded-full" style={{ background: ACCENT }}>
+            <Check size={38} strokeWidth={3} color="#ffffff" className="ck-check" />
+          </span>
         </div>
-        <div className="mt-5 inline-flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.2em]" style={{ color: "#c9b8ff" }}>
+
+        <div className="ck-l1 mt-6 inline-flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.22em]" style={{ color: ACCENT }}>
           <PartyPopper size={14} /> Payment successful
         </div>
-        <h2 className="ck-title mt-2 text-[26px] font-extrabold tracking-tight">You&rsquo;re on {name}!</h2>
-        <p className="mt-2 text-[14px] leading-relaxed text-white/65">
-          Welcome to EXdeck {name}. Your {period === "annual" ? "annual" : "monthly"} plan is active and everything is unlocked. Time to build something great.
+        <h2 className="ck-l2 mt-2 text-[27px] font-extrabold tracking-tight" style={{ color: "var(--ezd-fg-strong)" }}>
+          You&rsquo;re on {name}!
+        </h2>
+        <p className="ck-l3 mt-2 text-[14px] leading-relaxed" style={{ color: "var(--ezd-fg-muted)" }}>
+          Welcome to EXdeck {name}. Your {period === "annual" ? "annual" : "monthly"} plan is active and everything&rsquo;s unlocked. Go build something great.
         </p>
         <button onClick={onClose}
-          className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-[14px] font-semibold text-white transition hover:opacity-90"
-          style={{ background: ACCENT }}>
+          className="ck-l4 mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-[14px] font-semibold transition hover:opacity-90"
+          style={{ background: ACCENT, color: "#ffffff" }}>
           Start creating <ArrowRight size={16} />
         </button>
       </div>
@@ -297,22 +313,33 @@ function SuccessOverlay({ plan, period, onClose }: { plan: PlanId; period: Billi
   );
 }
 
-const CONFETTI = Array.from({ length: 24 }, (_, i) => ({
-  x: (i * 37) % 100,
-  d: (i % 8) * 0.12,
-  c: ["#7C5CFF", "#22D3EE", "#F472B6", "#34D399", "#FBBF24"][i % 5],
+const CONFETTI = Array.from({ length: 44 }, (_, i) => ({
+  x: (i * 0.0773 * 100) % 100,
+  d: (i % 11) * 0.06,
+  dur: 1.6 + (i % 5) * 0.25,
+  col: ["#7C5CFF", "#22D3EE", "#F472B6", "#34D399", "#FBBF24", "#FB7185"][i % 6],
 }));
 
 const successCss = `
-.ck-pop{animation:ck-pop .5s cubic-bezier(.18,.89,.32,1.28) both}
-.ck-badge{animation:ck-badge .6s cubic-bezier(.18,.89,.32,1.28) both;box-shadow:0 12px 40px -8px ${ACCENT}}
-.ck-title{animation:ck-fade .5s .15s both}
-.ck-confetti{position:absolute;top:-6px;width:8px;height:14px;border-radius:2px;opacity:0;animation:ck-fall 1.6s ease-in forwards}
-@keyframes ck-pop{0%{opacity:0;transform:scale(.92) translateY(10px)}100%{opacity:1;transform:none}}
-@keyframes ck-badge{0%{transform:scale(0) rotate(-30deg)}100%{transform:scale(1) rotate(0)}}
-@keyframes ck-fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-@keyframes ck-fall{0%{opacity:0;transform:translateY(0) rotate(0)}10%{opacity:1}100%{opacity:0;transform:translateY(420px) rotate(540deg)}}
-@media (prefers-reduced-motion: reduce){.ck-pop,.ck-badge,.ck-title,.ck-confetti{animation:none!important;opacity:1!important}}
+.ck-glow{position:absolute;inset:0;background:radial-gradient(45% 40% at 50% 32%, rgba(124,92,255,0.30), transparent 70%);animation:ck-glow 2.6s ease-in-out infinite}
+.ck-pop{animation:ck-pop .55s cubic-bezier(.18,.89,.32,1.28) both}
+.ck-badge{position:relative;z-index:2;animation:ck-badge .6s .05s cubic-bezier(.18,.89,.32,1.28) both;box-shadow:0 14px 44px -10px ${ACCENT}}
+.ck-check{animation:ck-check .4s .42s both}
+.ck-ring{position:absolute;inset:0;border-radius:9999px;border:2px solid ${ACCENT};opacity:0;animation:ck-ring 1.5s .2s ease-out infinite}
+.ck-ring2{animation-delay:.9s}
+.ck-l1{opacity:0;animation:ck-up .5s .35s both}
+.ck-l2{opacity:0;animation:ck-up .5s .45s both}
+.ck-l3{opacity:0;animation:ck-up .5s .55s both}
+.ck-l4{opacity:0;animation:ck-up .5s .65s both}
+.ck-confetti{position:absolute;top:-16px;width:9px;height:15px;border-radius:2px;opacity:0;animation-name:ck-fall;animation-timing-function:cubic-bezier(.3,.6,.5,1);animation-fill-mode:forwards}
+@keyframes ck-pop{0%{opacity:0;transform:scale(.9) translateY(14px)}100%{opacity:1;transform:none}}
+@keyframes ck-badge{0%{transform:scale(0) rotate(-45deg)}60%{transform:scale(1.12) rotate(6deg)}100%{transform:scale(1) rotate(0)}}
+@keyframes ck-check{from{opacity:0;transform:scale(.4)}to{opacity:1;transform:scale(1)}}
+@keyframes ck-ring{0%{opacity:.7;transform:scale(.7)}100%{opacity:0;transform:scale(1.7)}}
+@keyframes ck-up{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes ck-glow{0%,100%{opacity:.5}50%{opacity:1}}
+@keyframes ck-fall{0%{opacity:0;transform:translateY(0) rotateZ(0)}8%{opacity:1}100%{opacity:0;transform:translateY(105vh) rotateZ(720deg)}}
+@media (prefers-reduced-motion: reduce){.ck-pop,.ck-badge,.ck-check,.ck-ring,.ck-l1,.ck-l2,.ck-l3,.ck-l4,.ck-confetti,.ck-glow{animation:none!important;opacity:1!important}}
 `;
 
 export default function CheckoutPage() {
