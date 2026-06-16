@@ -1,0 +1,62 @@
+{
+  "rules": {
+    "decks": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+
+    "templates": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+
+    "usage": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+
+    "plans": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": false
+      }
+    },
+
+    "shared": {
+      ".read": true,
+      "$shareId": {
+        ".write": "(auth != null && newData.child('ownerUid').val() === auth.uid) || ((data.child('mode').val() === 'edit' || newData.child('mode').val() === 'edit') && newData.child('ownerUid').val() === data.child('ownerUid').val())"
+      }
+    },
+
+    "analytics": {
+      ".read": true,
+      "$shareId": {
+        ".write": true
+      }
+    },
+
+    "reviews": {
+      ".read": true,
+      ".write": true
+    },
+
+    "reports": {
+      ".read": false,
+      ".write": true
+    },
+
+    "events": {
+      ".read": false,
+      "$kind": {
+        ".write": true
+      }
+    }
+  }
+}

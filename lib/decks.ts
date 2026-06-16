@@ -8,8 +8,8 @@
  *     - theme
  *     - shareId? (when published)
  *
- *   /shared/{shareId}         // public read-only snapshot
- *     - ownerUid, deckId, deck, theme, publishedAt
+ *   /shared/{shareId}         // public snapshot (read-only OR collaborative)
+ *     - ownerUid, deckId, deck, theme, mode ("view" | "edit"), publishedAt
  *
  * Required Firebase rules to make this safe:
  *   {
@@ -23,7 +23,11 @@
  *       "shared": {
  *         ".read": true,
  *         "$shareId": {
- *           ".write": "auth != null && newData.child('ownerUid').val() === auth.uid"
+ *           // Owner can always write. When the deck is shared in "edit" mode,
+ *           // anyone with the link may write the collaborative content
+ *           // (deck/theme/title) — but ownerUid and mode are pinned so a
+ *           // collaborator can't hijack ownership or silently change the mode.
+ *           ".write": "(auth != null && newData.child('ownerUid').val() === auth.uid) || ((data.child('mode').val() === 'edit' || newData.child('mode').val() === 'edit') && newData.child('ownerUid').val() === data.child('ownerUid').val())"
  *         }
  *       }
  *     }
@@ -49,6 +53,19 @@ export type StoredDeck = {
   deck: Deck;
   theme: Theme;
   shareId?: string;
+  shareMode?: ShareMode;
+};
+
+/** How a published deck is shared: read-only or collaboratively editable. */
+export type ShareMode = "view" | "edit";
+
+/** Public payload for a shared deck (returned by load/watch). */
+export type SharedDeckData = {
+  deck: Deck;
+  theme: Theme;
+  title: string;
+  mode: ShareMode;
+  ownerUid?: string;
 };
 
 export type DeckListItem = {
@@ -205,34 +222,108 @@ export function watchDeckList(
 
 /* ------------------------------ sharing ---------------------------------- */
 
-/** Publish (or refresh) a public read-only copy of a deck and return the share id. */
-export async function publishDeck(uid: string, deckId: string): Promise<string> {
+/** Publish (or refresh) a shared copy of a deck and return the share id.
+ *  mode "view" = read-only (notes stripped); "edit" = collaborative (full deck
+ *  kept so owner↔collaborator round-trips don't lose notes). */
+export async function publishDeck(
+  uid: string, deckId: string, mode: ShareMode = "view",
+): Promise<string> {
   const db = getFirebaseDb();
   if (!db) throw new Error("Cloud sync unavailable.");
   const stored = await loadDeck(uid, deckId);
   if (!stored) throw new Error("Deck not found.");
   const shareId = stored.shareId || `s_${rid()}`;
 
-  // Strip presenter notes from the public shared copy
-  const cleanSlides = stored.deck.slides.map((s) => {
-    const { notes, noteSegments, ...rest } = s;
-    return rest;
-  });
-  const cleanDeck = {
-    ...stored.deck,
-    slides: cleanSlides,
-  };
-
   await set(ref(db, `shared/${shareId}`), sanitize({
     ownerUid: uid,
     deckId,
-    deck: cleanDeck,
+    deck: mode === "edit" ? stored.deck : publicDeckCopy(stored.deck),
     theme: stored.theme,
     title: stored.meta?.title || "Deck",
+    mode,
     publishedAt: serverTimestamp(),
   }));
-  await update(ref(db, `decks/${uid}/${deckId}`), { shareId });
+  await update(ref(db, `decks/${uid}/${deckId}`), { shareId, shareMode: mode });
   return shareId;
+}
+
+/** Switch an already-published deck between read-only and collaborative edit
+ *  mode. Re-pushes the appropriate deck copy so the shared node is current. */
+export async function setShareMode(
+  uid: string, deckId: string, mode: ShareMode,
+): Promise<void> {
+  const db = getFirebaseDb();
+  if (!db) throw new Error("Cloud sync unavailable.");
+  const stored = await loadDeck(uid, deckId);
+  if (!stored?.shareId) throw new Error("Deck is not shared.");
+  await update(ref(db, `shared/${stored.shareId}`), sanitize({
+    mode,
+    deck: mode === "edit" ? stored.deck : publicDeckCopy(stored.deck),
+    theme: stored.theme,
+  }));
+  await update(ref(db, `decks/${uid}/${deckId}`), { shareMode: mode });
+}
+
+/** Collaborative write: patch the shared node's deck/theme in place. Used by
+ *  the owner AND link collaborators while editing an "edit"-mode shared deck.
+ *  ownerUid/mode are left untouched (the security rules pin them). */
+export async function writeSharedDeck(
+  shareId: string, deck: Deck, theme: Theme,
+): Promise<void> {
+  const db = getFirebaseDb();
+  if (!db) return;
+  await update(ref(db, `shared/${shareId}`), sanitize({
+    deck,
+    theme,
+    title: deck.title || "Deck",
+    publishedAt: serverTimestamp(),
+  }));
+}
+
+/** Clone a shared deck into the signed-in user's own My Decks. Returns the new
+ *  deck id, or null if the shared deck couldn't be read. */
+export async function copySharedDeck(uid: string, shareId: string): Promise<string | null> {
+  const db = getFirebaseDb();
+  if (!db) return null;
+  const snap = await get(child(ref(db), `shared/${shareId}`));
+  if (!snap.exists()) return null;
+  const v = snap.val();
+  if (!v?.deck || !v?.theme) return null;
+  const srcTitle = v.deck.title || v.title || "Shared deck";
+  const copy: Deck = { ...v.deck, title: `${srcTitle} (copy)` };
+  return createDeck(uid, copy, v.theme);
+}
+
+/** Build the public, read-only copy of a deck (presenter notes stripped). */
+function publicDeckCopy(deck: Deck): Deck {
+  const cleanSlides = deck.slides.map((s) => {
+    const { notes, noteSegments, ...rest } = s as any;
+    return rest;
+  });
+  return { ...deck, slides: cleanSlides };
+}
+
+/** If this deck is already published, refresh its public /shared snapshot so
+ *  viewers of an existing share link see edits without the owner re-sharing.
+ *  No-op when the deck was never published. Best-effort (callers fire & forget).
+ *  Edit-mode shares keep the FULL deck (notes included); view-mode strips notes. */
+export async function syncSharedDeck(
+  uid: string, deckId: string, deck: Deck, theme: Theme,
+): Promise<void> {
+  const db = getFirebaseDb();
+  if (!db) return;
+  const snap = await get(ref(db, `decks/${uid}/${deckId}`));
+  if (!snap.exists()) return;
+  const row = snap.val() as any;
+  const shareId: string | null = row?.shareId || null;
+  if (!shareId) return;
+  const mode: ShareMode = row?.shareMode === "edit" ? "edit" : "view";
+  await update(ref(db, `shared/${shareId}`), sanitize({
+    deck: mode === "edit" ? deck : publicDeckCopy(deck),
+    theme,
+    title: deck.title || "Deck",
+    publishedAt: serverTimestamp(),
+  }));
 }
 
 export async function unpublishDeck(uid: string, deckId: string): Promise<void> {
@@ -245,13 +336,44 @@ export async function unpublishDeck(uid: string, deckId: string): Promise<void> 
 }
 
 /** Public read of a shared deck (no auth required). */
-export async function loadSharedDeck(
-  shareId: string,
-): Promise<{ deck: Deck; theme: Theme; title: string } | null> {
+export async function loadSharedDeck(shareId: string): Promise<SharedDeckData | null> {
   const db = getFirebaseDb();
   if (!db) return null;
   const snap = await get(child(ref(db), `shared/${shareId}`));
   if (!snap.exists()) return null;
   const v = snap.val();
-  return { deck: v.deck, theme: v.theme, title: v.title || v.deck?.title || "Shared deck" };
+  return {
+    deck: v.deck, theme: v.theme,
+    title: v.title || v.deck?.title || "Shared deck",
+    mode: v.mode === "edit" ? "edit" : "view",
+    ownerUid: v.ownerUid,
+  };
+}
+
+/** Live-subscribe to a public shared deck. The callback fires immediately with
+ *  the current snapshot and again on every edit (owner autosave or a
+ *  collaborator's write), so open viewers/editors update in real time.
+ *  Returns an unsubscribe fn. */
+export function watchSharedDeck(
+  shareId: string,
+  cb: (data: SharedDeckData | null) => void,
+): () => void {
+  const db = getFirebaseDb();
+  if (!db) { cb(null); return () => {}; }
+  const node = ref(db, `shared/${shareId}`);
+  const unsub = onValue(
+    node,
+    (snap) => {
+      if (!snap.exists()) { cb(null); return; }
+      const v = snap.val();
+      cb({
+        deck: v.deck, theme: v.theme,
+        title: v.title || v.deck?.title || "Shared deck",
+        mode: v.mode === "edit" ? "edit" : "view",
+        ownerUid: v.ownerUid,
+      });
+    },
+    () => cb(null),
+  );
+  return unsub;
 }

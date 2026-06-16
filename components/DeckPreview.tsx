@@ -22,7 +22,7 @@ import { exportSlidesToPdf, exportHandoutToPdf } from "@/lib/pdfExport";
 import { trackEvent } from "@/lib/stats";
 import type { ExportFormat } from "./ExportFormatPicker";
 import { getDecoration } from "@/lib/decorations";
-import { saveDeck, publishDeck, unpublishDeck } from "@/lib/decks";
+import { saveDeck, publishDeck, unpublishDeck, syncSharedDeck, writeSharedDeck, watchSharedDeck, setShareMode, type ShareMode } from "@/lib/decks";
 import { submitReview, REVIEW_LIMITS } from "@/lib/reviews";
 import { loadShareAnalytics, formatDwell, type ShareAnalytics } from "@/lib/analytics";
 import { stripHtml, applyWholeStyle, readWholeStyle } from "@/lib/richText";
@@ -66,9 +66,16 @@ type Props = {
   onRestart: () => void;
   deckId?: string | null;
   user?: AppUser | null;
+  /** Initial share state for an owner-opened deck (so collaborative editing
+   *  can activate immediately when the deck was already shared in edit mode). */
+  initialShareId?: string | null;
+  initialShareMode?: ShareMode | null;
+  /** Present when this editor is a LINK COLLABORATOR (opened via /share/[id] in
+   *  edit mode) rather than the owner. Binds persistence to the shared node. */
+  collab?: { shareId: string; isOwner: boolean } | null;
 };
 
-export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart, deckId, user }: Props) {
+export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart, deckId, user, initialShareId, initialShareMode, collab }: Props) {
   const [active, setActive] = useState(0);
   const [viewMode, setViewMode] = useState<"slides" | "outline">("slides");
   const [downloading, setDownloading] = useState(false);
@@ -139,6 +146,18 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
   const [shareOpen, setShareOpen] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
+  // Live share state. For an owner, seeded from the loaded deck row; for a
+  // link collaborator, taken from the `collab` prop.
+  const [shareId, setShareId] = useState<string | null>(initialShareId ?? collab?.shareId ?? null);
+  const [shareMode, setShareModeState] = useState<ShareMode>(initialShareMode ?? (collab ? "edit" : "view"));
+  // Tracks the last deck JSON we either wrote to or applied from the shared
+  // node, so the realtime subscription doesn't echo our own write back into a
+  // render loop. Whole-deck, last-write-wins sync.
+  const lastSyncedRef = useRef<string>("");
+  // Collaborative editing is active when this is a link collaborator OR an
+  // owner whose deck is currently shared in "edit" mode.
+  const collabShareId = collab?.shareId ?? (shareMode === "edit" ? shareId : null);
+  const collabIsOwner = collab ? collab.isOwner : true;
   const [themeTransferOpen, setThemeTransferOpen] = useState(false);
   // Mandatory one-time review before exporting (replaces the old payment
   // gate — exports are free now). Persisted per-browser so we only ask once.
@@ -206,28 +225,60 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
   const handoutRef = useRef<HiddenHandoutHandle>(null);
 
   // Debounced cloud-save: any change to deck or theme triggers a save
-  // 1s after the last edit, so we don't slam Firebase on every keystroke.
+  // ~0.8s after the last edit, so we don't slam Firebase on every keystroke.
   const saveTimerRef = useRef<number | null>(null);
   useEffect(() => {
-    if (!user || !deckId) return;
+    // Nothing to persist for an anonymous collaborator without a share target.
+    if (!collabShareId && (!user || !deckId)) return;
     setSaveState("saving");
     if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
     saveTimerRef.current = window.setTimeout(async () => {
       try {
-        await saveDeck(user.uid, deckId, deck, theme);
-        // Quietly drop back to idle. The "Saved" pill was distracting and
-        // hovered over the title row whenever the AI applied an edit.
+        if (collabShareId) {
+          const json = JSON.stringify(deck);
+          // Skip if this exact deck just arrived from the shared node (echo).
+          if (json !== lastSyncedRef.current) {
+            lastSyncedRef.current = json;
+            await writeSharedDeck(collabShareId, deck, theme);
+          }
+          // Owner keeps a private backup copy in their own My Decks.
+          if (collabIsOwner && user && deckId) {
+            saveDeck(user.uid, deckId, deck, theme).catch(() => {});
+          }
+        } else if (user && deckId) {
+          await saveDeck(user.uid, deckId, deck, theme);
+          // If this deck has a live (read-only) share link, refresh the public
+          // snapshot so viewers see changes without a manual re-share.
+          syncSharedDeck(user.uid, deckId, deck, theme).catch(() => {});
+        }
         setSaveState("idle");
       } catch (e) {
         // eslint-disable-next-line no-console
         console.warn("[deck] save failed:", e);
         setSaveState("error");
       }
-    }, 1000);
+    }, 800);
     return () => {
       if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
     };
-  }, [deck, theme, user, deckId]);
+  }, [deck, theme, user, deckId, collabShareId, collabIsOwner]);
+
+  // Realtime collaboration: subscribe to the shared node and apply remote
+  // edits (from the owner or other link collaborators) as they arrive. The
+  // lastSyncedRef guard prevents our own writes from looping back.
+  useEffect(() => {
+    if (!collabShareId) return;
+    const unsub = watchSharedDeck(collabShareId, (res) => {
+      if (!res) return;
+      const json = JSON.stringify(res.deck);
+      if (json === lastSyncedRef.current) return; // our own echo
+      lastSyncedRef.current = json;
+      setDeck(res.deck);
+      if (res.theme && setTheme) setTheme(res.theme);
+    });
+    return () => unsub();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [collabShareId]);
 
   // Clear graphic selection when switching slides.
   useEffect(() => { setSelectedImageId(null); }, [active]);
@@ -651,12 +702,16 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
   const goPrev = () => setActive((a) => Math.max(0, a - 1));
   const goNext = () => setActive((a) => Math.min(deck.slides.length - 1, a + 1));
 
-  const onShare = async () => {
+  const onShare = async (mode: ShareMode = shareMode) => {
     if (!user || !deckId) return;
     setSharing(true);
     try {
-      const shareId = await publishDeck(user.uid, deckId);
-      const url = `${window.location.origin}/share/${shareId}`;
+      const sid = await publishDeck(user.uid, deckId, mode);
+      const url = `${window.location.origin}/share/${sid}`;
+      setShareId(sid);
+      setShareModeState(mode);
+      // Seed the echo guard so the owner's own subscription doesn't re-apply.
+      lastSyncedRef.current = JSON.stringify(deck);
       setShareUrl(url);
       setShareOpen(true);
       try { await navigator.clipboard.writeText(url); } catch { /* clipboard might be blocked */ }
@@ -666,6 +721,19 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
       alert("Could not publish a share link. Try again.");
     } finally {
       setSharing(false);
+    }
+  };
+
+  // Owner toggles a published deck between read-only and collaborative edit.
+  const onChangeShareMode = async (mode: ShareMode) => {
+    if (!user || !deckId || !shareId) return;
+    setShareModeState(mode);
+    try {
+      await setShareMode(user.uid, deckId, mode);
+      lastSyncedRef.current = JSON.stringify(deck);
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn("[deck] share mode change failed:", e);
     }
   };
 
@@ -995,7 +1063,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
           )}
           {user && deckId && (
             <button
-              onClick={onShare}
+              onClick={() => onShare()}
               disabled={sharing}
               data-tour="tour-share"
               className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 disabled:opacity-60"
@@ -1169,10 +1237,14 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
         <ShareModal
           url={shareUrl}
           deck={deck}
+          mode={shareMode}
+          onChangeMode={onChangeShareMode}
           onClose={() => setShareOpen(false)}
           onUnpublish={async () => {
             if (!user || !deckId) return;
             try { await unpublishDeck(user.uid, deckId); } catch { /* ignore */ }
+            setShareId(null);
+            setShareModeState("view");
             setShareOpen(false);
             setShareUrl(null);
           }}
@@ -1314,8 +1386,8 @@ function SaveBadge({ state }: { state: "idle" | "saving" | "saved" | "error" }) 
 }
 
 function ShareModal({
-  url, deck, onClose, onUnpublish,
-}: { url: string; deck: Deck; onClose: () => void; onUnpublish: () => Promise<void> | void }) {
+  url, deck, onClose, onUnpublish, mode, onChangeMode,
+}: { url: string; deck: Deck; onClose: () => void; onUnpublish: () => Promise<void> | void; mode: ShareMode; onChangeMode: (m: ShareMode) => void }) {
   const [copied, setCopied] = useState(false);
   const [tab, setTab] = useState<"link" | "stats">("link");
 
@@ -1372,9 +1444,31 @@ function ShareModal({
             <>
               <h3 className="text-lg font-semibold text-white">Share this deck</h3>
               <p className="mt-2 text-sm text-white/65">
-                Anyone with this link can view a read-only copy. The link reflects the
-                version at publish time and updates whenever you click Share again.
+                {mode === "edit"
+                  ? "Anyone with this link can OPEN AND EDIT this deck. Changes sync live between everyone, including you."
+                  : "Anyone with this link can view a read-only copy. Edits you make sync to the link automatically."}
               </p>
+
+              {/* Access mode: read-only vs collaborative edit */}
+              <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-black/30 p-1">
+                <button
+                  onClick={() => onChangeMode("view")}
+                  className={`rounded-lg px-3 py-2 text-[12.5px] font-medium transition ${
+                    mode === "view" ? "bg-white text-black" : "text-white/65 hover:text-white"
+                  }`}
+                >
+                  Read only
+                </button>
+                <button
+                  onClick={() => onChangeMode("edit")}
+                  className={`rounded-lg px-3 py-2 text-[12.5px] font-medium transition ${
+                    mode === "edit" ? "bg-white text-black" : "text-white/65 hover:text-white"
+                  }`}
+                >
+                  Can edit
+                </button>
+              </div>
+
               <div className="mt-4 flex items-center gap-2 rounded-xl border border-white/10 bg-black/40 px-3 py-2">
                 <span className="flex-1 truncate font-mono text-[12px] text-white/85">{url}</span>
                 <button

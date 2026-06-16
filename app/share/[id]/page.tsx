@@ -1,16 +1,19 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  Check, ChevronLeft, ChevronRight, Copy, Link as LinkIcon, Play,
+  Check, ChevronLeft, ChevronRight, Copy, FilePlus, Link as LinkIcon, Play,
   StickyNote, Sparkles,
 } from "lucide-react";
 import SlideCanvas from "@/components/SlideCanvas";
 import Presenter from "@/components/Presenter";
+import DeckPreview from "@/components/DeckPreview";
 import Logo from "@/components/Logo";
 import type { Deck } from "@/lib/types";
 import type { Theme } from "@/lib/themes";
-import { loadSharedDeck } from "@/lib/decks";
+import { watchSharedDeck, copySharedDeck, type ShareMode } from "@/lib/decks";
+import { onAuthStateChange, type AppUser } from "@/lib/auth";
 import { trackShareOpen, trackSlideTime } from "@/lib/analytics";
 import { stripHtml } from "@/lib/richText";
 
@@ -31,12 +34,23 @@ import { stripHtml } from "@/lib/richText";
  *     soft funnel.
  */
 export default function ShareViewer({ params }: { params: { id: string } }) {
+  const router = useRouter();
   const [data, setData] = useState<{ deck: Deck; theme: Theme; title: string } | null>(null);
   const [missing, setMissing] = useState(false);
   const [active, setActive] = useState(0);
   const [presenting, setPresenting] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
   const [copied, setCopied] = useState(false);
+  // Auth (viewers may be anonymous). Used for "Save a copy" + edit ownership.
+  const [user, setUser] = useState<AppUser | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [copying, setCopying] = useState(false);
+  // Share mode + collaborative editing state.
+  const [mode, setMode] = useState<ShareMode>("view");
+  const [ownerUid, setOwnerUid] = useState<string | undefined>(undefined);
+  const [editDeck, setEditDeck] = useState<Deck | null>(null);
+  const [editTheme, setEditTheme] = useState<Theme | null>(null);
+  const editSeededRef = useRef(false);
   const stageRef = useRef<HTMLDivElement>(null);
   // Analytics: timestamp the viewer entered the current slide, so we can
   // log dwell time when they move off it. Held in a ref so it doesn't
@@ -44,22 +58,71 @@ export default function ShareViewer({ params }: { params: { id: string } }) {
   const slideEnterRef = useRef<number>(Date.now());
   const trackedOpenRef = useRef(false);
 
+  /* ----------------------------- auth ----------------------------- */
+
+  useEffect(() => {
+    const unsub = onAuthStateChange((u) => { setUser(u); setAuthReady(true); });
+    return () => unsub();
+  }, []);
+
   /* ----------------------------- data ----------------------------- */
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const result = await loadSharedDeck(params.id);
-        if (cancelled) return;
-        if (!result) { setMissing(true); return; }
+    // Live subscription. Read-only decks update the viewer in place; edit
+    // decks seed the embedded editor once, after which DeckPreview's own
+    // collab subscription drives realtime sync (avoids double-applying).
+    const unsub = watchSharedDeck(params.id, (result) => {
+      if (!result) { setMissing(true); return; }
+      setMissing(false);
+      setMode(result.mode);
+      setOwnerUid(result.ownerUid);
+      if (result.mode === "edit") {
+        if (!editSeededRef.current) {
+          editSeededRef.current = true;
+          setEditDeck(result.deck);
+          setEditTheme(result.theme);
+        }
+        setData({ deck: result.deck, theme: result.theme, title: result.title });
+      } else {
+        editSeededRef.current = false;
         setData(result);
-      } catch {
-        if (!cancelled) setMissing(true);
       }
-    })();
-    return () => { cancelled = true; };
+    });
+    return () => unsub();
   }, [params.id]);
+
+  /* --------------------- save a copy (Feature A) -------------------- */
+
+  const doCopy = async (uid: string) => {
+    setCopying(true);
+    try {
+      const newId = await copySharedDeck(uid, params.id);
+      if (newId) { router.push(`/app?id=${newId}`); return; }
+    } catch { /* fall through */ }
+    setCopying(false);
+  };
+
+  // If the viewer just logged in to copy (came back with ?copy=1 or a stashed
+  // pending flag), perform the copy automatically — once — then route to it.
+  useEffect(() => {
+    if (!authReady || !user) return;
+    let wants = false;
+    try {
+      const sp = new URLSearchParams(window.location.search);
+      wants = sp.get("copy") === "1" || localStorage.getItem("exdeck:pendingCopy") === params.id;
+    } catch { /* ignore */ }
+    if (!wants) return;
+    try { localStorage.removeItem("exdeck:pendingCopy"); } catch { /* ignore */ }
+    doCopy(user.uid);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authReady, user, params.id]);
+
+  const onSaveCopy = async () => {
+    if (user) { await doCopy(user.uid); return; }
+    // Not logged in: stash intent and send through auth, then auto-copy back.
+    try { localStorage.setItem("exdeck:pendingCopy", params.id); } catch { /* ignore */ }
+    router.push(`/auth?redirect=${encodeURIComponent(`/share/${params.id}?copy=1`)}`);
+  };
 
   /* ----------------------- view analytics ----------------------- */
 
@@ -153,6 +216,31 @@ export default function ShareViewer({ params }: { params: { id: string } }) {
     );
   }
 
+  // Collaborative edit mode: open the FULL editor bound to the shared node.
+  // Anyone with the link can edit; changes sync live for everyone (incl. owner).
+  if (mode === "edit") {
+    if (!editDeck || !editTheme) {
+      return (
+        <main className="grid min-h-screen place-items-center text-sm text-white/60"
+              style={{ background: "var(--ezd-bg-page)" }}>
+          Loading editor…
+        </main>
+      );
+    }
+    return (
+      <DeckPreview
+        deck={editDeck}
+        setDeck={(d) => setEditDeck(d)}
+        theme={editTheme}
+        setTheme={(t) => setEditTheme(t)}
+        onRestart={() => router.push("/")}
+        deckId={null}
+        user={user}
+        collab={{ shareId: params.id, isOwner: !!user && user.uid === ownerUid }}
+      />
+    );
+  }
+
   if (!data) {
     return (
       <main className="grid min-h-screen place-items-center text-sm text-white/60"
@@ -227,6 +315,12 @@ export default function ShareViewer({ params }: { params: { id: string } }) {
               icon={copied ? <Check size={12} className="text-emerald-300" /> : <Copy size={12} />}
               label={copied ? "Copied" : "Copy link"}
               onClick={onCopyLink}
+            />
+            <ToolbarButton
+              icon={<FilePlus size={12} />}
+              label={copying ? "Saving…" : "Save a copy"}
+              onClick={onSaveCopy}
+              hint="Add an editable copy to your decks"
             />
             <button
               onClick={() => setPresenting(true)}

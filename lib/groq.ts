@@ -111,6 +111,13 @@ Layout palette — pick the BEST fit for each slide's content:
   fixed pairing. Pick labels that fit the content. Set
   "twoColumnVariant":"compare" ONLY when it is genuinely upsides vs downsides,
   and only then set columnLabels to {"left":"Pros","right":"Cons"}.
+  HOW TO FILL IT (critical): put the content in the "bullets" array — FIRST all
+  of the LEFT column's points, THEN all of the RIGHT column's points; the deck
+  splits the array evenly down the middle. So always provide an EVEN number of
+  real bullets and apply the chosen density to EACH side (e.g. detailed = ~3
+  substantive bullets per side = 6 total). "columnLabels" are ONLY the two
+  headers — they are NOT content. NEVER put the literal words "left" or "right"
+  (or any placeholder) in "bullets"; write the real points for each side.
 - "quote":       ONLY when the user's prompt explicitly asks for a quote,
   testimonial, or famous saying, and you have a real one. Never insert a quote
   for "variety".
@@ -166,6 +173,13 @@ Visual variety and meaning (NO random decoration):
   shorten content just to fit a visual layout — instead pick a layout that fits
   the amount of content (lots of points -> bands/timeline/concept-cards; a few
   short ones -> numbered-cards/chevron).
+- CONSISTENCY (important): apply the chosen density to EVERY content slide
+  equally — bullets slides, BOTH columns of a two-column slide, and table rows.
+  Do not write one rich slide and then a thin 1-2 bullet slide. If a slide can't
+  be filled to the density with real, accurate content, give it a different
+  layout or merge it — never ship a near-empty content slide. Each bullet must
+  be substantive (no single-word or two-word bullets on bullets/two-column
+  slides).
 - Whenever you use a visual bullets variant (bands/chevron/timeline/cards/
   concept-cards/numbered-cards/icon-check), ALSO provide "iconKeywords" — one
   simple icon word per bullet, in the same order — so each point gets a fitting
@@ -181,6 +195,10 @@ Visual variety and meaning (NO random decoration):
 
 Composition rules:
 - First slide MUST be "title-hero". Last slide MUST be "closing".
+- The first "title-hero" slide MUST have a "subtitle" that is 1-2 COMPLETE
+  sentences describing what the deck covers and why it matters — ALWAYS, no
+  matter the density (never a short fragment, a few words, or empty). This is
+  the intro description shown under the title.
 - DO NOT use a "references" layout — it's added automatically.
 - Don't repeat the same layout 3+ times in a row.
 - Insert "chart"/"table"/"two-column" only where the content earns it. When in
@@ -296,8 +314,9 @@ ACTUALLY provided in their text. Never fabricate data to make a chart. If the
 text has no real figures, present it as bullets.
 
 First slide MUST be "title-hero" (titled from the document). Last slide MUST be
-"closing". Do NOT use a "references" layout — it's added automatically. Respect
-all the text/length caps and completeness rules below.`;
+"closing". The "title-hero" subtitle MUST be 1-2 complete sentences describing
+the deck (always, regardless of density). Do NOT use a "references" layout — it's
+added automatically. Respect all the text/length caps and completeness rules below.`;
 
 function buildImportSchemaPrompt() {
   // Reuse the exact schema + layout palette + rules from the main system
@@ -457,6 +476,30 @@ async function pickStockMany(query: string, n: number): Promise<string[]> {
   return urls.slice(0, Math.max(0, n));
 }
 
+/** Build a SHORT keyword query for stock search. Pexels returns nothing for
+ *  long natural-language strings, so we extract the most meaningful words
+ *  (title first), drop filler/stopwords, dedupe, and cap to a handful — this
+ *  is why long briefs previously produced no cover images. */
+const IMG_STOPWORDS = new Set([
+  "a","an","the","of","for","and","to","in","on","with","how","that","this","these","those",
+  "using","via","based","real","time","realtime","into","from","about","across","over","your",
+  "our","their","its","is","are","be","helps","help","improve","improves","including","include",
+  "modern","professional","presentation","powerpoint","slide","slides","create","make","use",
+  "key","various","etc","such","measure","measurable","data","driven","focused","design",
+  "thank","thanks","you","questions","conclusion","summary","closing","overview","introduction",
+]);
+function imageQuery(...parts: (string | undefined)[]): string {
+  const text = parts.filter(Boolean).join(" ").toLowerCase();
+  const words = text
+    .replace(/[^a-z0-9\s-]/g, " ")
+    .split(/\s+/)
+    .map((w) => w.trim())
+    .filter((w) => w.length > 2 && !IMG_STOPWORDS.has(w));
+  const picked = Array.from(new Set(words)).slice(0, 5).join(" ");
+  // Fallback: if everything got filtered, use the first few raw words.
+  return picked || text.replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(Boolean).slice(0, 4).join(" ");
+}
+
 /** Add cover photos to the intro (3 distinct, for its image variants) and the
  *  closing (1+). Everything else is left untouched. Best-effort: with no
  *  Pexels key the searches return nothing and the slides stay text-only. */
@@ -466,14 +509,18 @@ async function finalizeImages(slides: Slide[], topic?: string): Promise<Slide[]>
     const out = [...slides];
 
     if (out.length > 0 && out[0].layout === "title-hero") {
-      const q = [cleanTopic, clean(out[0].title)].filter(Boolean).join(" ").trim() || cleanTopic || clean(out[0].title);
-      const covers = await pickStockMany(q, 3);
+      // Title first so its concrete keywords dominate; topic only fills gaps.
+      const q = imageQuery(out[0].title, cleanTopic);
+      const covers = q ? await pickStockMany(q, 3) : [];
       if (covers.length > 0) out[0] = { ...out[0], titleVariant: "image-cover", coverImages: covers };
     }
 
     const li = out.length - 1;
     if (li > 0 && out[li].layout === "closing") {
-      const q = [cleanTopic, clean(out[li].title) || "conclusion"].filter(Boolean).join(" ").trim() || cleanTopic;
+      // Use the deck TOPIC for the closing background, never the closing title
+      // ("Thank you" / "Q&A") — otherwise the search returns literal thank-you
+      // card graphics with text that clashes with the slide's own title.
+      const q = imageQuery(cleanTopic) || "abstract background";
       const covers = await pickStockMany(q, 2);
       if (covers.length > 0) out[li] = { ...out[li], closingVariant: "image", coverImages: covers };
     }
@@ -526,21 +573,45 @@ async function resolveBulletIcons(slides: Slide[]): Promise<Slide[]> {
   return slides;
 }
 
+/** Detects degenerate/placeholder bullet text the model sometimes emits when
+ *  it doesn't know how to fill a layout (e.g. echoing the two-column schema
+ *  keys "left"/"right"). Stripping these makes the slide count as empty so the
+ *  fill pass regenerates it with real content. */
+function isPlaceholderBullet(b: string): boolean {
+  const t = b.trim().toLowerCase().replace(/[.:•\-]+$/, "").trim();
+  return /^(left|right|left column|right column|column\s*[12]?|col\s*[12]?|placeholder|tbd|t\.?b\.?d\.?|n\/?a|none|item\s*\d*|point\s*\d*|bullet\s*\d*|text|content|lorem ipsum.*)$/.test(t);
+}
+
+/** True when a slide title names a SET of things that belong on a content
+ *  slide (features, modules, benefits, …) rather than a bare chapter divider. */
+function isListyContentTitle(title?: string): boolean {
+  if (!title) return false;
+  return /\b(features?|modules?|benefits?|advantages?|challenges?|solutions?|services?|components?|capabilities|use cases?|offerings?|tools?|functions?|functionalities|steps?|stages?|phases?|principles?|pillars?|objectives?|goals?|strategies|tactics|metrics|outcomes?|deliverables?)\b/i.test(title);
+}
+
 /** Map one raw model slide object to a clean, validated Slide. Shared by
  *  the prompt path and the import-from-content path so both apply the same
  *  layout validation, variant whitelisting, and text cleaning. */
 function mapRawSlide(s: any, i: number, total: number): Slide {  const rawLayout = s.layout;
-  const layout: SlideLayout = VALID_LAYOUTS.includes(rawLayout)
+  let layout: SlideLayout = VALID_LAYOUTS.includes(rawLayout)
     ? rawLayout
     : i === 0 ? "title-hero"
     : i === total - 1 ? "closing"
     : "bullets";
 
+  // A "section" divider whose title names a set of things (features, modules,
+  // benefits, steps…) is really a content slide the model under-filled. Demote
+  // it to bullets so the fill pass populates it with the actual items instead
+  // of leaving a near-empty divider mid-deck.
+  if (layout === "section" && i !== 0 && i !== total - 1 && isListyContentTitle(s.title)) {
+    layout = "bullets";
+  }
+
   const mapped: Slide = {
     layout: layout === "references" ? ("bullets" as SlideLayout) : layout,
     title: clean(s.title),
     subtitle: s.subtitle ? clean(s.subtitle) : undefined,
-    bullets: Array.isArray(s.bullets) ? dedupeBullets(s.bullets.map(clean).filter(Boolean)) : [],
+    bullets: Array.isArray(s.bullets) ? dedupeBullets(s.bullets.map(clean).filter(Boolean).filter((b: string) => !isPlaceholderBullet(b))) : [],
     body: s.body ? clean(s.body) : undefined,
     table: cleanTable(s.table),
     chart: cleanChartSpec(s.chart),
@@ -617,7 +688,8 @@ Slides needing content:
 ${JSON.stringify(targets, null, 2)}
 
 Rules per layout:
-- bullets / two-column: produce 3-5 concrete bullets (10-18 words each), specific to the deck topic. Each slide should focus on a distinct sub-topic. If the slide has no title, also propose a short title.
+- bullets: produce 4-6 concrete bullets (12-20 words each), specific to the deck topic, matching the requested density. Each slide should focus on a distinct sub-topic. If the slide has no title, also propose a short title.
+- two-column: put the LEFT column's points FIRST, then the RIGHT column's points, all in ONE "bullets" array (it is split evenly into the two columns). Provide an EVEN number — at least 4, ideally 6 (3 per side) — of real, substantive bullets. NEVER output the words "left"/"right" or any placeholder.
 - table: 3-5 rows with appropriate headers and a real-sounding "Author/Org, Year" source line.
 - quote: a relevant real quote in "body" with attribution in "subtitle".
 - section: a short body line and an evocative title.
@@ -649,7 +721,7 @@ Return ONLY the JSON.`;
     if (!fill) return s;
     const updated: Slide = { ...s };
     if (typeof fill.title === "string" && fill.title.trim()) updated.title = clean(fill.title);
-    if (Array.isArray(fill.bullets)) updated.bullets = fill.bullets.map(clean).filter(Boolean);
+    if (Array.isArray(fill.bullets)) updated.bullets = fill.bullets.map(clean).filter(Boolean).filter((b: string) => !isPlaceholderBullet(b));
     if (typeof fill.body === "string") updated.body = clean(fill.body);
     if (fill.table) updated.table = cleanTable(fill.table) || updated.table;
     if (typeof fill.subtitle === "string") updated.subtitle = clean(fill.subtitle);
@@ -802,7 +874,7 @@ export async function generateDeck(opts: {
     ];
   }
 
-  filledSlides = await finalizeImages(filledSlides, opts.prompt);
+  filledSlides = await finalizeImages(filledSlides, tentative.title);
   filledSlides = await resolveBulletIcons(filledSlides);
 
   const deck: Deck = {

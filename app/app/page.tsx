@@ -20,7 +20,7 @@ import { applyTemplateToSlide, type TemplateVariantDefaults } from "@/lib/templa
 import { getStyleBundle, applyBundleToSlide, STYLE_BUNDLES } from "@/lib/styleBundles";
 import { watchCustomTemplates, deleteCustomTemplate, type CustomTemplate } from "@/lib/customTemplates";
 import { applyCustomTemplateToDeck } from "@/lib/applyCustomTemplate";
-import { createDeck, loadDeck } from "@/lib/decks";
+import { createDeck, loadDeck, type ShareMode } from "@/lib/decks";
 import { logout, onAuthStateChange, getIdToken, reloadUser, type AppUser } from "@/lib/auth";
 import { trackEvent } from "@/lib/stats";
 import {
@@ -101,6 +101,8 @@ function PageInner() {
   const [fontId, setFontId] = useState<string>("inter");
   const [deck, setDeck] = useState<Deck | null>(null);
   const [deckId, setDeckId] = useState<string | null>(null);
+  const [deckShareId, setDeckShareId] = useState<string | null>(null);
+  const [deckShareMode, setDeckShareMode] = useState<ShareMode | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [galleryOpen, setGalleryOpen] = useState(false);
@@ -137,6 +139,8 @@ function PageInner() {
         setDeck(stored.deck);
         setTheme(stored.theme);
         setDeckId(id);
+        setDeckShareId(stored.shareId ?? null);
+        setDeckShareMode(stored.shareMode ?? null);
         setGraphicId(stored.deck.graphic || "none");
         setGraphicAccent(stored.deck.graphicAccent);
         setFontId(stored.deck.fontId || "inter");
@@ -567,6 +571,8 @@ const retryGenerate = () => {
           onRestart={restart}
           deckId={deckId}
           user={user}
+          initialShareId={deckShareId}
+          initialShareMode={deckShareMode}
         />
       )}
 
