@@ -90,10 +90,26 @@ function humanDate(iso: string): string {
 export async function fetchChangelog(): Promise<ReleaseGroup[] | null> {
   let raw: any[];
   try {
+    const headers: Record<string, string> = {
+      Accept: "application/vnd.github+json",
+      // GitHub REQUIRES a User-Agent; requests without one are rejected (403).
+      "User-Agent": "exdeck-changelog",
+      "X-GitHub-Api-Version": "2022-11-28",
+    };
+    // Authenticate when a token is available. Unauthenticated requests share a
+    // 60/hr-per-IP budget across all Vercel tenants on the same egress IP, which
+    // gets exhausted constantly and leaves the changelog stuck on a stale build.
+    // A token raises the limit to 5,000/hr scoped to the token. Set GITHUB_TOKEN
+    // (a fine-grained PAT with public read, or a classic token, no scopes needed
+    // for public repos) in the deployment env.
+    const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
+    if (token) headers.Authorization = `Bearer ${token}`;
+
     const res = await fetch(API, {
-      headers: { Accept: "application/vnd.github+json" },
-      // ISR: cache for an hour so we stay well under the 60/hr public limit.
-      next: { revalidate: 3600 },
+      headers,
+      // ISR: refresh every 10 minutes so new pushes show promptly while still
+      // staying well under the rate limit.
+      next: { revalidate: 600 },
     });
     if (!res.ok) return null;
     raw = await res.json();

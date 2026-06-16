@@ -12,8 +12,8 @@ export const metadata: Metadata = {
   alternates: { canonical: "/changelog" },
 };
 
-// Rebuild at most hourly; the fetch itself is also ISR-cached.
-export const revalidate = 3600;
+// Rebuild at most every 10 minutes; the fetch itself is also ISR-cached.
+export const revalidate = 600;
 
 export default async function ChangelogPage() {
   const groups = await fetchChangelog();
