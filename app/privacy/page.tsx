@@ -27,6 +27,7 @@ export default function PrivacyPage() {
         <li><strong>Content:</strong> text prompts, presentation content, theme settings, uploaded images, and any text you type into the AI editing chat. This content is processed to generate and edit your decks.</li>
         <li><strong>Reviews:</strong> if you submit a review, the name, role, rating, and text you provide. Reviews may be displayed publicly on the Service.</li>
         <li><strong>Communications:</strong> messages you send to {LEGAL.SUPPORT_EMAIL} or other support channels.</li>
+        <li><strong>Payment information:</strong> when you buy a paid plan, billing is handled by our payment gateway, Razorpay. We do <strong>not</strong> receive or store your full card or bank account numbers. We retain only transaction metadata such as the plan, amount, currency, status, and a payment/order reference.</li>
       </ul>
 
       <h3>1.2 Information collected automatically</h3>
@@ -64,6 +65,7 @@ export default function PrivacyPage() {
       <p>We do not sell your personal information. We share it only with:</p>
       <ul>
         <li><strong>Service providers</strong> that help us operate the Service: hosting, database and authentication (Google Firebase), AI inference, and email/transactional messaging. Each is contractually bound to handle your information only on our instructions.</li>
+        <li><strong>Payment processing</strong> (Razorpay): when you purchase a paid plan, your payment is processed by Razorpay. We share the information needed to complete the transaction (such as your email and the amount); Razorpay handles your card/banking details directly under its own privacy policy. We receive only payment confirmation and limited transaction metadata.</li>
         <li><strong>Authorities</strong> when required by valid legal process, or to protect the rights, property, or safety of {LEGAL.BUSINESS_NAME}, our users, or the public.</li>
         <li><strong>Successors</strong> in the event of a merger, acquisition, or sale of assets, in which case we will provide notice before personal information is transferred.</li>
       </ul>

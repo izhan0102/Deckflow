@@ -48,8 +48,9 @@ export default function TermsPage() {
       <h2>4. Plans and Pricing</h2>
       <ul>
         <li>The free plan lets you generate, edit, present, and export decks as PowerPoint (<code>.pptx</code>) or PDF within a monthly deck limit. Free exports include a small "Made with EXdeck" watermark.</li>
-        <li>Paid plans — Pro (US$5/month) and Pro Plus (US$10/month) — raise the monthly deck limit and unlock features such as AI speaker notes, Q&amp;A prep, slide reordering, icons, watermark-free exports, and (on Pro Plus) deck translation and unlimited decks.</li>
-        <li>Paid plans are billed monthly and renew automatically until cancelled. Paid checkout is not yet available; until it launches every account is on the free plan and no payment is taken.</li>
+        <li>Paid plans — Pro (US$5/month) and Pro Plus (US$10/month) — raise the monthly deck limit and unlock features such as AI speaker notes, Q&amp;A prep, slide reordering, icons, watermark-free exports, and (on Pro Plus) deck translation and unlimited decks. Annual billing is available at a 10% discount.</li>
+        <li>Paid plans are billed for the period you choose — monthly, or annually at a 10% discount — and grant access for that billing period. Payments are processed securely by our payment gateway, Razorpay; we do not collect or store your full card or banking details.</li>
+        <li>Coupon or promotional codes, where offered, are subject to their stated discount, validity, and usage limits, and may be withdrawn at any time.</li>
         <li>Refunds and cancellations are governed by our Refund &amp; Cancellation Policy.</li>
         <li>Monthly generation quotas and feature limits apply per plan and may change over time.</li>
       </ul>

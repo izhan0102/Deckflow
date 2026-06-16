@@ -45,10 +45,12 @@ export default function RefundPage() {
         consumer rights you may have.
       </p>
       <p>
-        Payments are processed by our reseller and Merchant of Record,
-        Paddle.com. Refunds are issued in line with Paddle&rsquo;s Buyer
-        Terms; you may also contact Paddle directly regarding any charge.
-        After the 14-day window, refunds for partial or unused billing
+        Payments are processed securely by our payment gateway,{" "}
+        <strong>Razorpay</strong>. We do not collect or store your full card or
+        banking details — these are handled directly by Razorpay. Approved
+        refunds are issued to your original payment method and typically take
+        5&ndash;10 business days to reflect, depending on your bank or card
+        issuer. After the 14-day window, refunds for partial or unused billing
         periods are at our discretion, for example where the Service was
         materially unavailable due to a fault on our side.
       </p>
