@@ -9,6 +9,7 @@ import GraphicStep from "@/components/GraphicStep";
 import StyleBundleStep from "@/components/StyleBundleStep";
 import DeckPreview from "@/components/DeckPreview";
 import OutlineReview from "@/components/OutlineReview";
+import MagicOverlay from "@/components/MagicOverlay";
 import GenerateOverlay from "@/components/GenerateOverlay";
 import ClarifyDialog from "@/components/ClarifyDialog";
 import TemplateGallery from "@/components/TemplateGallery";
@@ -298,26 +299,40 @@ const retryGenerate = () => {
       // content is and varied so no two adjacent slides look the same. We only
       // override plain/empty choices ("standard"/"dashed"/"numbered"/none) —
       // a deliberate colorful variant from the AI or bundle is kept.
-      const COLORFUL = new Set(["bands", "chevron", "timeline", "numbered-cards", "concept-cards", "cards", "icon-check"]);
-      const isPlain = (v?: string) => !v || v === "standard" || v === "dashed" || v === "numbered";
       let prevVar = "";
+      const SEQ_RE = /(process|pipeline|timeline|roadmap|journey|work\s?flow|steps?|phases?|stages?|how it works|how to|life\s?cycle|sequence|procedure|funnel|milestones?|getting started|onboarding|order of|flow\b)/i;
+      const ENUM_RE = /(features?|modules?|pillars?|principles?|types?|categories|kinds?|components?|benefits?|advantages?|reasons?|factors?|capabilities|use cases?|offerings?|differentiators?|elements?|options?|services?)/i;
+      const isSequential = (s: any): boolean => {
+        const bs: string[] = s.bullets || [];
+        const joined = bs.join(" ").toLowerCase();
+        return SEQ_RE.test((s.title || "").toLowerCase())
+          || bs.some((b) => /^(step|phase|stage)\s*\d/i.test(b.trim()) || /^\d+[.)]/.test(b.trim()))
+          || /\b(first|second|third|then|next|after that|finally|lastly)\b/.test(joined);
+      };
       const pickColorful = (s: any, i: number): string => {
         const bs: string[] = s.bullets || [];
         const n = bs.length;
         const title = (s.title || "").toLowerCase();
         const hasDetail = bs.some((b) => /\s[—–-]\s/.test(b));
         const avgLen = n ? bs.reduce((a, b) => a + b.length, 0) / n : 0;
-        const sequential =
-          /(process|pipeline|timeline|roadmap|journey|workflow|step|phase|stage|how it works|life ?cycle|sequence)/.test(title) ||
-          bs.some((b) => /^(step|phase|stage)\s*\d/i.test(b));
         let cand: string;
-        if (sequential && n <= 4 && !hasDetail && avgLen <= 42) cand = "chevron";
-        else if (sequential || hasDetail) cand = "timeline";
-        else if (n <= 3) cand = i % 2 ? "numbered-cards" : "concept-cards";
-        else if (n <= 5) cand = i % 2 ? "bands" : "concept-cards";
-        else cand = "concept-cards";
-        if (cand === prevVar) {
-          const alts = ["bands", "numbered-cards", "concept-cards", "timeline"].filter((x) => x !== prevVar);
+        if (isSequential(s)) {
+          // Steps / process / timeline content -> process arrows when the
+          // labels are short, otherwise a vertical timeline.
+          cand = (n <= 5 && avgLen <= 62 && !hasDetail) ? "chevron" : "timeline";
+        } else if (ENUM_RE.test(title)) {
+          // Distinct named items -> concept cards (primary) or big-number cards.
+          cand = i % 3 === 1 ? "numbered-cards" : "concept-cards";
+        } else if (n <= 6) {
+          // Concept cards are the workhorse look; sprinkle bands for variety.
+          cand = i % 3 === 2 ? "bands" : "concept-cards";
+        } else {
+          cand = "concept-cards";
+        }
+        // Avoid two identical NON-sequential variants in a row (keep sequence
+        // visuals as-is — a process should look like a process).
+        if (cand === prevVar && cand !== "chevron" && cand !== "timeline") {
+          const alts = ["concept-cards", "numbered-cards", "bands"].filter((x) => x !== prevVar);
           cand = alts[i % alts.length];
         }
         return cand;
@@ -328,12 +343,11 @@ const retryGenerate = () => {
         if (s.imageRight) return { ...s, bulletsVariant: "standard" };
         let v: string | undefined = s.bulletsVariant;
         if (s.layout === "bullets") {
-          // Respect ONLY a deliberate colorful pick from the AI itself; a
-          // bundle/template default (or a plain pick) gets replaced with a
-          // varied colorful layout so the deck doesn't repeat one style.
-          const aiVar: string | undefined = data.deck.slides[i]?.bulletsVariant;
-          if (aiVar && COLORFUL.has(aiVar) && !isPlain(aiVar)) v = aiVar;
-          else v = pickColorful(s, i);
+          // Content-first selection: the layout is chosen from what the slide
+          // actually is (process -> arrows/timeline, named items -> concept/
+          // number cards, etc.), so the right visual is used reliably instead
+          // of whatever the model guessed.
+          v = pickColorful(s, i);
           prevVar = v;
         }
         return {
@@ -609,8 +623,8 @@ const retryGenerate = () => {
   onRetry={retryGenerate}
 />
 
-      {/* 5s "EXdeck is designing your deck" reveal after the outline is confirmed. */}
-      <GenerateOverlay open={designing} loading={designing} />
+      {/* 5s "EXdeck is doing the magic" reveal after the outline is confirmed. */}
+      <MagicOverlay open={designing} />
 
       {/* Mandatory AI clarifying step before generation. Returns tap-only
           directives that get folded into the generation prompt. */}

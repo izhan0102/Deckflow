@@ -4,9 +4,10 @@ import {
   Plus, Trash2, X, Sparkles, ArrowRight, ArrowLeft,
   ChevronUp, ChevronDown, Wand2, Loader2,
 } from "lucide-react";
-import type { Deck, Slide } from "@/lib/types";
+import type { Deck, Slide, Reference, TableData } from "@/lib/types";
 import type { Theme } from "@/lib/themes";
 import { getIdToken } from "@/lib/auth";
+import { renderChartSvg } from "@/lib/charts";
 
 /**
  * Outline review step.
@@ -72,6 +73,9 @@ export default function OutlineReview({
     setDeck({ ...deck, slides: next });
   };
 
+  const references = deck.references || [];
+  const setReferences = (refs: Reference[]) => setDeck({ ...deck, references: refs });
+
   return (
     <main className="min-h-screen pb-32" style={{ background: "var(--ezd-bg-page)", color: "var(--ezd-fg)" }}>
       {/* Hero header */}
@@ -113,6 +117,9 @@ export default function OutlineReview({
               accent={accent}
               deck={deck}
               theme={theme}
+              references={references}
+              onSetReferences={setReferences}
+              onChart={(chart) => setSlide(i, { chart })}
               onTitle={(v) => setSlide(i, { title: v })}
               onBullet={(bi, v) => setBullet(i, bi, v)}
               onAddBullet={() => addBullet(i)}
@@ -165,7 +172,7 @@ export default function OutlineReview({
 /* ------------------------------ slide card ------------------------------ */
 
 function SlideOutlineCard({
-  index, total, slide, accent, deck, theme,
+  index, total, slide, accent, deck, theme, references, onSetReferences, onChart,
   onTitle, onBullet, onAddBullet, onRemoveBullet, onRemoveSlide, onMoveUp, onMoveDown, onApplyAi,
 }: {
   index: number;
@@ -174,6 +181,9 @@ function SlideOutlineCard({
   accent: string;
   deck: Deck;
   theme: Theme;
+  references: Reference[];
+  onSetReferences: (refs: Reference[]) => void;
+  onChart: (chart: Slide["chart"]) => void;
   onTitle: (v: string) => void;
   onBullet: (bi: number, v: string) => void;
   onAddBullet: () => void;
@@ -191,7 +201,13 @@ function SlideOutlineCard({
 
   const isHero = slide.layout === "title-hero";
   const isClosing = slide.layout === "closing";
-  const roleLabel = isHero ? "Intro" : isClosing ? "Closing" : slide.layout === "section" ? "Section" : "Content";
+  const roleLabel =
+    isHero ? "Intro" : isClosing ? "Closing" :
+    slide.layout === "section" ? "Section" :
+    slide.layout === "chart" ? "Chart" :
+    slide.layout === "table" ? "Table" :
+    slide.layout === "references" ? "References" :
+    slide.layout === "two-column" ? "Comparison" : "Content";
 
   const runAi = async () => {
     const text = instruction.trim();
@@ -268,8 +284,8 @@ function SlideOutlineCard({
           style={{ color: "var(--ezd-fg-strong)" }}
         />
 
-        {/* Bullets (content slides) */}
-        {!isHero && !isClosing && (
+        {/* Bullets (text content slides) */}
+        {(slide.layout === "bullets" || slide.layout === "two-column" || slide.layout === "section") && (
           <div className="mt-2 space-y-1.5">
             {(slide.bullets || []).map((b, bi) => (
               <div key={bi} className="flex items-start gap-2">
@@ -299,6 +315,21 @@ function SlideOutlineCard({
               <Plus size={12} /> Add point
             </button>
           </div>
+        )}
+
+        {/* Chart slide — show the real graph + editable data */}
+        {slide.layout === "chart" && slide.chart && (
+          <ChartOutline chart={slide.chart} theme={theme} accent={accent} onChart={onChart} />
+        )}
+
+        {/* Table slide — show the data table */}
+        {slide.layout === "table" && slide.table && (
+          <TableOutline table={slide.table} accent={accent} />
+        )}
+
+        {/* References slide — show + edit the source list */}
+        {slide.layout === "references" && (
+          <ReferencesOutline references={references} accent={accent} onSet={onSetReferences} />
         )}
 
         {/* Subtitle for hero/closing */}
@@ -372,5 +403,150 @@ function IconBtn({
     >
       {children}
     </button>
+  );
+}
+
+/* ----------------------------- chart preview ----------------------------- */
+
+function ChartOutline({
+  chart, theme, accent, onChart,
+}: { chart: NonNullable<Slide["chart"]>; theme: Theme; accent: string; onChart: (c: Slide["chart"]) => void }) {
+  // Render the real chart so the outline reflects what the slide will show.
+  const svg = renderChartSvg(chart, theme);
+  const data = chart.data || [];
+
+  const setDatum = (i: number, patch: Partial<{ label: string; value: number }>) => {
+    const next = data.map((d, idx) => (idx === i ? { ...d, ...patch } : d));
+    onChart({ ...chart, data: next });
+  };
+
+  return (
+    <div className="mt-3 rounded-xl border p-3" style={{ borderColor: "var(--ezd-divider)", background: "var(--ezd-bg-hover)" }}>
+      <div className="mb-2 flex items-center justify-between">
+        <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: accent }}>
+          {chart.type} chart
+        </span>
+        <input
+          value={chart.title || ""}
+          onChange={(e) => onChart({ ...chart, title: e.target.value })}
+          placeholder="Chart caption"
+          className="w-1/2 bg-transparent text-right text-[12px] outline-none placeholder:opacity-40"
+          style={{ color: "var(--ezd-fg-muted)" }}
+        />
+      </div>
+      {/* Live graph preview */}
+      <div
+        className="mx-auto max-w-[420px] overflow-hidden rounded-lg bg-white p-2"
+        // eslint-disable-next-line react/no-danger
+        dangerouslySetInnerHTML={{ __html: svg }}
+      />
+      {/* Editable data points */}
+      <div className="mt-2.5 space-y-1">
+        {data.map((d, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: d.color || accent }} />
+            <input
+              value={d.label}
+              onChange={(e) => setDatum(i, { label: e.target.value })}
+              className="flex-1 bg-transparent text-[12.5px] outline-none"
+              style={{ color: "var(--ezd-fg)" }}
+            />
+            <input
+              type="number"
+              value={Number.isFinite(d.value) ? d.value : 0}
+              onChange={(e) => setDatum(i, { value: Number(e.target.value) })}
+              className="w-20 rounded border bg-transparent px-2 py-0.5 text-right text-[12.5px] tabular-nums outline-none"
+              style={{ borderColor: "var(--ezd-divider)", color: "var(--ezd-fg)" }}
+            />
+            {chart.unit ? <span className="w-5 text-[11px]" style={{ color: "var(--ezd-fg-quiet)" }}>{chart.unit}</span> : null}
+          </div>
+        ))}
+      </div>
+      {chart.note ? (
+        <div className="mt-2 text-[11px] italic" style={{ color: "var(--ezd-fg-quiet)" }}>{chart.note}</div>
+      ) : null}
+    </div>
+  );
+}
+
+/* ----------------------------- table preview ----------------------------- */
+
+function TableOutline({ table, accent }: { table: TableData; accent: string }) {
+  return (
+    <div className="mt-3 overflow-x-auto rounded-xl border" style={{ borderColor: "var(--ezd-divider)" }}>
+      <table className="w-full border-collapse text-[12.5px]">
+        <thead>
+          <tr style={{ background: `${accent}14` }}>
+            {table.headers.map((h, i) => (
+              <th key={i} className="px-3 py-2 text-left font-semibold" style={{ color: accent }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {table.rows.map((row, ri) => (
+            <tr key={ri} className="border-t" style={{ borderColor: "var(--ezd-divider)" }}>
+              {row.map((c, ci) => (
+                <td key={ci} className="px-3 py-1.5" style={{ color: "var(--ezd-fg)" }}>{c}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {table.source ? (
+        <div className="px-3 py-1.5 text-[11px] italic" style={{ color: "var(--ezd-fg-quiet)" }}>Source: {table.source}</div>
+      ) : null}
+    </div>
+  );
+}
+
+/* --------------------------- references editor --------------------------- */
+
+function ReferencesOutline({
+  references, accent, onSet,
+}: { references: Reference[]; accent: string; onSet: (r: Reference[]) => void }) {
+  const setRef = (i: number, patch: Partial<Reference>) =>
+    onSet(references.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  const add = () => onSet([...references, { text: "", url: "" }]);
+  const remove = (i: number) => onSet(references.filter((_, idx) => idx !== i));
+
+  return (
+    <div className="mt-3 space-y-2">
+      {references.length === 0 && (
+        <p className="text-[12.5px]" style={{ color: "var(--ezd-fg-quiet)" }}>
+          No references yet — add the sources you want cited.
+        </p>
+      )}
+      {references.map((r, i) => (
+        <div key={i} className="flex items-start gap-2">
+          <span className="mt-2 text-[11px] font-semibold tabular-nums" style={{ color: accent }}>{i + 1}.</span>
+          <div className="flex-1 space-y-1">
+            <input
+              value={r.text}
+              onChange={(e) => setRef(i, { text: e.target.value })}
+              placeholder="Author (Year). Title. Publisher."
+              className="w-full bg-transparent text-[13px] outline-none placeholder:opacity-40"
+              style={{ color: "var(--ezd-fg)" }}
+            />
+            <input
+              value={r.url || ""}
+              onChange={(e) => setRef(i, { url: e.target.value })}
+              placeholder="https://… (optional)"
+              className="w-full bg-transparent text-[11.5px] outline-none placeholder:opacity-35"
+              style={{ color: "var(--ezd-fg-quiet)" }}
+            />
+          </div>
+          <button onClick={() => remove(i)} className="mt-0.5 rounded p-1 transition hover:bg-black/5" aria-label="Remove reference">
+            <X size={13} />
+          </button>
+        </div>
+      ))}
+      <button
+        onClick={add}
+        className="inline-flex items-center gap-1 text-[12.5px] font-medium transition hover:opacity-80"
+        style={{ color: accent }}
+      >
+        <Plus size={12} /> Add reference
+      </button>
+    </div>
   );
 }

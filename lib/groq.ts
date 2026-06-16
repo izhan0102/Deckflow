@@ -196,6 +196,14 @@ Visual variety and meaning (NO random decoration):
   "numbered-cards", "timeline" (title + detail), or "icon-check" — they
   accommodate fuller text. Either way, NEVER drop content to fit a variant:
   choose the variant that fits the amount of content the density requires.
+- STEPS / PROCESS / TIMELINE: whenever a slide is a sequence — steps, a process,
+  a workflow, a roadmap, phases, stages, "how it works", a funnel — use the
+  "chevron" (process arrows) variant with SHORT step labels, or "timeline" when
+  each step needs a sentence of detail. Title these slides clearly (e.g. "How it
+  works", "Our process", "Roadmap"). Don't render a process as plain bullets.
+- For a set of distinct named items (features, modules, pillars, principles,
+  types, benefits), lean on "concept-cards" (or "numbered-cards") — these should
+  be common across a deck, not rare.
 - Keep ALL the points the chosen density calls for. NEVER drop, merge, or
   shorten content just to fit a visual layout — instead pick a layout that fits
   the amount of content (lots of points -> bands/timeline/concept-cards; a few
@@ -524,11 +532,12 @@ function dedupeBullets(bullets: string[]): string[] {
 
 /** Search the topic broadly and return up to n DISTINCT photo URLs, shuffled,
  *  so each generation looks fresh and the three intro variants differ. */
-async function pickStockMany(query: string, n: number): Promise<string[]> {
+async function pickStockMany(query: string, n: number, exclude?: Set<string>): Promise<string[]> {
   const q = query.trim();
   if (!q) return [];
   const results = await searchStockImages(q, { perPage: 24, orientation: "landscape" });
-  const urls = Array.from(new Set(results.map((r) => r.url).filter(Boolean)));
+  let urls = Array.from(new Set(results.map((r) => r.url).filter(Boolean)));
+  if (exclude && exclude.size) urls = urls.filter((u) => !exclude.has(u));
   for (let i = urls.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [urls[i], urls[j]] = [urls[j], urls[i]];
@@ -574,6 +583,8 @@ async function finalizeImages(slides: Slide[], topic?: string): Promise<Slide[]>
       const covers = q ? await pickStockMany(q, 3) : [];
       if (covers.length > 0) out[0] = { ...out[0], titleVariant: "image-cover", coverImages: covers };
     }
+    // Collect the intro images so the closing never reuses one of them.
+    const introCovers = new Set<string>(out[0]?.coverImages || []);
 
     const li = out.length - 1;
     if (li > 0 && out[li].layout === "closing") {
@@ -581,7 +592,9 @@ async function finalizeImages(slides: Slide[], topic?: string): Promise<Slide[]>
       // ("Thank you" / "Q&A") — otherwise the search returns literal thank-you
       // card graphics with text that clashes with the slide's own title.
       const q = imageQuery(cleanTopic) || "abstract background";
-      const covers = await pickStockMany(q, 2);
+      // Exclude the intro covers so the first and last slides differ.
+      let covers = await pickStockMany(q, 2, introCovers);
+      if (covers.length === 0) covers = await pickStockMany("abstract gradient texture", 2, introCovers);
       if (covers.length > 0) out[li] = { ...out[li], closingVariant: "image", coverImages: covers };
     }
 
