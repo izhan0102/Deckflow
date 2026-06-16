@@ -35,3 +35,9 @@ next-env.d.ts
 
 # temp scripts
 _tmp_*.js
+
+# local-only admin console (never deployed)
+/app/admin
+/app/api/admin
+.ngrok.log
+.devserver.log

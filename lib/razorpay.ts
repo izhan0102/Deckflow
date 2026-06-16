@@ -2,17 +2,17 @@
 /**
  * Razorpay (client) checkout helper.
  *
- * Flow: create an order on our server -> open Razorpay Checkout -> on success
- * verify the signature on our server, which grants the plan in Firebase.
- *
- * Env (public):
- *   NEXT_PUBLIC_RAZORPAY_KEY_ID    - "rzp_live_…" or "rzp_test_…"
- *   NEXT_PUBLIC_RAZORPAY_CURRENCY  - "USD" (default) etc.
+ * startCheckout() runs the whole flow: create a server order (price computed
+ * server-side from plan/period/coupon) -> if the coupon makes it free, the
+ * server already granted the plan -> otherwise open Razorpay Checkout and
+ * verify the signature server-side (which grants the plan).
  */
 import type { PlanId } from "./plans";
 import { getIdToken } from "./auth";
 
 const KEY_ID = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "";
+
+export type BillingPeriod = "monthly" | "annual";
 
 export function razorpayConfigured(): boolean {
   return !!KEY_ID;
@@ -34,49 +34,54 @@ function loadScript(): Promise<void> {
   });
 }
 
-/** Open Razorpay checkout for a plan. Resolves when the flow completes. */
-export async function openCheckout(
-  plan: PlanId,
-  opts: { email?: string | null; name?: string | null } = {},
-): Promise<{ ok: boolean; reason?: string }> {
+async function authHeaders(): Promise<Record<string, string>> {
+  const token = await getIdToken().catch(() => null);
+  const h: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) h.Authorization = `Bearer ${token}`;
+  return h;
+}
+
+export type CheckoutResult = { ok: boolean; free?: boolean; reason?: string };
+
+/** Full checkout for a plan + period + optional coupon. */
+export async function startCheckout(args: {
+  plan: PlanId;
+  period: BillingPeriod;
+  coupon?: string;
+  email?: string | null;
+}): Promise<CheckoutResult> {
   if (!KEY_ID) return { ok: false, reason: "not_configured" };
   try {
-    await loadScript();
-    const token = await getIdToken().catch(() => null);
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (token) headers.Authorization = `Bearer ${token}`;
-
-    // 1) Create the order server-side (amount/currency come from the plan).
+    const headers = await authHeaders();
     const orderRes = await fetch("/api/razorpay-order", {
       method: "POST",
       headers,
-      body: JSON.stringify({ plan }),
+      body: JSON.stringify({ plan: args.plan, period: args.period, coupon: args.coupon || "" }),
     });
     const order = await orderRes.json().catch(() => ({}));
-    if (!orderRes.ok || !order?.orderId) {
-      return { ok: false, reason: order?.error || "order_failed" };
-    }
+    if (!orderRes.ok) return { ok: false, reason: order?.error || "order_failed" };
 
-    // 2) Open Checkout and verify on success.
-    return await new Promise((resolve) => {
+    // Free coupon — server already granted the plan.
+    if (order?.free && order?.granted) return { ok: true, free: true };
+    if (!order?.orderId) return { ok: false, reason: order?.error || "order_failed" };
+
+    await loadScript();
+    return await new Promise<CheckoutResult>((resolve) => {
       const rzp = new (window as any).Razorpay({
         key: order.keyId || KEY_ID,
         order_id: order.orderId,
         amount: order.amount,
         currency: order.currency,
         name: "EXdeck",
-        description: plan === "proplus" ? "EXdeck Pro Plus (1 month)" : "EXdeck Pro (1 month)",
-        prefill: { email: opts.email || "", name: opts.name || "" },
+        description: `${args.plan === "proplus" ? "Pro Plus" : "Pro"} · ${args.period === "annual" ? "Annual" : "Monthly"}`,
+        prefill: { email: args.email || "" },
         theme: { color: "#7C5CFF" },
         handler: async (resp: any) => {
           try {
-            const t = await getIdToken().catch(() => token);
-            const vHeaders: Record<string, string> = { "Content-Type": "application/json" };
-            if (t) vHeaders.Authorization = `Bearer ${t}`;
             const v = await fetch("/api/razorpay-verify", {
               method: "POST",
-              headers: vHeaders,
-              body: JSON.stringify({ ...resp, plan }),
+              headers: await authHeaders(),
+              body: JSON.stringify({ ...resp, plan: args.plan, period: args.period, coupon: args.coupon || "" }),
             });
             const vd = await v.json().catch(() => ({}));
             resolve(v.ok && vd?.ok ? { ok: true } : { ok: false, reason: vd?.error || "verify_failed" });

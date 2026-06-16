@@ -2,12 +2,16 @@ import crypto from "node:crypto";
 import { getDatabase } from "firebase-admin/database";
 import { getAdminAppOrThrow } from "./firebaseAdmin";
 import { normalizePlan } from "./plans";
+import { grantDurationMs, type BillingPeriod } from "./billing";
 
-/** A paid month grants 31 days; resolvePlanFromNode auto-downgrades after. */
-export const PLAN_GRANT_MS = 31 * 24 * 60 * 60 * 1000;
-
-/** Write a paid plan to plans/{uid} with a 1-month expiry. */
-export async function grantPlan(uid: string, plan: string, paymentId?: string): Promise<boolean> {
+/** Write a paid plan to plans/{uid} with an expiry matching the billing period
+ *  (monthly = 31 days, annual = 1 year). resolvePlanFromNode auto-downgrades after. */
+export async function grantPlan(
+  uid: string,
+  plan: string,
+  paymentId?: string,
+  period: BillingPeriod = "monthly",
+): Promise<boolean> {
   const tier = normalizePlan(plan);
   if (tier !== "pro" && tier !== "proplus") return false;
   const db = getDatabase(getAdminAppOrThrow());
@@ -15,7 +19,8 @@ export async function grantPlan(uid: string, plan: string, paymentId?: string): 
   await db.ref(`plans/${uid}`).update({
     tier,
     activatedAt: now,
-    expiresAt: now + PLAN_GRANT_MS,
+    expiresAt: now + grantDurationMs(period),
+    period,
     source: "razorpay",
     paymentId: paymentId || null,
   });

@@ -4,12 +4,11 @@ import Link from "next/link";
 import { Github, X } from "lucide-react";
 import PricingPlans from "./PricingPlans";
 import { type PlanId } from "@/lib/plans";
-import { openCheckout, razorpayConfigured } from "@/lib/razorpay";
+import { razorpayConfigured } from "@/lib/razorpay";
 
 /**
- * Dashboard upgrade modal. Shows the pricing tiers and the user's current
- * plan. When Razorpay is configured it opens checkout; otherwise it surfaces
- * a "coming soon" note.
+ * Dashboard upgrade modal. Shows the pricing tiers; the Upgrade buttons send
+ * the user to the dedicated /checkout page (plan, monthly/annual, coupon).
  */
 export default function UpgradeDialog({
   currentPlan,
@@ -23,8 +22,8 @@ export default function UpgradeDialog({
   email?: string | null;
 }) {
   const [comingSoon, setComingSoon] = useState(false);
-  const [busy, setBusy] = useState(false);
   const timeoutRef = useRef<number | null>(null);
+  void email;
 
   const notice = () => {
     setComingSoon(true);
@@ -33,12 +32,8 @@ export default function UpgradeDialog({
 
   const onUpgrade = (plan: PlanId) => {
     if (!razorpayConfigured()) { notice(); return; }
-    setBusy(true);
-    openCheckout(plan, { email }).then((r) => {
-      setBusy(false);
-      if (r.ok) { onClose(); return; } // plan watcher updates the UI live
-      if (r.reason && r.reason !== "dismissed") notice();
-    });
+    onClose();
+    window.location.assign(`/checkout?plan=${plan}`);
   };
 
   useEffect(() => {
@@ -81,15 +76,6 @@ export default function UpgradeDialog({
             style={{ borderColor: "var(--ezd-accent)", color: "var(--ezd-fg-strong)", background: "var(--ezd-bg-hover)" }}
           >
             Paid plans are coming soon. Hang tight.
-          </div>
-        )}
-
-        {busy && (
-          <div
-            className="mx-auto mb-3 mt-3 w-fit rounded-full border px-3 py-1 text-[12px] font-medium"
-            style={{ borderColor: "var(--ezd-accent)", color: "var(--ezd-fg-strong)", background: "var(--ezd-bg-hover)" }}
-          >
-            Opening secure checkout…
           </div>
         )}
 
