@@ -13,7 +13,7 @@ import ThemeToggle from "./ThemeToggle";
 import UpgradeDialog from "./UpgradeDialog";
 import { watchMonthlyGenerations, formatMonthlyResetIn } from "@/lib/usage";
 import { watchUserPlan, getUserPlan } from "@/lib/plan";
-import { type PlanId, planDeckLimit, getPlan } from "@/lib/plans";
+import { type PlanId, planDeckLimit, getPlan, FREE_FOR_ALL } from "@/lib/plans";
 
 /**
  * Mobile-first dashboard. Same data + actions as the desktop Dashboard, but
@@ -44,6 +44,7 @@ export default function DashboardMobile({
   const [upgradeReason, setUpgradeReason] = useState<string | undefined>(undefined);
 
   useEffect(() => {
+    if (FREE_FOR_ALL) return; // paywall dropped: never auto-open the plan popup
     let cancelled = false;
     getUserPlan(user.uid).then((p) => {
       if (!cancelled && p === "free") setUpgradeOpen(true);
@@ -127,12 +128,14 @@ export default function DashboardMobile({
             </div>
             <Link href="/app/decks" className="block rounded-lg px-3 py-2 text-sm text-white/85 hover:bg-white/10">My decks</Link>
             <Link href="/about" className="block rounded-lg px-3 py-2 text-sm text-white/85 hover:bg-white/10">About / Dev&rsquo;s note</Link>
+            {!FREE_FOR_ALL && (
             <button
               onClick={() => { setMenuOpen(false); openUpgrade(); }}
               className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-white/85 hover:bg-white/10"
             >
               <Zap size={14} /> {plan === "proplus" ? "View plans" : "Upgrade plan"}
             </button>
+            )}
             <button
               onClick={() => { setMenuOpen(false); onSwitchToDesktop(); }}
               className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-white/85 hover:bg-white/10"

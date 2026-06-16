@@ -16,7 +16,7 @@ import UpgradeDialog from "./UpgradeDialog";
 import ReportDialog from "./ReportDialog";
 import { watchMonthlyGenerations, formatMonthlyResetIn } from "@/lib/usage";
 import { watchUserPlan, getUserPlan } from "@/lib/plan";
-import { type PlanId, planDeckLimit, getPlan } from "@/lib/plans";
+import { type PlanId, planDeckLimit, getPlan, FREE_FOR_ALL } from "@/lib/plans";
 
 /**
  * Dashboard shown on /app (desktop).
@@ -57,6 +57,7 @@ export default function Dashboard({
 
   // Pricing modal once per dashboard mount — only for free users.
   useEffect(() => {
+    if (FREE_FOR_ALL) return; // paywall dropped: never auto-open the plan popup
     let cancelled = false;
     getUserPlan(user.uid).then((p) => {
       if (!cancelled && p === "free") {
@@ -467,6 +468,7 @@ function PlanUsageCard({ used, plan, onUpgrade }: { used: number; plan: PlanId; 
             ? { background: RED, color: "#fff" }
             : { background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)" }
         }
+        hidden={FREE_FOR_ALL}
       >
         <Sparkles size={12} /> {exhausted ? "Upgrade for more" : ctaLabel}
       </button>
