@@ -8,6 +8,7 @@ import FontStep from "@/components/FontStep";
 import GraphicStep from "@/components/GraphicStep";
 import StyleBundleStep from "@/components/StyleBundleStep";
 import DeckPreview from "@/components/DeckPreview";
+import OutlineReview from "@/components/OutlineReview";
 import GenerateOverlay from "@/components/GenerateOverlay";
 import ClarifyDialog from "@/components/ClarifyDialog";
 import TemplateGallery from "@/components/TemplateGallery";
@@ -31,7 +32,7 @@ import { getUserPlan } from "@/lib/plan";
 import { planDeckLimit } from "@/lib/plans";
 import { ArrowLeft } from "lucide-react";
 
-type Step = "dashboard" | "prompt" | "theme" | "font" | "graphic" | "style" | "deck";
+type Step = "dashboard" | "prompt" | "theme" | "font" | "graphic" | "style" | "outline" | "deck";
 
 // useSearchParams() forces this route to render on each request rather than
 // being prerendered at build time. Without this, the build complains that
@@ -104,6 +105,8 @@ function PageInner() {
   const [deckShareId, setDeckShareId] = useState<string | null>(null);
   const [deckShareMode, setDeckShareMode] = useState<ShareMode | null>(null);
   const [loading, setLoading] = useState(false);
+  // 5s "designing" reveal animation after the outline is confirmed.
+  const [designing, setDesigning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [galleryOpen, setGalleryOpen] = useState(false);
   // Pre-generation clarifying step. requestGenerate() opens this; the
@@ -353,7 +356,7 @@ const retryGenerate = () => {
         setTheme(applied.theme);
       }
       setDeck(deckWithExtras);
-      setStep("deck");
+      setStep("outline");
 
       // Persist a fresh row in Firebase so the deck survives a refresh.
       // Failures (network blip, missing auth, etc.) shouldn't block the user
@@ -407,6 +410,15 @@ const retryGenerate = () => {
       url.searchParams.delete("id");
       window.history.replaceState({}, "", url.toString());
     } catch { /* ignore */ }
+  };
+
+  // Outline confirmed → play the 5s "designing" animation, then reveal the deck.
+  const confirmOutline = () => {
+    setDesigning(true);
+    window.setTimeout(() => {
+      setDesigning(false);
+      setStep("deck");
+    }, 5000);
   };
 
   if (!authReady) {
@@ -562,6 +574,16 @@ const retryGenerate = () => {
         />
       )}
 
+      {step === "outline" && deck && (
+        <OutlineReview
+          deck={deck}
+          setDeck={setDeck}
+          theme={theme}
+          onConfirm={confirmOutline}
+          onBack={() => setStep("prompt")}
+        />
+      )}
+
       {step === "deck" && deck && (
         <DeckPreview
           deck={deck}
@@ -586,6 +608,9 @@ const retryGenerate = () => {
   loading={loading}
   onRetry={retryGenerate}
 />
+
+      {/* 5s "EXdeck is designing your deck" reveal after the outline is confirmed. */}
+      <GenerateOverlay open={designing} loading={designing} />
 
       {/* Mandatory AI clarifying step before generation. Returns tap-only
           directives that get folded into the generation prompt. */}
