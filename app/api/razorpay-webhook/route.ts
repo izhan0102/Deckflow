@@ -30,11 +30,14 @@ export async function POST(req: NextRequest) {
   const notes = entity?.notes || {};
   const uid: string | undefined = notes?.uid;
   const plan: string | undefined = notes?.plan;
+  const period = notes?.period === "annual" ? "annual" : "monthly";
   const paymentId: string | undefined = entity?.id;
+  const amountPaid = typeof entity?.amount === "number" ? entity.amount / 100 : undefined; // paise/cents -> major
+  const payCurrency = typeof entity?.currency === "string" ? entity.currency : undefined;
 
   try {
     if ((event === "payment.captured" || event === "order.paid") && uid && plan) {
-      await grantPlan(uid, plan, paymentId);
+      await grantPlan(uid, plan, paymentId, period, amountPaid, payCurrency);
     }
     return NextResponse.json({ ok: true });
   } catch (e: any) {

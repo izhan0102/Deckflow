@@ -11,6 +11,8 @@ export async function grantPlan(
   plan: string,
   paymentId?: string,
   period: BillingPeriod = "monthly",
+  amountPaid?: number,
+  payCurrency?: string,
 ): Promise<boolean> {
   const tier = normalizePlan(plan);
   if (tier !== "pro" && tier !== "proplus") return false;
@@ -23,6 +25,8 @@ export async function grantPlan(
     period,
     source: "razorpay",
     paymentId: paymentId || null,
+    amountPaid: typeof amountPaid === "number" ? amountPaid : null,
+    payCurrency: payCurrency || null,
   });
   return true;
 }

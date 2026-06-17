@@ -82,7 +82,7 @@ export async function startCheckout(args: {
             const v = await fetch("/api/razorpay-verify", {
               method: "POST",
               headers: await authHeaders(),
-              body: JSON.stringify({ ...resp, plan: args.plan, period: args.period, coupon: args.coupon || "" }),
+              body: JSON.stringify({ ...resp, plan: args.plan, period: args.period, currency: args.currency || "USD", coupon: args.coupon || "" }),
             });
             const vd = await v.json().catch(() => ({}));
             resolve(v.ok && vd?.ok ? { ok: true } : { ok: false, reason: vd?.error || "verify_failed" });

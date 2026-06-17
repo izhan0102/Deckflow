@@ -2,14 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest, AuthError } from "@/lib/firebaseAdmin";
 import { rateLimitResponse } from "@/lib/rateLimit";
 import { grantPlan, hmacHex, safeEqual } from "@/lib/razorpayServer";
-import { incrementCouponUsage, type BillingPeriod } from "@/lib/billing";
+import { incrementCouponUsage, quote, normalizeCurrency, normalizePlan, type BillingPeriod } from "@/lib/billing";
 
 export const runtime = "nodejs";
 
 const KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || "";
 
 /** Verify a completed Razorpay payment and grant the plan to the AUTHENTICATED
- *  user, with the correct period (monthly/annual). Records coupon usage. */
+ *  user, with the correct period (monthly/annual). Records coupon usage and the
+ *  actual amount paid (recomputed server-side, never trusted from the client). */
 export async function POST(req: NextRequest) {
   const limited = rateLimitResponse("generate");
   if (limited) return limited;
@@ -20,8 +21,9 @@ export async function POST(req: NextRequest) {
     const orderId = body?.razorpay_order_id;
     const paymentId = body?.razorpay_payment_id;
     const signature = body?.razorpay_signature;
-    const plan = body?.plan;
+    const plan = normalizePlan(body?.plan);
     const period: BillingPeriod = body?.period === "annual" ? "annual" : "monthly";
+    const currency = normalizeCurrency(body?.currency);
     const coupon: string | undefined = typeof body?.coupon === "string" && body.coupon ? body.coupon : undefined;
 
     if (!orderId || !paymentId || !signature) {
@@ -33,9 +35,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Signature verification failed." }, { status: 400 });
     }
 
-    const granted = await grantPlan(uid, plan, paymentId, period);
+    // Recompute the price server-side (same logic as the order) so the stored
+    // amount is authoritative, not whatever the client claims.
+    const q = await quote(plan as any, period, currency, coupon);
+    const granted = await grantPlan(uid, plan, paymentId, period, q.finalAmount, currency);
     if (!granted) return NextResponse.json({ error: "Invalid plan." }, { status: 400 });
-    // Payment succeeded — record coupon usage (best-effort).
     if (coupon) await incrementCouponUsage(coupon).catch(() => {});
     return NextResponse.json({ ok: true, plan, period });
   } catch (err: any) {

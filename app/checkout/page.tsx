@@ -18,6 +18,12 @@ const fmt = (n: number, c: Currency) => {
   const s = sym(c);
   return Number.isInteger(n) ? `${s}${n}` : `${s}${(Math.round(n * 100) / 100).toFixed(2)}`;
 };
+const round2 = (n: number) => Math.round(n * 100) / 100;
+// Mirrors lib/billing prices so the displayed amount updates instantly on switch.
+const PRICES: Record<Currency, Record<string, number>> = {
+  USD: { pro: 5, proplus: 10 },
+  INR: { pro: 450, proplus: 899 },
+};
 
 function CheckoutInner() {
   const router = useRouter();
@@ -34,10 +40,19 @@ function CheckoutInner() {
   const [appliedCoupon, setAppliedCoupon] = useState("");
   const [couponState, setCouponState] = useState<"idle" | "checking" | "valid" | "invalid">("idle");
   const [couponMsg, setCouponMsg] = useState<string | null>(null);
-  const [checking, setChecking] = useState(false);
-  const [quote, setQuote] = useState<{ base: number; list: number; final: number; discountPct: number; free: boolean }>({
-    base: planDef.price, list: planDef.price, final: planDef.price, discountPct: 0, free: false,
-  });
+  const [couponDiscountPct, setCouponDiscountPct] = useState(0);
+  const [couponFree, setCouponFree] = useState(false);
+
+  // Prices are computed INSTANTLY on the client so switching currency/period is
+  // immediate (no stale symbol+amount glitch). The server recomputes the same
+  // numbers authoritatively at order time, so the charge always matches.
+  const quote = useMemo(() => {
+    const monthly = PRICES[currency][plan] ?? 0;
+    const list = period === "annual" ? round2(monthly * 12) : monthly;
+    const base = period === "annual" ? round2(monthly * 12 * 0.9) : monthly;
+    const final = couponFree ? 0 : round2(base * (1 - couponDiscountPct / 100));
+    return { base, list, final, discountPct: couponDiscountPct, free: couponFree };
+  }, [plan, period, currency, couponDiscountPct, couponFree]);
 
   const [paying, setPaying] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -48,40 +63,39 @@ function CheckoutInner() {
     return () => unsub();
   }, []);
 
-  // Authoritative quote whenever plan/period/currency/coupon change.
+  // Validate an applied coupon (and re-validate when plan/period/currency
+  // change, since scope may differ). Prices themselves are computed locally.
   useEffect(() => {
     if (!authReady || !user) return;
+    if (!appliedCoupon) { setCouponDiscountPct(0); setCouponFree(false); return; }
     let cancelled = false;
     (async () => {
-      setChecking(true);
+      setCouponState("checking");
       try {
         const token = await getIdToken().catch(() => null);
         const res = await fetch("/api/coupon-check", {
           method: "POST",
           headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-          body: JSON.stringify({ plan, period, currency, coupon: appliedCoupon || "" }),
+          body: JSON.stringify({ plan, period, currency, coupon: appliedCoupon }),
         });
         const d = await res.json().catch(() => ({}));
         if (cancelled) return;
-        if (res.ok) {
-          setQuote({ base: d.baseAmount, list: d.listAmount, final: d.finalAmount, discountPct: d.discountPct, free: !!d.free });
-          if (appliedCoupon) {
-            if (d.couponError) {
-              setAppliedCoupon("");
-              setCouponState("invalid");
-              setCouponMsg(
-                d.couponError === "limit" ? "This code has reached its limit."
-                : d.couponError === "not_applicable" ? "This code doesn't apply to this plan or billing period."
-                : "Invalid or expired code.",
-              );
-            } else {
-              setCouponState("valid");
-              setCouponMsg(d.free ? "Free access applied!" : `${d.discountPct}% off applied!`);
-            }
-          }
+        if (!res.ok || d.couponError) {
+          setAppliedCoupon(""); setCouponDiscountPct(0); setCouponFree(false);
+          setCouponState("invalid");
+          setCouponMsg(
+            d.couponError === "limit" ? "This code has reached its limit."
+            : d.couponError === "not_applicable" ? "This code doesn't apply to this plan or billing period."
+            : "Invalid or expired code.",
+          );
+        } else {
+          setCouponDiscountPct(d.discountPct || 0);
+          setCouponFree(!!d.free);
+          setCouponState("valid");
+          setCouponMsg(d.free ? "Free access applied!" : `${d.discountPct}% off applied!`);
         }
-      } finally {
-        if (!cancelled) setChecking(false);
+      } catch {
+        if (!cancelled) { setCouponState("invalid"); setCouponMsg("Couldn't check the code."); }
       }
     })();
     return () => { cancelled = true; };
@@ -257,7 +271,7 @@ function CheckoutInner() {
           <div className="flex items-end justify-between">
             <span className="text-[13px]" style={{ color: "var(--ezd-fg-muted)" }}>Total {period === "annual" ? "/ year" : "/ month"}</span>
             <span className="text-[26px] font-bold tabular-nums" style={{ color: "var(--ezd-fg-strong)" }}>
-              {checking ? <Loader2 size={20} className="animate-spin" /> : quote.free ? "Free" : fmt(quote.final, currency)}
+              {quote.free ? "Free" : fmt(quote.final, currency)}
             </span>
           </div>
           {period === "annual" && !quote.free && (
@@ -266,7 +280,7 @@ function CheckoutInner() {
 
           <button
             onClick={pay}
-            disabled={paying || checking}
+            disabled={paying || couponState === "checking"}
             className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-[14px] font-semibold transition hover:opacity-90 disabled:opacity-60"
             style={{ background: ACCENT, color: "#ffffff" }}
           >
