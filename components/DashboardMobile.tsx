@@ -200,7 +200,6 @@ export default function DashboardMobile({
           className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-2xl border border-white/12 bg-white/5 px-4 py-3.5 text-[14px] font-semibold text-white/85 transition active:scale-[0.98]"
         >
           <FileText size={15} /> New document
-          <span className="rounded-full bg-white px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#03070F]">Pro</span>
         </button>
 
         <button
@@ -208,7 +207,6 @@ export default function DashboardMobile({
           className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-2xl border border-white/12 bg-white/5 px-4 py-3.5 text-[14px] font-semibold text-white/85 transition active:scale-[0.98]"
         >
           <FileText size={15} /> New resume
-          <span className="rounded-full bg-white/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white/80">Free</span>
         </button>
 
         {/* ---------- Continue working ---------- */}

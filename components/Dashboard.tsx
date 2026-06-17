@@ -277,7 +277,6 @@ export default function Dashboard({
               desc="Write a structured, Word-style document with AI — headings, data tables, charts, watermarks, and a clean multi-page PDF export."
               cta={docLocked ? "Pro required" : "New document"}
               onClick={onNewDoc}
-              badge={docLocked ? "Pro required" : "Pro exclusive"}
               golden={docLocked}
               locked={docLocked}
             />
@@ -287,7 +286,6 @@ export default function Dashboard({
               desc="Build a polished, ATS-friendly resume from templates — fill in your details, auto-fit to one page, and export a clean PDF. Free for everyone."
               cta="New resume"
               onClick={onNewResume}
-              badge="Free"
             />
           </div>
         </div>
