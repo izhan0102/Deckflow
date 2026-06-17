@@ -43,10 +43,11 @@ async function authHeaders(): Promise<Record<string, string>> {
 
 export type CheckoutResult = { ok: boolean; free?: boolean; reason?: string };
 
-/** Full checkout for a plan + period + optional coupon. */
+/** Full checkout for a plan + period + currency + optional coupon. */
 export async function startCheckout(args: {
   plan: PlanId;
   period: BillingPeriod;
+  currency?: "USD" | "INR";
   coupon?: string;
   email?: string | null;
 }): Promise<CheckoutResult> {
@@ -56,7 +57,7 @@ export async function startCheckout(args: {
     const orderRes = await fetch("/api/razorpay-order", {
       method: "POST",
       headers,
-      body: JSON.stringify({ plan: args.plan, period: args.period, coupon: args.coupon || "" }),
+      body: JSON.stringify({ plan: args.plan, period: args.period, currency: args.currency || "USD", coupon: args.coupon || "" }),
     });
     const order = await orderRes.json().catch(() => ({}));
     if (!orderRes.ok) return { ok: false, reason: order?.error || "order_failed" };

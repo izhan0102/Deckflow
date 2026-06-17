@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest, AuthError } from "@/lib/firebaseAdmin";
 import { rateLimitResponse } from "@/lib/rateLimit";
 import { normalizePlan, type PlanId } from "@/lib/plans";
-import { quote, type BillingPeriod } from "@/lib/billing";
+import { quote, normalizeCurrency, type BillingPeriod } from "@/lib/billing";
 
 export const runtime = "nodejs";
 
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     }
     const period: BillingPeriod = body?.period === "annual" ? "annual" : "monthly";
     const couponCode: string | undefined = typeof body?.coupon === "string" ? body.coupon : undefined;
-    const q = await quote(plan, period, couponCode);
+    const q = await quote(plan, period, normalizeCurrency(body?.currency), couponCode);
     return NextResponse.json({
       currency: q.currency,
       baseAmount: q.baseAmount,

@@ -29,6 +29,21 @@ export const ANNUAL_DISCOUNT = 0.10;
 const MONTH_MS = 31 * 24 * 60 * 60 * 1000;
 const YEAR_MS = 365 * 24 * 60 * 60 * 1000;
 
+export type Currency = "USD" | "INR";
+
+/** INR monthly prices (Indian users pay in ₹ via UPI/cards/netbanking). */
+const INR_PRICES: Record<string, number> = { pro: 5, proplus: 899 };
+
+export function normalizeCurrency(c: unknown): Currency {
+  return c === "INR" ? "INR" : "USD";
+}
+
+/** Monthly list price for a plan in a given currency. */
+export function planPrice(plan: PlanId, currency: Currency): number {
+  if (currency === "INR") return INR_PRICES[plan] ?? 0;
+  return PLANS[plan].price || 0; // USD
+}
+
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
 
@@ -37,8 +52,8 @@ export function grantDurationMs(period: BillingPeriod): number {
 }
 
 /** Base price for a plan over the chosen period (annual = 12 months − 10%). */
-export function basePrice(plan: PlanId, period: BillingPeriod): number {
-  const monthly = PLANS[plan].price || 0;
+export function basePrice(plan: PlanId, period: BillingPeriod, currency: Currency): number {
+  const monthly = planPrice(plan, currency);
   return period === "annual" ? round2(monthly * 12 * (1 - ANNUAL_DISCOUNT)) : monthly;
 }
 
@@ -74,8 +89,8 @@ export type CheckoutQuote = {
 };
 
 /** Compute the authoritative checkout quote. */
-export async function quote(plan: PlanId, period: BillingPeriod, couponCode?: string): Promise<CheckoutQuote> {
-  const base = basePrice(plan, period);
+export async function quote(plan: PlanId, period: BillingPeriod, currency: Currency, couponCode?: string): Promise<CheckoutQuote> {
+  const base = basePrice(plan, period, currency);
   let discountPct = 0;
   let free = false;
   let couponError: CheckoutQuote["couponError"] = null;
@@ -93,7 +108,7 @@ export async function quote(plan: PlanId, period: BillingPeriod, couponCode?: st
   return {
     plan,
     period,
-    currency: CURRENCY,
+    currency,
     baseAmount: base,
     finalAmount,
     amountMinor: Math.round(finalAmount * 100),
