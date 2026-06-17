@@ -235,6 +235,101 @@ BLOG_POSTS.push(
   },
 );
 
+BLOG_POSTS.push(
+  {
+    slug: "how-we-built-exdeck-architecture",
+    title: "How We Built EXdeck: Architecture, Groq, and a Single Deck Object",
+    description:
+      "An engineering deep-dive into EXdeck — why one typed Deck object holds the whole app, why we render with pure functions, why we chose Groq for generation, and how we treat the LLM as untrusted input.",
+    h1: "How We Built EXdeck: The Architecture Behind the AI Deck Builder",
+    datePublished: "2026-06-17",
+    readMins: 9,
+    lede:
+      "EXdeck turns a sentence into an editable presentation in about ten seconds, then lets you edit, present, and export it to real PowerPoint and PDF. Under the hood it leans on a few deliberate decisions: one typed Deck object as the single source of truth, pure-function rendering, a fast inference engine, and a healthy distrust of model output. Here's the why behind each.",
+    sections: [
+      {
+        h: "One idea holds the whole app: a single typed Deck object",
+        p: [
+          "The entire presentation — every slide, its layout, bullets, charts, theme, images, and speaker notes — lives in one TypeScript shape called Deck. Generation produces a Deck. The editor reads and mutates a Deck. Export consumes a Deck. Share links store a Deck. There is no separate \"editor model\" that drifts from a \"render model.\"",
+          "This sounds obvious, but it's the decision that keeps the codebase small. Because the shape is typed in one place, the compiler catches the moment a feature forgets a field. New capabilities — a new slide layout, a chart type, a per-slide variant — are added to the type once, and every surface that touches a deck is forced to acknowledge them. No hidden state, no sync bugs between views.",
+        ],
+      },
+      {
+        h: "Pure-function rendering: one SlideCanvas, everywhere",
+        p: [
+          "A slide is rendered by a single component, SlideCanvas, which is a pure function of (slide, theme). That same component draws the slide in the editor, in the thumbnail rail, in full-screen present mode, and in the off-screen capture used to build the PDF.",
+          "The payoff is consistency you don't have to maintain. What you edit is exactly what you present and exactly what exports — because it's literally the same render path. There's one source of visual truth, so a styling fix shows up everywhere at once and the PDF can never quietly disagree with the screen.",
+        ],
+      },
+      {
+        h: "Why Groq",
+        p: [
+          "Generation quality matters, but for an interactive tool latency matters just as much. A deck builder that takes 60 seconds to respond feels broken; one that responds in ten feels like magic. We chose Groq because its inference is fast enough to keep the whole flow interactive — a complete multi-slide deck comes back in a single pass in seconds, not minutes.",
+          "We run an open Llama model through Groq with a multi-key fallback client: if one key is rate-limited or errors, the request retries on the next automatically. That keeps generation resilient without building a queue. The model is asked for strict JSON, not prose, so the output drops straight into our pipeline.",
+        ],
+      },
+      {
+        h: "Treat the model as untrusted input",
+        p: [
+          "The most important generation decision isn't the prompt — it's what happens after. We never trust raw model output. Every generated slide passes through a validation and cleaning pass: the layout is checked against a whitelist, variant names are validated, text is sanitized and length-capped, tables reject empty columns, and charts are dropped unless they contain real numeric data.",
+          "Anything the model under-fills gets caught by a second \"fill\" pass that regenerates only the thin slides with full deck context, so the reader learns something new on every slide. The result is that a flaky or over-eager model can't produce a broken deck — the worst case is a slightly plainer one.",
+        ],
+        list: [
+          "Whitelist layouts and variants — unknown values are discarded, not rendered",
+          "Strip placeholder text the model sometimes emits when unsure",
+          "Charts only from real figures; otherwise the point is made in words",
+          "A fill pass tops up any slide that came back too thin",
+        ],
+      },
+      {
+        h: "The server is a thin proxy",
+        p: [
+          "Almost everything runs in the browser: editing, drag-and-drop, recoloring, theme switching, and even the PDF render. The Next.js API routes only do the things the browser can't or shouldn't: hold the inference key, enforce plan limits server-side so they can't be bypassed, proxy the icon search, and run the library that builds the binary .pptx file.",
+          "Keeping the server thin means the editor stays snappy and offline-tolerant, and the security-sensitive logic (who can generate, what's gated, what gets charged) lives in exactly one trustworthy place.",
+        ],
+      },
+      {
+        h: "State, persistence, and collaboration",
+        p: [
+          "Because the deck is one object, persistence is simple: a debounced autosave writes the whole Deck to the database after each change, and an undo stack keeps recent snapshots so an accidental edit or an AI rewrite is one click away from reverting.",
+          "Real-time collaboration falls out of the same model. A shared deck is the same Deck object living at a shared location; editors subscribe to it and write the whole object back, with a last-write-wins guard to avoid echo loops. It isn't a custom CRDT — it's the single-object design extended to two people.",
+        ],
+      },
+      {
+        h: "Export parity without a second renderer",
+        p: [
+          "PDF export reuses SlideCanvas: the deck is rendered off-screen and captured, so the PDF is pixel-identical to the editor by construction. PowerPoint export is the one place we maintain a parallel renderer — a server route rebuilds each slide with a .pptx library so the file is genuinely editable in PowerPoint, Keynote, and Google Slides, not a flat image. That's a deliberate cost we pay so users actually own their output.",
+        ],
+      },
+      {
+        h: "The throughline",
+        p: [
+          "None of these choices are exotic. The discipline is in keeping them consistent: one typed object, one render path, a fast model treated as untrusted, and a server that does only what it must. That's what lets a solo-built tool stay coherent while it grows — and it's the part worth understanding, more than any single feature.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        q: "Why Groq instead of a general-purpose API?",
+        a: "Speed. For an interactive editor, low latency is a feature — a full deck returning in seconds keeps the flow feeling instant. Groq's inference is fast enough to make that the norm, and a multi-key fallback keeps it resilient under rate limits.",
+      },
+      {
+        q: "How does EXdeck avoid hallucinated data on slides?",
+        a: "It treats model output as untrusted. Charts are only created from real, known figures; if a topic has no genuine numbers, the idea is expressed in words instead. Tables reject empty or placeholder cells, and a validation pass discards anything that doesn't fit the schema.",
+      },
+      {
+        q: "What is the 'single Deck object' and why does it matter?",
+        a: "The whole presentation lives in one typed shape that every part of the app reads and writes — generation, editor, present mode, export, and sharing. It removes drift between views, makes new features type-safe, and is what keeps the codebase small.",
+      },
+      {
+        q: "Why is the PDF identical to the editor?",
+        a: "Both use the same SlideCanvas component to render slides. The PDF is built by capturing that exact render off-screen, so there's no separate PDF layout that could disagree with what you edited.",
+      },
+    ],
+    related: ["best-ai-presentation-maker", "ai-ppt-maker", "how-to-make-a-powerpoint-presentation-from-text"],
+  },
+);
+
 export function getBlogPost(slug: string): BlogPost | undefined {
   return BLOG_POSTS.find((p) => p.slug === slug);
 }
