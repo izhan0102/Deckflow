@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  ArrowRight, Clock, LayoutGrid, Loader2, LogOut, Monitor, Search,
+  ArrowRight, Clock, FileText, LayoutGrid, Loader2, LogOut, Monitor, Search,
   Trash2, Wand2, X, Zap,
 } from "lucide-react";
 import { type AppUser } from "@/lib/auth";
@@ -95,6 +95,14 @@ export default function DashboardMobile({
     onStartFromScratch();
   };
 
+  const onNewDoc = () => {
+    if (!FREE_FOR_ALL && plan === "free") {
+      openUpgrade("AI Documents are a Pro feature. Upgrade to Pro or Pro Plus to create documents.");
+      return;
+    }
+    window.location.assign("/docs");
+  };
+
   return (
     <div className="min-h-screen" style={{ background: "var(--ezd-bg-page)" }}>
       {/* ---------- Top app bar ---------- */}
@@ -184,6 +192,14 @@ export default function DashboardMobile({
             <LayoutGrid size={14} /> Templates
           </button>
         </div>
+
+        <button
+          onClick={onNewDoc}
+          className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-2xl border border-white/12 bg-white/5 px-4 py-3.5 text-[14px] font-semibold text-white/85 transition active:scale-[0.98]"
+        >
+          <FileText size={15} /> New document
+          <span className="rounded-full bg-white px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#03070F]">Pro</span>
+        </button>
 
         {/* ---------- Continue working ---------- */}
         {recentDeck && (

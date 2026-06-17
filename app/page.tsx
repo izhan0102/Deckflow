@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowRight, BarChart3, Download,
   GitCommit, Github, Languages, LayoutTemplate, LogOut, MessageSquare,
-  Play, Presentation, Shapes, Sparkles, Star, Wand2,
+  Play, Presentation, Shapes, Sparkles, Star, Wand2, FileText,
 } from "lucide-react";
 import Logo from "@/components/Logo";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -168,11 +168,12 @@ export default function LandingPage() {
                   color: "var(--ezd-fg-strong)",
                 }}
               >
-                Your next presentation,{" "}
+                Presentations and documents,{" "}
                 <span style={{ color: "var(--ezd-fg-quiet)" }}>written and designed in seconds.</span>
                 <span className="sr-only">
                   {" "}EXdeck is a free AI PPT maker that turns your text into an
-                  editable PowerPoint presentation with one-click PPTX and PDF export.
+                  editable PowerPoint presentation — and an AI document maker that
+                  writes structured, exportable documents — with one-click PPTX and PDF export.
                 </span>
               </h1>
             </Reveal>
@@ -182,9 +183,9 @@ export default function LandingPage() {
                 className="mx-auto mt-5 max-w-lg text-[14.5px] leading-relaxed sm:text-[15.5px] lg:mx-0"
                 style={{ color: "var(--ezd-fg-muted)" }}
               >
-                Type a brief, pick a template, and EXdeck builds a fully editable deck —
-                real charts, themed layouts, and speaker notes. Export to PowerPoint or
-                PDF, no lock-in.
+                Type a brief and EXdeck builds it — a fully editable slide deck with
+                real charts and speaker notes, or a structured, Word-style document
+                with tables and charts. Export to PowerPoint or PDF, no lock-in.
               </p>
             </Reveal>
 
@@ -239,6 +240,43 @@ export default function LandingPage() {
             <div>
               <TemplateShowcase />
             </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ================== Two formats ================== */}
+      <section className="relative z-10 mx-auto max-w-5xl px-5 pt-12 sm:px-6">
+        <Reveal>
+          <SectionLabel
+            center
+            kicker="Two ways to create"
+            title="Decks and documents, one AI."
+            sub="Start from a single brief — EXdeck designs a polished presentation or writes a full document. Both stay fully editable and export cleanly."
+          />
+        </Reveal>
+        <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Reveal>
+            <FormatCard
+              icon={<Presentation size={18} />}
+              title="AI Presentations"
+              tag="Free to start"
+              body="Brief → template → a fully designed, editable slide deck with real data charts, themed layouts, speaker notes, and one-click PPTX & PDF export."
+              points={["9 smart slide layouts", "Real charts & 200k icons", "Present mode + share links"]}
+              cta="Make a presentation"
+              onClick={onGetStarted}
+            />
+          </Reveal>
+          <Reveal delay={80}>
+            <FormatCard
+              icon={<FileText size={18} />}
+              title="AI Documents"
+              tag="Pro"
+              pro
+              body="Write a structured, Word-style document with AI — headings, multi-column tables, charts, callouts, watermarks, and a clean multi-page PDF export."
+              points={["Tables, charts & callouts", "Inline editing + AI rewrites", "Templates, fonts & watermark"]}
+              cta="Make a document"
+              onClick={onGetStarted}
+            />
           </Reveal>
         </div>
       </section>
@@ -431,10 +469,10 @@ export default function LandingPage() {
                 color: "var(--ezd-fg-strong)",
               }}
             >
-              Stop staring at the empty title slide.
+              Stop staring at the empty page.
             </h2>
             <p className="mx-auto mt-4 max-w-md text-[14.5px]" style={{ color: "var(--ezd-fg-muted)" }}>
-              Generate your first deck free in under a minute. Edit it, present it, export it.
+              Generate your first deck — or document — free in under a minute. Edit it, present it, export it.
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <button
@@ -446,11 +484,11 @@ export default function LandingPage() {
                 <ArrowRight size={15} className="transition group-hover:translate-x-0.5" />
               </button>
               <Link
-                href="/app/decks"
+                href="/docs"
                 className="inline-flex w-full items-center justify-center gap-2 rounded-full border px-7 py-3 text-[14.5px] font-medium transition hover:border-white/25 sm:w-auto"
                 style={{ borderColor: "var(--ezd-hairline)", color: "var(--ezd-fg-strong)" }}
               >
-                My decks
+                <FileText size={14} /> Write a document
               </Link>
             </div>
           </div>
@@ -560,6 +598,52 @@ function FeatureCard({
       <h4 className="text-[15px] font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>{title}</h4>
       <p className="mt-2 text-[13px] leading-relaxed" style={{ color: "var(--ezd-fg-muted)" }}>{body}</p>
       {children && <div className="mt-5">{children}</div>}
+    </div>
+  );
+}
+
+function FormatCard({
+  icon, title, tag, body, points, cta, onClick, pro,
+}: {
+  icon: React.ReactNode; title: string; tag: string; body: string; points: string[]; cta: string; onClick: () => void; pro?: boolean;
+}) {
+  return (
+    <div
+      className="group flex h-full flex-col rounded-2xl border p-6 transition hover:border-white/20"
+      style={{ borderColor: "var(--ezd-divider)", background: "var(--ezd-bg-card)" }}
+    >
+      <div className="flex items-center justify-between">
+        <div
+          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border"
+          style={{ borderColor: "var(--ezd-hairline)", background: "var(--ezd-bg-hover)", color: "var(--ezd-fg-strong)" }}
+        >
+          {icon}
+        </div>
+        <span
+          className="rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em]"
+          style={pro
+            ? { background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)" }
+            : { border: "1px solid var(--ezd-hairline)", color: "var(--ezd-fg-muted)" }}
+        >
+          {tag}
+        </span>
+      </div>
+      <h4 className="mt-4 text-[17px] font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>{title}</h4>
+      <p className="mt-2 text-[13px] leading-relaxed" style={{ color: "var(--ezd-fg-muted)" }}>{body}</p>
+      <ul className="mt-4 space-y-1.5">
+        {points.map((p) => (
+          <li key={p} className="flex items-center gap-2 text-[12.5px]" style={{ color: "var(--ezd-fg-muted)" }}>
+            <span style={{ color: "var(--ezd-fg-strong)" }}>—</span>{p}
+          </li>
+        ))}
+      </ul>
+      <button
+        onClick={onClick}
+        className="mt-6 inline-flex items-center justify-center gap-2 self-start rounded-full px-5 py-2.5 text-[13.5px] font-semibold transition hover:opacity-90"
+        style={{ background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)" }}
+      >
+        {cta} <ArrowRight size={14} />
+      </button>
     </div>
   );
 }
@@ -1138,6 +1222,7 @@ function Footer() {
               { label: "How it works", href: "#how" },
               { label: "Examples", href: "#examples" },
               { label: "Pricing", href: "#pricing" },
+              { label: "AI document maker", href: "/docs" },
               { label: "Open the editor", href: "/app" },
             ]}
           />

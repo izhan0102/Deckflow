@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle, ArrowRight, Clock, Copy, FileText, Home, Info, LayoutGrid,
-  LogOut, MoreVertical, Pencil, Plus, Search, Share2, Sparkles, Trash2, Wand2, X, Zap,
+  LogOut, MoreVertical, Pencil, Plus, Search, Share2, Sparkles, Trash2, Wand2, X, Zap, Lock,
 } from "lucide-react";
 import { type AppUser } from "@/lib/auth";
 import {
@@ -90,6 +90,7 @@ export default function Dashboard({
 
   const deckLimit = planDeckLimit(plan);
   const limitReached = monthGenerations >= deckLimit;
+  const docLocked = !FREE_FOR_ALL && plan === "free"; // documents are Pro / Pro Plus only
 
   const openUpgrade = (reason?: string) => {
     setUpgradeReason(reason);
@@ -102,6 +103,15 @@ export default function Dashboard({
       return;
     }
     onStartFromScratch();
+  };
+
+  // AI Documents are a premium feature (Pro / Pro Plus only).
+  const onNewDoc = () => {
+    if (!FREE_FOR_ALL && plan === "free") {
+      openUpgrade("AI Documents are a Pro feature. Upgrade to Pro or Pro Plus to create documents.");
+      return;
+    }
+    window.location.assign("/docs");
   };
 
   const recentDeck = useMemo(() => {
@@ -149,6 +159,7 @@ export default function Dashboard({
         <nav className="mt-8 space-y-1 text-sm">
           <NavItem icon={<Home size={15} />} label="Dashboard" active />
           <NavItem icon={<FileText size={15} />} label="My decks" href="/app/decks" count={decks.length || undefined} />
+          <NavItem icon={<FileText size={15} />} label="My docs" href="/app/docs" />
           <NavItem icon={<LayoutGrid size={15} />} label="Templates" onClick={onStartFromTemplate} />
           <NavItem icon={<Info size={15} />} label="About / Dev's note" href="/about" />
         </nav>
@@ -229,97 +240,48 @@ export default function Dashboard({
           </div>
         </div>
 
-        {/* ---------- Header ---------- */}
-        <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
-          <div>
+        {/* ---------- Centered create options ---------- */}
+        <div className="flex min-h-[68vh] flex-col items-center justify-center">
+          <div className="mb-9 text-center">
             <h1
-              className="text-[26px] font-semibold tracking-tight md:text-[32px]"
+              className="text-[26px] font-semibold tracking-tight md:text-[34px]"
               style={{
                 fontFamily: '"Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif',
                 letterSpacing: "-0.022em",
                 color: "var(--ezd-fg-strong)",
               }}
             >
-              {firstName(user)}&rsquo;s decks
+              Welcome back, {firstName(user)}
             </h1>
-            <p className="mt-1 text-[12.5px]" style={{ color: "var(--ezd-fg-quiet)" }}>
-              {decks.length === 0
-                ? "Nothing here yet — create your first deck."
-                : `${decks.length} deck${decks.length === 1 ? "" : "s"} · auto-saved as you edit.`}
+            <p className="mt-2 text-[13.5px]" style={{ color: "var(--ezd-fg-quiet)" }}>
+              What would you like to create today?
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <button
+          <div className="grid w-full max-w-3xl gap-4 sm:grid-cols-2">
+            <CreateCard
+              icon={<Wand2 size={22} />}
+              title="Make a presentation"
+              desc="Turn a one-line brief into a fully designed, editable slide deck — real charts, themed layouts, speaker notes, and one-click export to PPTX & PDF."
+              cta={limitReached ? "Monthly limit reached" : "New presentation"}
               onClick={onNewDeck}
-              data-tour="start-from-scratch"
-              className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[12.5px] font-semibold transition hover:opacity-90"
-              style={{ background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)" }}
-              title={limitReached ? `Monthly limit reached. Resets in ${formatMonthlyResetIn()}.` : "Start from a one-line brief"}
-            >
-              <Wand2 size={13} /> New deck
-            </button>
-            <button
-              onClick={onStartFromTemplate ?? onStartFromScratch}
-              className="inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-[12.5px] transition hover:opacity-80"
-              style={{ borderColor: "var(--ezd-hairline)", background: "var(--ezd-bg-card)", color: "var(--ezd-fg-strong)" }}
-            >
-              <LayoutGrid size={12} /> Templates
-            </button>
+              disabled={limitReached}
+            />
+            <CreateCard
+              icon={<FileText size={22} />}
+              title="Make a document"
+              desc="Write a structured, Word-style document with AI — headings, data tables, charts, watermarks, and a clean multi-page PDF export."
+              cta={docLocked ? "Pro required" : "New document"}
+              onClick={onNewDoc}
+              badge={docLocked ? "Pro required" : "Pro exclusive"}
+              golden={docLocked}
+              locked={docLocked}
+            />
           </div>
         </div>
 
-        {/* ---------- Continue working (#6: excluded from grid) ---------- */}
-        {showContinue && recentDeck && <ContinueCard deck={recentDeck} />}
 
-        {/* ---------- Decks header + search ---------- */}
-        {decks.length > 0 && (hasQuery || gridDecks.length > 0) && (
-          <div
-            className="mb-4 flex flex-wrap items-center justify-between gap-3 border-t pt-6"
-            style={{ borderColor: "var(--ezd-divider)" }}
-          >
-            <div className="text-[10px] font-semibold uppercase tracking-[0.26em]" style={{ color: "var(--ezd-fg-quiet)" }}>
-              {hasQuery ? `${gridDecks.length} result${gridDecks.length === 1 ? "" : "s"}` : "All decks"}
-            </div>
-            <div className="flex items-center gap-2">
-              <SearchInput value={query} onChange={setQuery} />
-              {!hasQuery && (
-                <Link
-                  href="/app/decks"
-                  className="hidden text-[12px] transition hover:opacity-80 sm:inline"
-                  style={{ color: "var(--ezd-fg-muted)" }}
-                >
-                  See all →
-                </Link>
-              )}
-            </div>
-          </div>
-        )}
 
-        {/* ---------- Decks grid ----------
-            NoMatch only renders while searching. With no query we always show
-            decks (the continue card covers the most-recent one). */}
-        {loading ? (
-          <div className="grid auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
-          </div>
-        ) : decks.length === 0 ? (
-          <EmptyState onCreate={onStartFromScratch} onTemplates={onStartFromTemplate} />
-        ) : hasQuery && gridDecks.length === 0 ? (
-          <NoMatchState onClear={() => setQuery("")} />
-        ) : gridDecks.length > 0 ? (
-          <div className="grid auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {gridDecks.map((d) => (
-              <DeckCard
-                key={d.id}
-                deck={d}
-                onRename={() => setRenameTarget({ id: d.id, title: d.title })}
-                onDuplicate={() => onDuplicate(d.id)}
-                onAskDelete={() => setConfirmId(d.id)}
-              />
-            ))}
-          </div>
-        ) : null}
       </main>
 
       {/* Delete confirm (#7: Esc + backdrop close) */}
@@ -402,6 +364,48 @@ function NavItem({
   if (href) return <Link href={href} className={`${className} hover:opacity-80`} style={style}>{inner}</Link>;
   if (onClick) return <button type="button" onClick={onClick} className={`${className} hover:opacity-80`} style={style}>{inner}</button>;
   return <div className={className} style={style}>{inner}</div>;
+}
+
+function CreateCard({ icon, title, desc, cta, onClick, disabled, badge, golden, locked }: {
+  icon: React.ReactNode; title: string; desc: string; cta: string; onClick: () => void; disabled?: boolean; badge?: string; golden?: boolean; locked?: boolean;
+}) {
+  const GOLD = "#C9A227";
+  const GOLD_SOFT = "rgba(201,162,39,0.10)";
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="group relative flex flex-col items-start overflow-hidden rounded-2xl border p-6 text-left transition hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
+      style={{
+        borderColor: golden ? GOLD : "var(--ezd-divider)",
+        background: golden ? `linear-gradient(180deg, ${GOLD_SOFT}, transparent)` : "var(--ezd-bg-card)",
+        boxShadow: golden ? `0 0 0 1px ${GOLD_SOFT} inset` : undefined,
+      }}
+    >
+      <div className="flex w-full items-center justify-between">
+        <div className="relative grid h-11 w-11 place-items-center rounded-xl"
+          style={{ background: golden ? GOLD : "var(--ezd-fg-strong)", color: golden ? "#1a1407" : "var(--ezd-bg-page)" }}>
+          {icon}
+          {locked && (
+            <span className="absolute -bottom-1 -right-1 grid h-5 w-5 place-items-center rounded-full" style={{ background: "#1a1407", color: GOLD, border: `1px solid ${GOLD}` }}>
+              <Lock size={11} />
+            </span>
+          )}
+        </div>
+        {badge && (
+          <span className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+            style={golden ? { background: GOLD, color: "#1a1407" } : { background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)" }}>
+            {badge}
+          </span>
+        )}
+      </div>
+      <h2 className="mt-4 text-[17px] font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>{title}</h2>
+      <p className="mt-1.5 text-[13px] leading-relaxed" style={{ color: "var(--ezd-fg-muted)" }}>{desc}</p>
+      <span className="mt-4 inline-flex items-center gap-1.5 text-[13px] font-semibold" style={{ color: golden ? GOLD : "var(--ezd-fg-strong)" }}>
+        {locked && <Lock size={13} />}{cta} {!locked && <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" />}
+      </span>
+    </button>
+  );
 }
 
 /* ----------------------- Combined plan + usage card ----------------------- */

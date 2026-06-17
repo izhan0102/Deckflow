@@ -41,3 +41,11 @@ _tmp_*.js
 /app/api/admin
 .ngrok.log
 .devserver.log
+
+# experimental: pptx template studio (local only — remove these to ship it)
+/app/template-studio
+/app/api/template-extract
+/app/api/template-generate
+/lib/pptxTemplate.ts
+/lib/pptxApply.ts
+/scripts/test-pptx.ts
