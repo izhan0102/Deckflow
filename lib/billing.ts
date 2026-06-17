@@ -32,7 +32,7 @@ const YEAR_MS = 365 * 24 * 60 * 60 * 1000;
 export type Currency = "USD" | "INR";
 
 /** INR monthly prices (Indian users pay in ₹ via UPI/cards/netbanking). */
-const INR_PRICES: Record<string, number> = { pro: 5, proplus: 899 };
+const INR_PRICES: Record<string, number> = { pro: 450, proplus: 899 };
 
 export function normalizeCurrency(c: unknown): Currency {
   return c === "INR" ? "INR" : "USD";
@@ -79,7 +79,8 @@ export type CheckoutQuote = {
   plan: PlanId;
   period: BillingPeriod;
   currency: string;
-  baseAmount: number;     // price for the period before discount
+  baseAmount: number;     // price for the period (annual already −10%)
+  listAmount: number;     // undiscounted list price for the period (monthly×12 for annual)
   finalAmount: number;    // after coupon
   amountMinor: number;    // smallest unit (cents) for Razorpay
   discountPct: number;    // total % off (annual not counted here; it's in baseAmount)
@@ -90,7 +91,9 @@ export type CheckoutQuote = {
 
 /** Compute the authoritative checkout quote. */
 export async function quote(plan: PlanId, period: BillingPeriod, currency: Currency, couponCode?: string): Promise<CheckoutQuote> {
-  const base = basePrice(plan, period, currency);
+  const monthly = planPrice(plan, currency);
+  const list = period === "annual" ? round2(monthly * 12) : monthly; // undiscounted period price
+  const base = basePrice(plan, period, currency);                    // annual already −10%
   let discountPct = 0;
   let free = false;
   let couponError: CheckoutQuote["couponError"] = null;
@@ -110,6 +113,7 @@ export async function quote(plan: PlanId, period: BillingPeriod, currency: Curre
     period,
     currency,
     baseAmount: base,
+    listAmount: list,
     finalAmount,
     amountMinor: Math.round(finalAmount * 100),
     discountPct,

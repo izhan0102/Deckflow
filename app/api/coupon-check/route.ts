@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       currency: q.currency,
       baseAmount: q.baseAmount,
+      listAmount: q.listAmount,
       finalAmount: q.finalAmount,
       discountPct: q.discountPct,
       free: q.free,

@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   Check, Tag, Loader2, ArrowRight, ShieldCheck, X, PartyPopper,
-  Globe, QrCode, AlertTriangle, RotateCw,
+  Globe, QrCode, AlertTriangle, RotateCw, CheckCircle2, AlertCircle,
 } from "lucide-react";
 import Logo from "@/components/Logo";
 import { PLANS, normalizePlan, type PlanId } from "@/lib/plans";
@@ -32,10 +32,11 @@ function CheckoutInner() {
 
   const [couponInput, setCouponInput] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState("");
-  const [couponMsg, setCouponMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+  const [couponState, setCouponState] = useState<"idle" | "checking" | "valid" | "invalid">("idle");
+  const [couponMsg, setCouponMsg] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
-  const [quote, setQuote] = useState<{ base: number; final: number; discountPct: number; free: boolean }>({
-    base: planDef.price, final: planDef.price, discountPct: 0, free: false,
+  const [quote, setQuote] = useState<{ base: number; list: number; final: number; discountPct: number; free: boolean }>({
+    base: planDef.price, list: planDef.price, final: planDef.price, discountPct: 0, free: false,
   });
 
   const [paying, setPaying] = useState(false);
@@ -63,12 +64,16 @@ function CheckoutInner() {
         const d = await res.json().catch(() => ({}));
         if (cancelled) return;
         if (res.ok) {
-          setQuote({ base: d.baseAmount, final: d.finalAmount, discountPct: d.discountPct, free: !!d.free });
+          setQuote({ base: d.baseAmount, list: d.listAmount, final: d.finalAmount, discountPct: d.discountPct, free: !!d.free });
           if (appliedCoupon) {
-            if (d.couponError === "limit") setCouponMsg({ kind: "err", text: "This code has reached its limit." });
-            else if (d.couponError === "invalid") setCouponMsg({ kind: "err", text: "Invalid or expired code." });
-            else if (d.free) setCouponMsg({ kind: "ok", text: "Free access applied!" });
-            else if (d.couponValid) setCouponMsg({ kind: "ok", text: `${d.discountPct}% off applied!` });
+            if (d.couponError) {
+              setAppliedCoupon("");
+              setCouponState("invalid");
+              setCouponMsg(d.couponError === "limit" ? "This code has reached its limit." : "Invalid or expired code.");
+            } else {
+              setCouponState("valid");
+              setCouponMsg(d.free ? "Free access applied!" : `${d.discountPct}% off applied!`);
+            }
           }
         }
       } finally {
@@ -87,9 +92,10 @@ function CheckoutInner() {
     const code = couponInput.trim().toUpperCase();
     if (!code) return;
     setCouponMsg(null);
-    setAppliedCoupon(code);
+    setCouponState("checking");
+    setAppliedCoupon(code); // the quote effect validates and flips state to valid/invalid
   };
-  const clearCoupon = () => { setAppliedCoupon(""); setCouponInput(""); setCouponMsg(null); };
+  const clearCoupon = () => { setAppliedCoupon(""); setCouponInput(""); setCouponState("idle"); setCouponMsg(null); };
 
   const pay = async () => {
     if (!user) { router.push(`/auth?redirect=${encodeURIComponent(`/checkout?plan=${plan}`)}`); return; }
@@ -170,30 +176,55 @@ function CheckoutInner() {
             <label className="mb-1.5 flex items-center gap-1.5 text-[12px] font-medium" style={{ color: "var(--ezd-fg-quiet)" }}>
               <Tag size={12} /> Have a coupon?
             </label>
-            {appliedCoupon ? (
-              <div className="flex items-center justify-between rounded-xl border px-3.5 py-2.5" style={card}>
-                <span className="font-mono text-[13px]" style={{ color: "var(--ezd-fg-strong)" }}>{appliedCoupon}</span>
-                <button onClick={clearCoupon} style={{ color: "var(--ezd-fg-quiet)" }} aria-label="Remove coupon"><X size={15} /></button>
+            {couponState === "valid" && appliedCoupon ? (
+              <div className="flex items-center justify-between rounded-xl border px-3.5 py-2.5"
+                style={{ background: "rgba(16,185,129,0.08)", borderColor: "rgba(16,185,129,0.45)" }}>
+                <span className="flex items-center gap-2 font-mono text-[13px]" style={{ color: "var(--ezd-fg-strong)" }}>
+                  <CheckCircle2 size={16} style={{ color: "#10b981" }} /> {appliedCoupon}
+                </span>
+                <span className="flex items-center gap-2">
+                  {couponMsg && <span className="text-[11.5px] font-medium" style={{ color: "#10b981" }}>{couponMsg}</span>}
+                  <button onClick={clearCoupon} style={{ color: "var(--ezd-fg-quiet)" }} aria-label="Remove coupon"><X size={15} /></button>
+                </span>
               </div>
             ) : (
-              <div className="flex gap-2">
-                <input
-                  value={couponInput}
-                  onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
-                  onKeyDown={(e) => { if (e.key === "Enter") applyCoupon(); }}
-                  placeholder="ENTER CODE"
-                  className="flex-1 rounded-xl border px-3.5 py-2.5 font-mono text-[13px] tracking-wide outline-none"
-                  style={{ background: "var(--ezd-bg-hover)", borderColor: "var(--ezd-divider)", color: "var(--ezd-fg)" }}
-                />
-                <button onClick={applyCoupon}
-                  className="rounded-xl border px-4 text-[13px] font-semibold transition"
-                  style={{ borderColor: "var(--ezd-divider)", color: "var(--ezd-fg-strong)", background: "var(--ezd-bg-hover)" }}>
-                  Apply
-                </button>
-              </div>
-            )}
-            {couponMsg && (
-              <p className="mt-1.5 text-[12px]" style={{ color: couponMsg.kind === "ok" ? "#10b981" : "#ef4444" }}>{couponMsg.text}</p>
+              <>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      value={couponInput}
+                      onChange={(e) => { setCouponInput(e.target.value.toUpperCase()); if (couponState === "invalid") { setCouponState("idle"); setCouponMsg(null); } }}
+                      onKeyDown={(e) => { if (e.key === "Enter") applyCoupon(); }}
+                      placeholder="ENTER CODE"
+                      disabled={couponState === "checking"}
+                      className="w-full rounded-xl border px-3.5 py-2.5 pr-9 font-mono text-[13px] tracking-wide outline-none"
+                      style={{
+                        background: "var(--ezd-bg-hover)", color: "var(--ezd-fg)",
+                        borderColor: couponState === "invalid" ? "rgba(239,68,68,0.55)" : "var(--ezd-divider)",
+                      }}
+                    />
+                    {couponState === "checking" && (
+                      <Loader2 size={16} className="animate-spin" style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", color: ACCENT }} />
+                    )}
+                    {couponState === "invalid" && (
+                      <AlertCircle size={16} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", color: "#ef4444" }} />
+                    )}
+                  </div>
+                  <button onClick={applyCoupon} disabled={couponState === "checking" || !couponInput.trim()}
+                    className="inline-flex items-center justify-center rounded-xl border px-4 text-[13px] font-semibold transition disabled:opacity-50"
+                    style={{ borderColor: "var(--ezd-divider)", color: "var(--ezd-fg-strong)", background: "var(--ezd-bg-hover)" }}>
+                    {couponState === "checking" ? <Loader2 size={15} className="animate-spin" /> : "Apply"}
+                  </button>
+                </div>
+                {couponState === "invalid" && couponMsg && (
+                  <p className="mt-1.5 flex items-center gap-1.5 text-[12px]" style={{ color: "#ef4444" }}>
+                    <AlertCircle size={13} /> {couponMsg}
+                  </p>
+                )}
+                {couponState === "checking" && (
+                  <p className="mt-1.5 text-[12px]" style={{ color: "var(--ezd-fg-quiet)" }}>Checking code…</p>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -202,8 +233,19 @@ function CheckoutInner() {
         <div className="lg:sticky lg:top-10 h-fit rounded-2xl border p-6" style={card}>
           <h2 className="text-[15px] font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>Order summary</h2>
           <div className="mt-4 space-y-2.5 text-[13.5px]">
-            <Row label={`${planDef.name} · ${period === "annual" ? "Annual" : "Monthly"}`} value={fmt(quote.base, currency)} />
-            {period === "annual" && <Row label="Annual discount (10%)" value="included" muted />}
+            {period === "annual" ? (
+              <>
+                <Row label={`${planDef.name} · Annual`} valueNode={
+                  <span className="tabular-nums">
+                    <s style={{ color: "var(--ezd-fg-quiet)" }}>{fmt(quote.list, currency)}</s>{" "}
+                    <strong style={{ color: "var(--ezd-fg-strong)" }}>{fmt(quote.base, currency)}</strong>
+                  </span>
+                } />
+                <Row label="Annual discount (10%)" value={`− ${fmt(quote.list - quote.base, currency)}`} accent />
+              </>
+            ) : (
+              <Row label={`${planDef.name} · Monthly`} value={fmt(quote.base, currency)} />
+            )}
             {quote.discountPct > 0 && <Row label={`Coupon (${quote.discountPct}% off)`} value={`− ${fmt(quote.base - quote.final, currency)}`} accent />}
             {quote.free && <Row label="Coupon" value="FREE" accent />}
           </div>
@@ -271,11 +313,11 @@ function PeriodTab({ active, onClick, title, sub, badge }: { active: boolean; on
   );
 }
 
-function Row({ label, value, muted, accent }: { label: string; value: string; muted?: boolean; accent?: boolean }) {
+function Row({ label, value, valueNode, muted, accent }: { label: string; value?: string; valueNode?: React.ReactNode; muted?: boolean; accent?: boolean }) {
   return (
     <div className="flex items-center justify-between">
       <span style={{ color: muted ? "var(--ezd-fg-quiet)" : "var(--ezd-fg-muted)" }}>{label}</span>
-      <span className="tabular-nums" style={{ color: accent ? "#10b981" : "var(--ezd-fg-strong)" }}>{value}</span>
+      {valueNode ?? <span className="tabular-nums" style={{ color: accent ? "#10b981" : "var(--ezd-fg-strong)" }}>{value}</span>}
     </div>
   );
 }
