@@ -13,6 +13,9 @@ import { PLANS, normalizePlan, type PlanId } from "./plans";
 
 export type BillingPeriod = "monthly" | "annual";
 
+export type CouponScope = "any" | "pro" | "proplus";
+export type CouponPeriodScope = "any" | "monthly" | "annual";
+
 export type Coupon = {
   code: string;
   type: "percent" | "free";
@@ -20,6 +23,10 @@ export type Coupon = {
   maxUses: number;
   usedCount: number;
   active: boolean;
+  /** Restrict which plan the code applies to ("any" = both). */
+  plan: CouponScope;
+  /** Restrict which billing period it applies to ("any" = both). */
+  period: CouponPeriodScope;
   createdAt?: number;
 };
 
@@ -71,6 +78,8 @@ export async function getCoupon(code: string): Promise<Coupon | null> {
     maxUses: typeof v?.maxUses === "number" ? v.maxUses : 0,
     usedCount: typeof v?.usedCount === "number" ? v.usedCount : 0,
     active: v?.active !== false,
+    plan: v?.plan === "pro" || v?.plan === "proplus" ? v.plan : "any",
+    period: v?.period === "monthly" || v?.period === "annual" ? v.period : "any",
     createdAt: v?.createdAt,
   };
 }
@@ -86,7 +95,7 @@ export type CheckoutQuote = {
   discountPct: number;    // total % off (annual not counted here; it's in baseAmount)
   free: boolean;          // 100%-off / free coupon
   couponCode?: string;
-  couponError?: "invalid" | "limit" | null;
+  couponError?: "invalid" | "limit" | "not_applicable" | null;
 };
 
 /** Compute the authoritative checkout quote. */
@@ -103,6 +112,8 @@ export async function quote(plan: PlanId, period: BillingPeriod, currency: Curre
     const c = await getCoupon(code);
     if (!c || !c.active) couponError = "invalid";
     else if (c.maxUses > 0 && c.usedCount >= c.maxUses) couponError = "limit";
+    else if (c.plan !== "any" && c.plan !== plan) couponError = "not_applicable";
+    else if (c.period !== "any" && c.period !== period) couponError = "not_applicable";
     else if (c.type === "free") free = true;
     else discountPct = clamp(c.value, 0, 100);
   }

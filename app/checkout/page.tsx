@@ -69,7 +69,11 @@ function CheckoutInner() {
             if (d.couponError) {
               setAppliedCoupon("");
               setCouponState("invalid");
-              setCouponMsg(d.couponError === "limit" ? "This code has reached its limit." : "Invalid or expired code.");
+              setCouponMsg(
+                d.couponError === "limit" ? "This code has reached its limit."
+                : d.couponError === "not_applicable" ? "This code doesn't apply to this plan or billing period."
+                : "Invalid or expired code.",
+              );
             } else {
               setCouponState("valid");
               setCouponMsg(d.free ? "Free access applied!" : `${d.discountPct}% off applied!`);

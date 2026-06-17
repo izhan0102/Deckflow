@@ -33,6 +33,9 @@ export async function POST(req: NextRequest) {
     if (q.couponError === "limit") {
       return NextResponse.json({ error: "This coupon has reached its usage limit." }, { status: 409 });
     }
+    if (q.couponError === "not_applicable") {
+      return NextResponse.json({ error: "This coupon doesn't apply to the selected plan or billing period." }, { status: 400 });
+    }
     if (q.couponError === "invalid") {
       return NextResponse.json({ error: "Invalid or inactive coupon." }, { status: 400 });
     }
