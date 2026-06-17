@@ -49,3 +49,6 @@ _tmp_*.js
 /lib/pptxTemplate.ts
 /lib/pptxApply.ts
 /scripts/test-pptx.ts
+
+# local-only planning notes
+/plans.md

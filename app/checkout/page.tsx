@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState, Suspense } from "react";
+import { useEffect, useMemo, useState, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -58,10 +58,28 @@ function CheckoutInner() {
   const [success, setSuccess] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
 
+  // Launch promo: auto-apply JUSTLAUNCHED once for every visitor. If the code
+  // isn't applicable (used up / scoped out), it clears silently instead of
+  // showing an error.
+  const LAUNCH_COUPON = "JUSTLAUNCHED";
+  const autoTriedRef = useRef(false);
+  const autoAppliedRef = useRef(false);
+
   useEffect(() => {
     const unsub = onAuthStateChange((u) => { setUser(u); setAuthReady(true); });
     return () => unsub();
   }, []);
+
+  // Auto-apply the launch coupon on first load (only if the user hasn't
+  // already got one applied, e.g. from a previous interaction).
+  useEffect(() => {
+    if (!authReady || !user || autoTriedRef.current) return;
+    autoTriedRef.current = true;
+    if (appliedCoupon) return;
+    autoAppliedRef.current = true;
+    setCouponInput(LAUNCH_COUPON);
+    setAppliedCoupon(LAUNCH_COUPON);
+  }, [authReady, user, appliedCoupon]);
 
   // Validate an applied coupon (and re-validate when plan/period/currency
   // change, since scope may differ). Prices themselves are computed locally.
@@ -82,12 +100,18 @@ function CheckoutInner() {
         if (cancelled) return;
         if (!res.ok || d.couponError) {
           setAppliedCoupon(""); setCouponDiscountPct(0); setCouponFree(false);
-          setCouponState("invalid");
-          setCouponMsg(
-            d.couponError === "limit" ? "This code has reached its limit."
-            : d.couponError === "not_applicable" ? "This code doesn't apply to this plan or billing period."
-            : "Invalid or expired code.",
-          );
+          if (autoAppliedRef.current) {
+            // Auto-applied launch code didn't qualify — clear quietly, no scary error.
+            autoAppliedRef.current = false;
+            setCouponInput(""); setCouponState("idle"); setCouponMsg(null);
+          } else {
+            setCouponState("invalid");
+            setCouponMsg(
+              d.couponError === "limit" ? "This code has reached its limit."
+              : d.couponError === "not_applicable" ? "This code doesn't apply to this plan or billing period."
+              : "Invalid or expired code.",
+            );
+          }
         } else {
           setCouponDiscountPct(d.discountPct || 0);
           setCouponFree(!!d.free);
@@ -109,11 +133,12 @@ function CheckoutInner() {
   const applyCoupon = () => {
     const code = couponInput.trim().toUpperCase();
     if (!code) return;
+    autoAppliedRef.current = false;
     setCouponMsg(null);
     setCouponState("checking");
     setAppliedCoupon(code); // the quote effect validates and flips state to valid/invalid
   };
-  const clearCoupon = () => { setAppliedCoupon(""); setCouponInput(""); setCouponState("idle"); setCouponMsg(null); };
+  const clearCoupon = () => { autoAppliedRef.current = false; setAppliedCoupon(""); setCouponInput(""); setCouponState("idle"); setCouponMsg(null); };
 
   const pay = async () => {
     if (!user) { router.push(`/auth?redirect=${encodeURIComponent(`/checkout?plan=${plan}`)}`); return; }
@@ -156,6 +181,20 @@ function CheckoutInner() {
       <div className="mx-auto grid max-w-5xl gap-6 px-5 py-10 lg:grid-cols-[1.1fr_0.9fr]">
         {/* Left: plan + options */}
         <div>
+          {appliedCoupon === LAUNCH_COUPON && couponState === "valid" && (
+            <div className="mb-5 flex items-start gap-3 rounded-2xl border px-4 py-3"
+              style={{ background: "rgba(124,92,255,0.08)", borderColor: "rgba(124,92,255,0.45)" }}>
+              <PartyPopper size={18} className="mt-0.5 shrink-0" style={{ color: ACCENT }} />
+              <div>
+                <p className="text-[13.5px] font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>
+                  Launch offer applied — {couponFree ? "free access" : `${couponDiscountPct}% off`}
+                </p>
+                <p className="mt-0.5 text-[12.5px]" style={{ color: "var(--ezd-fg-muted)" }}>
+                  This discount is to celebrate the launch of the platform. Code <span className="font-mono">{LAUNCH_COUPON}</span> is applied automatically for early users.
+                </p>
+              </div>
+            </div>
+          )}
           <p className="text-[12px] font-semibold uppercase tracking-[0.22em]" style={{ color: ACCENT }}>Checkout</p>
           <h1 className="mt-2 text-[30px] font-bold tracking-tight" style={{ color: "var(--ezd-fg-strong)" }}>Upgrade to {planDef.name}</h1>
           <p className="mt-2 text-[14px]" style={{ color: "var(--ezd-fg-muted)" }}>{planDef.tagline}</p>

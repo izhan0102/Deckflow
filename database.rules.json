@@ -14,6 +14,13 @@
       }
     },
 
+    "resumes": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+
     "templates": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",

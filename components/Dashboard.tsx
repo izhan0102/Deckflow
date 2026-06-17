@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle, ArrowRight, Clock, Copy, FileText, Home, Info, LayoutGrid,
-  LogOut, MoreVertical, Pencil, Plus, Search, Share2, Sparkles, Trash2, Wand2, X, Zap, Lock,
+  LogOut, MoreVertical, Pencil, Plus, Search, Share2, Sparkles, Trash2, Wand2, X, Zap, Lock, Contact,
 } from "lucide-react";
 import { type AppUser } from "@/lib/auth";
 import {
@@ -114,6 +114,9 @@ export default function Dashboard({
     window.location.assign("/docs");
   };
 
+  // Resume maker is free for everyone.
+  const onNewResume = () => { window.location.assign("/resume"); };
+
   const recentDeck = useMemo(() => {
     const top = decks[0];
     if (!top) return null;
@@ -160,6 +163,7 @@ export default function Dashboard({
           <NavItem icon={<Home size={15} />} label="Dashboard" active />
           <NavItem icon={<FileText size={15} />} label="My decks" href="/app/decks" count={decks.length || undefined} />
           <NavItem icon={<FileText size={15} />} label="My docs" href="/app/docs" />
+          <NavItem icon={<Contact size={15} />} label="My resumes" href="/app/resumes" />
           <NavItem icon={<LayoutGrid size={15} />} label="Templates" onClick={onStartFromTemplate} />
           <NavItem icon={<Info size={15} />} label="About / Dev's note" href="/about" />
         </nav>
@@ -258,7 +262,7 @@ export default function Dashboard({
             </p>
           </div>
 
-          <div className="grid w-full max-w-3xl gap-4 sm:grid-cols-2">
+          <div className="grid w-full max-w-4xl gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <CreateCard
               icon={<Wand2 size={22} />}
               title="Make a presentation"
@@ -276,6 +280,14 @@ export default function Dashboard({
               badge={docLocked ? "Pro required" : "Pro exclusive"}
               golden={docLocked}
               locked={docLocked}
+            />
+            <CreateCard
+              icon={<Contact size={22} />}
+              title="Make a resume"
+              desc="Build a polished, ATS-friendly resume from templates — fill in your details, auto-fit to one page, and export a clean PDF. Free for everyone."
+              cta="New resume"
+              onClick={onNewResume}
+              badge="Free"
             />
           </div>
         </div>
