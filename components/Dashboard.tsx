@@ -494,18 +494,28 @@ function PlanUsageCard({ used, plan, onUpgrade, membership }: { used: number; pl
         </div>
       )}
 
-      <button
-        onClick={onUpgrade}
-        className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold transition hover:opacity-90"
-        style={
-          exhausted
-            ? { background: RED, color: "#fff" }
-            : { background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)" }
-        }
-        hidden={FREE_FOR_ALL}
-      >
-        <Sparkles size={12} /> {exhausted ? "Upgrade for more" : ctaLabel}
-      </button>
+      {plan === "free" ? (
+        <button
+          onClick={onUpgrade}
+          className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold transition hover:opacity-90"
+          style={
+            exhausted
+              ? { background: RED, color: "#fff" }
+              : { background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)" }
+          }
+          hidden={FREE_FOR_ALL}
+        >
+          <Sparkles size={12} /> {exhausted ? "Upgrade for more" : ctaLabel}
+        </button>
+      ) : (
+        <Link
+          href="/app/billing"
+          className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold transition hover:opacity-90"
+          style={{ background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)" }}
+        >
+          <Sparkles size={12} /> Manage plan
+        </Link>
+      )}
     </div>
   );
 }
