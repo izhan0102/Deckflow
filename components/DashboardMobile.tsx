@@ -3,10 +3,10 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight, Clock, FileText, LayoutGrid, Loader2, LogOut, Monitor, Search,
-  Trash2, Wand2, X, Zap,
+  Trash2, Wand2, X, Zap, Copy,
 } from "lucide-react";
 import { type AppUser } from "@/lib/auth";
-import { deleteDeck, watchDeckList, type DeckListItem } from "@/lib/decks";
+import { deleteDeck, duplicateDeck, watchDeckList, type DeckListItem } from "@/lib/decks";
 import DeckThumbnail from "./DeckThumbnail";
 import Logo from "./Logo";
 import ThemeToggle from "./ThemeToggle";
@@ -104,6 +104,19 @@ export default function DashboardMobile({
   };
 
   const onNewResume = () => { window.location.assign("/resume"); };
+
+  const [duplicating, setDuplicating] = useState(false);
+  const onDuplicate = async (id: string) => {
+    if (duplicating) return;
+    setDuplicating(true);
+    try {
+      await duplicateDeck(user.uid, id);
+    } catch (err) {
+      alert("Failed to duplicate deck");
+    } finally {
+      setDuplicating(false);
+    }
+  };
 
   return (
     <div className="min-h-screen" style={{ background: "var(--ezd-bg-page)" }}>
@@ -272,7 +285,7 @@ export default function DashboardMobile({
           ) : (
             <div className="flex flex-col gap-3">
               {visibleDecks.map((d) => (
-                <MobileDeckCard key={d.id} deck={d} onAskDelete={() => setConfirmId(d.id)} />
+                <MobileDeckCard key={d.id} deck={d} onAskDelete={() => setConfirmId(d.id)} onDuplicate={() => onDuplicate(d.id)} />
               ))}
             </div>
           )}
@@ -310,11 +323,18 @@ export default function DashboardMobile({
           </div>
         </div>
       )}
+
+      {duplicating && (
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/50 backdrop-blur-sm">
+          <Loader2 size={32} className="animate-spin text-white" />
+          <p className="mt-2 text-sm font-medium text-white">Duplicating deck...</p>
+        </div>
+      )}
     </div>
   );
 }
 
-function MobileDeckCard({ deck, onAskDelete }: { deck: DeckListItem; onAskDelete: () => void }) {
+function MobileDeckCard({ deck, onDuplicate, onAskDelete }: { deck: DeckListItem; onDuplicate: () => void; onAskDelete: () => void }) {
   return (
     <article className="flex gap-3 rounded-2xl border border-white/10 bg-white/[0.02] p-3">
       <div className="w-[110px] shrink-0">
@@ -330,6 +350,13 @@ function MobileDeckCard({ deck, onAskDelete }: { deck: DeckListItem; onAskDelete
           {deck.shareId && (
             <Link href={`/share/${deck.shareId}`} target="_blank" className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/75">Share</Link>
           )}
+          <button
+            onClick={onDuplicate}
+            className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-2 text-white/75"
+            aria-label="Duplicate deck"
+          >
+            <Copy size={13} />
+          </button>
           <button
             onClick={onAskDelete}
             className="rounded-lg border border-red-500/30 bg-red-500/10 px-2.5 py-2 text-red-200"
