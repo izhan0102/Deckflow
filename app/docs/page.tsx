@@ -15,6 +15,7 @@ import { searchPexels, type PexelsPhoto } from "@/lib/pexels";
 import { renderPagesToPdf } from "@/lib/docPdf";
 import { createDoc, saveDoc, loadDoc } from "@/lib/docStore";
 import DocGenOverlay from "@/components/DocGenOverlay";
+import { readGuestWork, clearGuestWork } from "@/lib/guestWork";
 
 const DENSITIES: DocDensity[] = ["concise", "balanced", "detailed", "comprehensive"];
 const ACC = "var(--ezd-fg-strong)";
@@ -104,6 +105,28 @@ export default function DocsStudio() {
       }
     } catch (e: any) { setErr(e?.message || "Failed."); } finally { setLoading(false); }
   };
+
+  // Guest "try before signup": once signed in, restore the brief they entered
+  // on /start and auto-run the (authenticated) generation.
+  const autoGenRef = useRef(false);
+  useEffect(() => {
+    if (!user) return;
+    const gw = readGuestWork();
+    if (gw?.kind === "doc") {
+      setTopic(gw.topic || "");
+      if (gw.settings?.pages) setPages(gw.settings.pages);
+      if (typeof gw.settings?.densityIdx === "number") setDensityIdx(gw.settings.densityIdx);
+      clearGuestWork();
+      autoGenRef.current = true;
+    }
+  }, [user]);
+  useEffect(() => {
+    if (autoGenRef.current && step === "prompt" && !loading && topic.trim().length >= 5) {
+      autoGenRef.current = false;
+      generate();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topic, step, loading]);
 
   /* block ops */
   const update = (id: string, patch: Partial<DocBlock>) => setBlocks((bs) => bs.map((b) => (b.id === id ? { ...b, ...patch } as DocBlock : b)));
