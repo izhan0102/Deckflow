@@ -192,6 +192,57 @@ export function nextMonthlyResetAt(now = new Date()): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 0, 0, 0, 0));
 }
 
+/* ----------------------------- daily AI cap ----------------------------- */
+
+/** YYYY-MM-DD (UTC) — matches the server's daily counter key. */
+export function dayKey(d = new Date()): string {
+  return d.toISOString().slice(0, 10);
+}
+
+/** Live-watch today's AI-generation count (server-authoritative, read-only). */
+export function watchDailyGenerations(uid: string, cb: (count: number) => void): () => void {
+  let activeDay = dayKey();
+  let unsubFb: (() => void) | null = null;
+  let interval: number | undefined;
+
+  const subscribe = () => {
+    unsubFb?.();
+    unsubFb = null;
+    const db = getFirebaseDb();
+    if (!db) { cb(0); return; }
+    const node = ref(db, `usage/${uid}/daily/${activeDay}`);
+    const u = onValue(node, (snap) => {
+      const v = snap.val();
+      cb(typeof v === "number" && isFinite(v) ? v : 0);
+    });
+    unsubFb = () => u();
+  };
+
+  subscribe();
+  if (typeof window !== "undefined") {
+    interval = window.setInterval(() => {
+      const nd = dayKey();
+      if (nd !== activeDay) { activeDay = nd; cb(0); subscribe(); }
+    }, 60_000);
+  }
+
+  return () => { unsubFb?.(); if (interval !== undefined) window.clearInterval(interval); };
+}
+
+/** First instant (UTC) of the next day — when the daily cap resets. */
+export function nextDailyResetAt(now = new Date()): Date {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0, 0));
+}
+
+/** Human-readable "in 5h 12m" until the daily reset. */
+export function formatDailyResetIn(now = new Date()): string {
+  const ms = nextDailyResetAt(now).getTime() - now.getTime();
+  if (ms <= 0) return "soon";
+  const hours = Math.floor(ms / 3_600_000);
+  if (hours >= 1) return `${hours}h ${Math.floor((ms % 3_600_000) / 60_000)}m`;
+  return `${Math.floor(ms / 60_000)} min`;
+}
+
 /** Human-readable "in 12 days" / "in 3h" until the monthly reset. */
 export function formatMonthlyResetIn(now = new Date()): string {
   const ms = nextMonthlyResetAt(now).getTime() - now.getTime();

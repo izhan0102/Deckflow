@@ -96,6 +96,10 @@ export const PLANS: Record<PlanId, Plan> = {
 export const PLAN_ORDER: PlanId[] = ["free", "pro"];
 export const DEFAULT_PLAN: PlanId = "free";
 
+/** Hard daily AI-generation cap for ANY account (free, Pro, trial) — a cost
+ *  safety net so no single user can run up the bill. Shared client+server. */
+export const DAILY_GEN_CAP = 10;
+
 /**
  * Purchasable products. "pro" is the individual plan; "team" and "org" are
  * multi-seat plans that grant Pro to the owner plus a number of member seats

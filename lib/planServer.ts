@@ -15,7 +15,7 @@ import { getDatabase } from "firebase-admin/database";
 import { getAdminAppOrThrow } from "./firebaseAdmin";
 import {
   type PlanId, type PlanFeature, DEFAULT_PLAN, resolvePlanFromNode,
-  planHasFeature, planDeckLimit, getPlan,
+  planHasFeature, planDeckLimit, getPlan, DAILY_GEN_CAP,
 } from "./plans";
 
 /** Thrown when a plan doesn't allow the requested action. Maps to 402/403. */
@@ -37,10 +37,6 @@ function monthKey(d = new Date()): string {
 function dayKey(d = new Date()): string {
   return d.toISOString().slice(0, 10);
 }
-
-/** Hard daily generation cap for ANY account (free, Pro, trial) — a safety net
- *  so no single user can run up the AI bill. Generous for real users. */
-export const DAILY_GEN_CAP = Number(process.env.DAILY_GEN_CAP) || 50;
 
 /** Throw if the user has hit the daily AI cap. Applies to everyone. */
 export async function requireDailyAllowance(uid: string): Promise<void> {
