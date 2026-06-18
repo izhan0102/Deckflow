@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest, AuthError } from "@/lib/firebaseAdmin";
 import { rateLimitResponse } from "@/lib/rateLimit";
-import { normalizePlan, type PlanId } from "@/lib/plans";
+import { normalizeProduct, type ProductId } from "@/lib/plans";
 import { quote, incrementCouponUsage, normalizeCurrency, type BillingPeriod } from "@/lib/billing";
-import { grantPlan } from "@/lib/razorpayServer";
+import { grantProduct } from "@/lib/razorpayServer";
 
 export const runtime = "nodejs";
 
@@ -21,15 +21,12 @@ export async function POST(req: NextRequest) {
     }
     const uid = await authenticateRequest(req);
     const body = await req.json().catch(() => ({}));
-    const plan = normalizePlan(body?.plan) as PlanId;
-    if (plan !== "pro" && plan !== "proplus") {
-      return NextResponse.json({ error: "Invalid plan." }, { status: 400 });
-    }
+    const product: ProductId = normalizeProduct(body?.product || body?.plan);
     const period: BillingPeriod = body?.period === "annual" ? "annual" : "monthly";
     const currency = normalizeCurrency(body?.currency);
     const couponCode: string | undefined = typeof body?.coupon === "string" ? body.coupon : undefined;
 
-    const q = await quote(plan, period, currency, couponCode);
+    const q = await quote(product, period, currency, couponCode);
     if (q.couponError === "limit") {
       return NextResponse.json({ error: "This coupon has reached its usage limit." }, { status: 409 });
     }
@@ -44,8 +41,8 @@ export async function POST(req: NextRequest) {
     if (q.free || q.amountMinor <= 0) {
       const ok = q.couponCode ? await incrementCouponUsage(q.couponCode) : true;
       if (!ok) return NextResponse.json({ error: "This coupon has reached its usage limit." }, { status: 409 });
-      await grantPlan(uid, plan, "coupon_free", period);
-      return NextResponse.json({ free: true, granted: true, plan, period });
+      await grantProduct(uid, product, "coupon_free", period);
+      return NextResponse.json({ free: true, granted: true, product, period });
     }
 
     const auth = Buffer.from(`${KEY_ID}:${KEY_SECRET}`).toString("base64");
@@ -55,7 +52,7 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         amount: q.amountMinor,
         currency: q.currency,
-        notes: { uid, plan, period, coupon: q.couponCode || "" },
+        notes: { uid, product, period, coupon: q.couponCode || "" },
       }),
     });
     const data = await res.json().catch(() => ({}));
@@ -68,7 +65,7 @@ export async function POST(req: NextRequest) {
       amount: q.amountMinor,
       currency: q.currency,
       keyId: KEY_ID,
-      plan,
+      product,
       period,
       coupon: q.couponCode || "",
     });

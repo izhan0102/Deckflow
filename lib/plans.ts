@@ -12,7 +12,7 @@
  * enforced so the experience (and the locks) are real today.
  */
 
-export type PlanId = "free" | "pro" | "proplus";
+export type PlanId = "free" | "pro";
 
 /** Feature flags a plan can unlock. Keep these stable — both the client
  *  and the server reference them by string. */
@@ -69,34 +69,8 @@ export const PLANS: Record<PlanId, Plan> = {
     id: "pro",
     name: "Pro",
     price: 5,
-    decksPerMonth: 10,
-    tagline: "For people who present often.",
-    features: {
-      speakerNotes: true,
-      qaPrep: true,
-      translate: false,
-      icons: true,
-      reorder: true,
-      handout: true,
-      density: true,
-      template: true,
-    },
-    highlights: [
-      "10 decks per month",
-      "AI speaker notes + teleprompter",
-      "Q&A prep",
-      "Change deck density & template anytime",
-      "Notes handout PDF export",
-      "Add icons from the editor",
-      "Reorder slides freely",
-    ],
-  },
-  proplus: {
-    id: "proplus",
-    name: "Pro Plus",
-    price: 10,
     decksPerMonth: Infinity,
-    tagline: "Everything, no limits.",
+    tagline: "Everything, unlimited.",
     features: {
       speakerNotes: true,
       qaPrep: true,
@@ -108,16 +82,63 @@ export const PLANS: Record<PlanId, Plan> = {
       template: true,
     },
     highlights: [
-      "Unlimited decks",
-      "Everything in Pro",
-      "One-click deck translation",
-      "Priority access to new features",
+      "Unlimited presentations, documents & resumes",
+      "AI speaker notes + teleprompter",
+      "Q&A prep & one-click translation",
+      "Change deck density & template anytime",
+      "Notes handout PDF export",
+      "200k icons + free reordering",
+      "No watermark on exports",
     ],
   },
 };
 
-export const PLAN_ORDER: PlanId[] = ["free", "pro", "proplus"];
+export const PLAN_ORDER: PlanId[] = ["free", "pro"];
 export const DEFAULT_PLAN: PlanId = "free";
+
+/**
+ * Purchasable products. "pro" is the individual plan; "team" and "org" are
+ * multi-seat plans that grant Pro to the owner plus a number of member seats
+ * (members get Pro automatically when they sign in).
+ */
+export type ProductId = "pro" | "team" | "org";
+
+export type Product = {
+  id: ProductId;
+  name: string;
+  /** Monthly price in USD / INR. */
+  usd: number;
+  inr: number;
+  /** Total Pro seats this product provides (owner + members). */
+  seats: number;
+  tagline: string;
+  highlights: string[];
+};
+
+export const PRODUCTS: Record<ProductId, Product> = {
+  pro: {
+    id: "pro", name: "Pro", usd: 5, inr: 450, seats: 1,
+    tagline: "Everything, unlimited — for one person.",
+    highlights: ["Unlimited everything", "All Pro features", "No watermark"],
+  },
+  team: {
+    id: "team", name: "Team", usd: 10, inr: 900, seats: 3,
+    tagline: "Pro for a small team — up to 3 people.",
+    highlights: ["Up to 3 Pro members", "Everything in Pro for all", "Manage seats in Settings"],
+  },
+  org: {
+    id: "org", name: "Organisation", usd: 16, inr: 1500, seats: 20,
+    tagline: "Pro for your whole org — up to 20 people.",
+    highlights: ["Up to 20 Pro members", "Members auto-upgraded on sign-in", "Manage emails in Settings"],
+  },
+};
+
+export function getProduct(id: ProductId): Product {
+  return PRODUCTS[id] || PRODUCTS.pro;
+}
+export function normalizeProduct(value: unknown): ProductId {
+  return value === "team" || value === "org" ? value : "pro";
+}
 
 /**
  * TEMPORARY: drop the paywall. While true, every user gets every feature,
@@ -139,9 +160,10 @@ export function isPromoOpen(now: number = Date.now()): boolean {
   return now <= PROMO_OFFER_END;
 }
 
-/** Coerce any value into a valid PlanId, defaulting to free. */
+/** Coerce any value into a valid PlanId, defaulting to free. Legacy "proplus"
+ *  grants map to "pro" (Pro Plus was merged into an unlimited Pro). */
 export function normalizePlan(value: unknown): PlanId {
-  return value === "pro" || value === "proplus" ? value : "free";
+  return value === "pro" || value === "proplus" ? "pro" : "free";
 }
 
 /**

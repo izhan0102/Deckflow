@@ -3,9 +3,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle, ArrowRight, Clock, Copy, FileText, Home, Info, LayoutGrid,
-  LogOut, MoreVertical, Pencil, Plus, Search, Share2, Sparkles, Trash2, Wand2, X, Zap, Lock, Contact,
+  LogOut, MoreVertical, Pencil, Plus, Search, Share2, Sparkles, Trash2, Wand2, X, Zap, Lock, Contact, Settings,
 } from "lucide-react";
-import { type AppUser } from "@/lib/auth";
+import { type AppUser, getIdToken } from "@/lib/auth";
 import {
   deleteDeck, duplicateDeck, renameDeck, watchDeckList, type DeckListItem,
 } from "@/lib/decks";
@@ -16,6 +16,7 @@ import UpgradeDialog from "./UpgradeDialog";
 import ReportDialog from "./ReportDialog";
 import { watchMonthlyGenerations, formatMonthlyResetIn } from "@/lib/usage";
 import { watchUserPlan, getUserPlan } from "@/lib/plan";
+import { watchMembership, type MemberPlan } from "@/lib/seats";
 import { type PlanId, planDeckLimit, getPlan, FREE_FOR_ALL } from "@/lib/plans";
 
 /**
@@ -50,6 +51,7 @@ export default function Dashboard({
   const [query, setQuery] = useState("");
   const [monthGenerations, setMonthGenerations] = useState(0);
   const [plan, setPlan] = useState<PlanId>("free");
+  const [membership, setMembership] = useState<MemberPlan | null>(null);
 
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [upgradeReason, setUpgradeReason] = useState<string | undefined>(undefined);
@@ -70,6 +72,16 @@ export default function Dashboard({
 
   useEffect(() => {
     const unsub = watchUserPlan(user.uid, setPlan);
+    return () => unsub();
+  }, [user.uid]);
+
+  // On load, materialize any Team/Org seat the user's email holds into their plan.
+  useEffect(() => {
+    getIdToken().then((t) => fetch("/api/seats/sync", { method: "POST", headers: { Authorization: `Bearer ${t}` } })).catch(() => {});
+  }, [user.uid]);
+
+  useEffect(() => {
+    const unsub = watchMembership(user.uid, setMembership);
     return () => unsub();
   }, [user.uid]);
 
@@ -108,7 +120,7 @@ export default function Dashboard({
   // AI Documents are a premium feature (Pro / Pro Plus only).
   const onNewDoc = () => {
     if (!FREE_FOR_ALL && plan === "free") {
-      openUpgrade("AI Documents are a Pro feature. Upgrade to Pro or Pro Plus to create documents.");
+      openUpgrade("AI Documents are a Pro feature. Upgrade to Pro to create documents.");
       return;
     }
     window.location.assign("/docs");
@@ -165,12 +177,13 @@ export default function Dashboard({
           <NavItem icon={<FileText size={15} />} label="My docs" href="/app/docs" />
           <NavItem icon={<Contact size={15} />} label="My resumes" href="/app/resumes" />
           <NavItem icon={<LayoutGrid size={15} />} label="Templates" onClick={onStartFromTemplate} />
+          <NavItem icon={<Settings size={15} />} label="Settings" href="/app/settings" />
           <NavItem icon={<Info size={15} />} label="About / Dev's note" href="/about" />
         </nav>
 
         {/* Combined plan + usage (#2) */}
         <div className="mt-6">
-          <PlanUsageCard used={monthGenerations} plan={plan} onUpgrade={() => openUpgrade()} />
+          <PlanUsageCard used={monthGenerations} plan={plan} onUpgrade={() => openUpgrade()} membership={membership} />
         </div>
 
         {/* Bottom-anchored account block */}
@@ -420,7 +433,7 @@ function CreateCard({ icon, title, desc, cta, onClick, disabled, badge, golden, 
 
 /* ----------------------- Combined plan + usage card ----------------------- */
 
-function PlanUsageCard({ used, plan, onUpgrade }: { used: number; plan: PlanId; onUpgrade: () => void }) {
+function PlanUsageCard({ used, plan, onUpgrade, membership }: { used: number; plan: PlanId; onUpgrade: () => void; membership?: MemberPlan | null }) {
   const limit = planDeckLimit(plan);
   const unlimited = limit === Infinity;
   const remaining = unlimited ? Infinity : Math.max(0, limit - used);
@@ -434,7 +447,7 @@ function PlanUsageCard({ used, plan, onUpgrade }: { used: number; plan: PlanId; 
   }, []);
 
   const planName = getPlan(plan).name;
-  const ctaLabel = plan === "free" ? "Upgrade" : plan === "pro" ? "Go Pro Plus" : "View plans";
+  const ctaLabel = plan === "free" ? "Upgrade" : "Manage plan";
 
   return (
     <div
@@ -450,6 +463,12 @@ function PlanUsageCard({ used, plan, onUpgrade }: { used: number; plan: PlanId; 
           {unlimited ? `${used} / ∞` : `${used} / ${limit}`}
         </span>
       </div>
+
+      {membership && (
+        <div className="mt-1.5 text-[11px] leading-snug" style={{ color: "var(--ezd-fg-muted)" }}>
+          Granted by <strong style={{ color: "var(--ezd-fg-strong)" }}>{membership.ownerName || "your team"}</strong>{membership.kind ? ` · ${membership.kind === "org" ? "Organisation" : "Team"}` : ""}
+        </div>
+      )}
 
       <div className="mt-2 text-[11px] leading-snug" style={{ color: "var(--ezd-fg-muted)" }}>
         {unlimited

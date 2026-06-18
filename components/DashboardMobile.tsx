@@ -97,7 +97,7 @@ export default function DashboardMobile({
 
   const onNewDoc = () => {
     if (!FREE_FOR_ALL && plan === "free") {
-      openUpgrade("AI Documents are a Pro feature. Upgrade to Pro or Pro Plus to create documents.");
+      openUpgrade("AI Documents are a Pro feature. Upgrade to Pro to create documents.");
       return;
     }
     window.location.assign("/docs");
@@ -143,7 +143,7 @@ export default function DashboardMobile({
               onClick={() => { setMenuOpen(false); openUpgrade(); }}
               className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-white/85 hover:bg-white/10"
             >
-              <Zap size={14} /> {plan === "proplus" ? "View plans" : "Upgrade plan"}
+              <Zap size={14} /> Upgrade plan
             </button>
             )}
             <button

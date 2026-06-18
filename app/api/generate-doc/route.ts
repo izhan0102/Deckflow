@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     if (!FREE_FOR_ALL) {
       const plan = await getUserPlanServer(uid);
       if (plan === "free") {
-        throw new PlanLimitError("AI Documents are a Pro feature. Upgrade to Pro or Pro Plus.", "plan_feature_locked", 403);
+        throw new PlanLimitError("AI Documents are a Pro feature. Upgrade to Pro.", "plan_feature_locked", 403);
       }
     }
     await requireDeckAllowance(uid); // documents count against the same monthly allowance

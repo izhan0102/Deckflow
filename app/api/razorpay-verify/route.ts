@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest, AuthError } from "@/lib/firebaseAdmin";
 import { rateLimitResponse } from "@/lib/rateLimit";
-import { grantPlan, hmacHex, safeEqual } from "@/lib/razorpayServer";
-import { incrementCouponUsage, quote, normalizeCurrency, normalizePlan, type BillingPeriod } from "@/lib/billing";
+import { grantProduct, hmacHex, safeEqual } from "@/lib/razorpayServer";
+import { incrementCouponUsage, quote, normalizeCurrency, type BillingPeriod } from "@/lib/billing";
+import { normalizeProduct } from "@/lib/plans";
 
 export const runtime = "nodejs";
 
@@ -21,7 +22,7 @@ export async function POST(req: NextRequest) {
     const orderId = body?.razorpay_order_id;
     const paymentId = body?.razorpay_payment_id;
     const signature = body?.razorpay_signature;
-    const plan = normalizePlan(body?.plan);
+    const product = normalizeProduct(body?.product || body?.plan);
     const period: BillingPeriod = body?.period === "annual" ? "annual" : "monthly";
     const currency = normalizeCurrency(body?.currency);
     const coupon: string | undefined = typeof body?.coupon === "string" && body.coupon ? body.coupon : undefined;
@@ -37,11 +38,11 @@ export async function POST(req: NextRequest) {
 
     // Recompute the price server-side (same logic as the order) so the stored
     // amount is authoritative, not whatever the client claims.
-    const q = await quote(plan as any, period, currency, coupon);
-    const granted = await grantPlan(uid, plan, paymentId, period, q.finalAmount, currency);
-    if (!granted) return NextResponse.json({ error: "Invalid plan." }, { status: 400 });
+    const q = await quote(product, period, currency, coupon);
+    const granted = await grantProduct(uid, product, paymentId, period, q.finalAmount, currency);
+    if (!granted) return NextResponse.json({ error: "Invalid product." }, { status: 400 });
     if (coupon) await incrementCouponUsage(coupon).catch(() => {});
-    return NextResponse.json({ ok: true, plan, period });
+    return NextResponse.json({ ok: true, product, period });
   } catch (err: any) {
     const status = err instanceof AuthError ? err.status : 500;
     return NextResponse.json({ error: err?.message || "Verification failed." }, { status });

@@ -1,6 +1,6 @@
 import { getDatabase } from "firebase-admin/database";
 import { getAdminAppOrThrow } from "./firebaseAdmin";
-import { PLANS, normalizePlan, type PlanId } from "./plans";
+import { PRODUCTS, normalizePlan, normalizeProduct, type PlanId, type ProductId } from "./plans";
 
 /**
  * Server-side billing: turns (plan, period, coupon) into a trusted price.
@@ -13,7 +13,7 @@ import { PLANS, normalizePlan, type PlanId } from "./plans";
 
 export type BillingPeriod = "monthly" | "annual";
 
-export type CouponScope = "any" | "pro" | "proplus";
+export type CouponScope = "any" | "pro" | "team" | "org";
 export type CouponPeriodScope = "any" | "monthly" | "annual";
 
 export type Coupon = {
@@ -38,17 +38,19 @@ const YEAR_MS = 365 * 24 * 60 * 60 * 1000;
 
 export type Currency = "USD" | "INR";
 
-/** INR monthly prices (Indian users pay in ₹ via UPI/cards/netbanking). */
-const INR_PRICES: Record<string, number> = { pro: 450, proplus: 899 };
-
 export function normalizeCurrency(c: unknown): Currency {
   return c === "INR" ? "INR" : "USD";
 }
 
-/** Monthly list price for a plan in a given currency. */
+/** Monthly price for a PRODUCT (pro/team/org) in a given currency. */
+export function productMonthly(product: ProductId, currency: Currency): number {
+  const p = PRODUCTS[product] || PRODUCTS.pro;
+  return currency === "INR" ? p.inr : p.usd;
+}
+
+/** Monthly list price for a plan in a given currency (Pro = the pro product). */
 export function planPrice(plan: PlanId, currency: Currency): number {
-  if (currency === "INR") return INR_PRICES[plan] ?? 0;
-  return PLANS[plan].price || 0; // USD
+  return productMonthly(normalizeProduct(plan), currency);
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -58,9 +60,9 @@ export function grantDurationMs(period: BillingPeriod): number {
   return period === "annual" ? YEAR_MS : MONTH_MS;
 }
 
-/** Base price for a plan over the chosen period (annual = 12 months − 10%). */
-export function basePrice(plan: PlanId, period: BillingPeriod, currency: Currency): number {
-  const monthly = planPrice(plan, currency);
+/** Base price for a product over the chosen period (annual = 12 months − 10%). */
+export function basePrice(product: ProductId, period: BillingPeriod, currency: Currency): number {
+  const monthly = productMonthly(product, currency);
   return period === "annual" ? round2(monthly * 12 * (1 - ANNUAL_DISCOUNT)) : monthly;
 }
 
@@ -78,14 +80,15 @@ export async function getCoupon(code: string): Promise<Coupon | null> {
     maxUses: typeof v?.maxUses === "number" ? v.maxUses : 0,
     usedCount: typeof v?.usedCount === "number" ? v.usedCount : 0,
     active: v?.active !== false,
-    plan: v?.plan === "pro" || v?.plan === "proplus" ? v.plan : "any",
+    plan: ["pro", "team", "org"].includes(v?.plan) ? v.plan : "any",
     period: v?.period === "monthly" || v?.period === "annual" ? v.period : "any",
     createdAt: v?.createdAt,
   };
 }
 
 export type CheckoutQuote = {
-  plan: PlanId;
+  product: ProductId;
+  plan: PlanId;            // tier granted (always "pro" for paid products)
   period: BillingPeriod;
   currency: string;
   baseAmount: number;     // price for the period (annual already −10%)
@@ -98,11 +101,12 @@ export type CheckoutQuote = {
   couponError?: "invalid" | "limit" | "not_applicable" | null;
 };
 
-/** Compute the authoritative checkout quote. */
-export async function quote(plan: PlanId, period: BillingPeriod, currency: Currency, couponCode?: string): Promise<CheckoutQuote> {
-  const monthly = planPrice(plan, currency);
+/** Compute the authoritative checkout quote for a product (pro/team/org). */
+export async function quote(product: ProductId, period: BillingPeriod, currency: Currency, couponCode?: string): Promise<CheckoutQuote> {
+  const prod = normalizeProduct(product);
+  const monthly = productMonthly(prod, currency);
   const list = period === "annual" ? round2(monthly * 12) : monthly; // undiscounted period price
-  const base = basePrice(plan, period, currency);                    // annual already −10%
+  const base = basePrice(prod, period, currency);                    // annual already −10%
   let discountPct = 0;
   let free = false;
   let couponError: CheckoutQuote["couponError"] = null;
@@ -112,7 +116,7 @@ export async function quote(plan: PlanId, period: BillingPeriod, currency: Curre
     const c = await getCoupon(code);
     if (!c || !c.active) couponError = "invalid";
     else if (c.maxUses > 0 && c.usedCount >= c.maxUses) couponError = "limit";
-    else if (c.plan !== "any" && c.plan !== plan) couponError = "not_applicable";
+    else if (c.plan !== "any" && c.plan !== prod) couponError = "not_applicable";
     else if (c.period !== "any" && c.period !== period) couponError = "not_applicable";
     else if (c.type === "free") free = true;
     else discountPct = clamp(c.value, 0, 100);
@@ -120,7 +124,8 @@ export async function quote(plan: PlanId, period: BillingPeriod, currency: Curre
 
   const finalAmount = free ? 0 : round2(base * (1 - discountPct / 100));
   return {
-    plan,
+    product: prod,
+    plan: "pro",
     period,
     currency,
     baseAmount: base,

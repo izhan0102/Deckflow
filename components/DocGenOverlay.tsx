@@ -22,7 +22,7 @@ export default function DocGenOverlay({ pages }: { pages?: number }) {
     return () => clearInterval(t);
   }, []);
 
-  const ACC = "#7C5CFF";
+  const ACC = "#1a1a1a"; // the paper is always white, so use ink-black (monochrome)
   const line = (w: number, delay: number, h = 6) => (
     <div style={{ height: h, width: `${w}%`, borderRadius: 3, background: "#0f172a", opacity: 0.14, marginTop: 7, animation: `dgRise .5s ${delay}s both` }} />
   );

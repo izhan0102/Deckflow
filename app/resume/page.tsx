@@ -307,7 +307,7 @@ export default function ResumeStudio() {
 
           {/* Refine with AI — premium */}
           <button onClick={refine} disabled={refining}
-            style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", borderRadius: 12, border: "none", background: "#7C5CFF", color: "#fff", padding: "12px 16px", fontSize: 14, fontWeight: 700, cursor: refining ? "wait" : "pointer", opacity: refining ? 0.7 : 1 }}>
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", borderRadius: 12, border: "none", background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)", padding: "12px 16px", fontSize: 14, fontWeight: 700, cursor: refining ? "wait" : "pointer", opacity: refining ? 0.7 : 1 }}>
             {refining ? <><Loader2 size={16} className="animate-spin" /> Refining your resume…</> : <><Sparkles size={16} /> Refine with AI
               <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.06em", padding: "2px 6px", borderRadius: 99, background: "rgba(255,255,255,0.22)" }}>PRO</span></>}
           </button>

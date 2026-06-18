@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest, AuthError } from "@/lib/firebaseAdmin";
 import { rateLimitResponse } from "@/lib/rateLimit";
-import { normalizePlan, type PlanId } from "@/lib/plans";
+import { normalizeProduct } from "@/lib/plans";
 import { quote, normalizeCurrency, type BillingPeriod } from "@/lib/billing";
 
 export const runtime = "nodejs";
@@ -14,13 +14,10 @@ export async function POST(req: NextRequest) {
   try {
     await authenticateRequest(req);
     const body = await req.json().catch(() => ({}));
-    const plan = normalizePlan(body?.plan) as PlanId;
-    if (plan !== "pro" && plan !== "proplus") {
-      return NextResponse.json({ error: "Invalid plan." }, { status: 400 });
-    }
+    const product = normalizeProduct(body?.product || body?.plan);
     const period: BillingPeriod = body?.period === "annual" ? "annual" : "monthly";
     const couponCode: string | undefined = typeof body?.coupon === "string" ? body.coupon : undefined;
-    const q = await quote(plan, period, normalizeCurrency(body?.currency), couponCode);
+    const q = await quote(product, period, normalizeCurrency(body?.currency), couponCode);
     return NextResponse.json({
       currency: q.currency,
       baseAmount: q.baseAmount,

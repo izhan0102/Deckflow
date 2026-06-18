@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     const uid = await authenticateRequest(req);
     if (!FREE_FOR_ALL) {
       const plan = await getUserPlanServer(uid);
-      if (plan === "free") throw new PlanLimitError("Refine with AI is a Pro feature. Upgrade to Pro or Pro Plus.", "plan_feature_locked", 403);
+      if (plan === "free") throw new PlanLimitError("Refine with AI is a Pro feature. Upgrade to Pro.", "plan_feature_locked", 403);
     }
     const body = await req.json().catch(() => ({}));
     const resume = body?.resume as ResumeData;

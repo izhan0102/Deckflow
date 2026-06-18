@@ -67,7 +67,7 @@ export const SHORT_DESCRIPTION =
 export const FAQ: { q: string; a: string }[] = [
   {
     q: "Is EXdeck free to use?",
-    a: "Yes, there's a free plan. You can generate, edit, preview, present, and export decks to PowerPoint (.pptx) and PDF on the free plan within a monthly deck limit (free exports carry a small watermark). Paid plans, Pro and Pro Plus, raise the limits and unlock more features.",
+    a: "Yes, there's a free plan. You can generate, edit, preview, present, and export decks to PowerPoint (.pptx) and PDF on the free plan within a monthly deck limit (free exports carry a small watermark). The Pro plan removes the limits and unlocks every feature, with Team and Organisation plans available for shared seats.",
   },
   {
     q: "How do I make a PowerPoint presentation from text?",

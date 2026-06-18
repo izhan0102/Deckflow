@@ -428,7 +428,7 @@ export default function LandingPage() {
             <PricingPlans onUpgrade={() => router.push("/auth?redirect=/app")} />
           </div>
           <p className="mt-5 text-center text-[12px]" style={{ color: "var(--ezd-fg-quiet)" }}>
-            Paid plans are coming soon. Everyone starts on the free plan.
+            Team &amp; Organisation members are upgraded to Pro automatically when they sign in. Manage seats in Settings.
           </p>
         </Reveal>
       </section>

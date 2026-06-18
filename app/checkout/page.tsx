@@ -7,29 +7,26 @@ import {
   Globe, QrCode, AlertTriangle, RotateCw, CheckCircle2, AlertCircle,
 } from "lucide-react";
 import Logo from "@/components/Logo";
-import { PLANS, normalizePlan, type PlanId } from "@/lib/plans";
+import { PRODUCTS, getProduct, normalizeProduct, type ProductId } from "@/lib/plans";
 import { onAuthStateChange, getIdToken, type AppUser } from "@/lib/auth";
-import { startCheckout, razorpayConfigured, type BillingPeriod } from "@/lib/razorpay";
+import { startCheckout, startTrial, razorpayConfigured, type BillingPeriod } from "@/lib/razorpay";
 
 type Currency = "USD" | "INR";
-const ACCENT = "#7C5CFF";
+const ACCENT = "var(--ezd-fg-strong)";
+const ON_ACCENT = "var(--ezd-bg-page)"; // readable text on an accent (fg-strong) background
 const sym = (c: Currency) => (c === "INR" ? "₹" : "$");
 const fmt = (n: number, c: Currency) => {
   const s = sym(c);
   return Number.isInteger(n) ? `${s}${n}` : `${s}${(Math.round(n * 100) / 100).toFixed(2)}`;
 };
 const round2 = (n: number) => Math.round(n * 100) / 100;
-// Mirrors lib/billing prices so the displayed amount updates instantly on switch.
-const PRICES: Record<Currency, Record<string, number>> = {
-  USD: { pro: 5, proplus: 10 },
-  INR: { pro: 450, proplus: 899 },
-};
+const monthlyOf = (product: ProductId, c: Currency) => (c === "INR" ? PRODUCTS[product].inr : PRODUCTS[product].usd);
 
 function CheckoutInner() {
   const router = useRouter();
   const params = useSearchParams();
-  const plan = (normalizePlan(params.get("plan")) === "proplus" ? "proplus" : "pro") as PlanId;
-  const planDef = PLANS[plan];
+  const product = normalizeProduct(params.get("product") || params.get("plan"));
+  const planDef = getProduct(product);
 
   const [user, setUser] = useState<AppUser | null>(null);
   const [authReady, setAuthReady] = useState(false);
@@ -47,14 +44,15 @@ function CheckoutInner() {
   // immediate (no stale symbol+amount glitch). The server recomputes the same
   // numbers authoritatively at order time, so the charge always matches.
   const quote = useMemo(() => {
-    const monthly = PRICES[currency][plan] ?? 0;
+    const monthly = monthlyOf(product, currency);
     const list = period === "annual" ? round2(monthly * 12) : monthly;
     const base = period === "annual" ? round2(monthly * 12 * 0.9) : monthly;
     const final = couponFree ? 0 : round2(base * (1 - couponDiscountPct / 100));
     return { base, list, final, discountPct: couponDiscountPct, free: couponFree };
-  }, [plan, period, currency, couponDiscountPct, couponFree]);
+  }, [product, period, currency, couponDiscountPct, couponFree]);
 
   const [paying, setPaying] = useState(false);
+  const [trialing, setTrialing] = useState(false);
   const [success, setSuccess] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
 
@@ -94,7 +92,7 @@ function CheckoutInner() {
         const res = await fetch("/api/coupon-check", {
           method: "POST",
           headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-          body: JSON.stringify({ plan, period, currency, coupon: appliedCoupon }),
+          body: JSON.stringify({ product, period, currency, coupon: appliedCoupon }),
         });
         const d = await res.json().catch(() => ({}));
         if (cancelled) return;
@@ -123,7 +121,7 @@ function CheckoutInner() {
       }
     })();
     return () => { cancelled = true; };
-  }, [authReady, user, plan, period, currency, appliedCoupon]);
+  }, [authReady, user, product, period, currency, appliedCoupon]);
 
   const monthlyEquivalent = useMemo(
     () => (period === "annual" ? quote.final / 12 : quote.final),
@@ -141,13 +139,23 @@ function CheckoutInner() {
   const clearCoupon = () => { autoAppliedRef.current = false; setAppliedCoupon(""); setCouponInput(""); setCouponState("idle"); setCouponMsg(null); };
 
   const pay = async () => {
-    if (!user) { router.push(`/auth?redirect=${encodeURIComponent(`/checkout?plan=${plan}`)}`); return; }
+    if (!user) { router.push(`/auth?redirect=${encodeURIComponent(`/checkout?product=${product}`)}`); return; }
     if (!razorpayConfigured()) { setFailure("Payments aren't configured yet."); return; }
     setPaying(true);
-    const r = await startCheckout({ plan, period, currency, coupon: appliedCoupon || undefined, email: user.email });
+    const r = await startCheckout({ product, period, currency, coupon: appliedCoupon || undefined, email: user.email });
     setPaying(false);
     if (r.ok) { setSuccess(true); return; }
     if (r.reason && r.reason !== "dismissed") setFailure(humanError(r.reason));
+  };
+
+  const startFreeTrial = async () => {
+    if (!user) { router.push(`/auth?redirect=${encodeURIComponent(`/checkout?product=pro`)}`); return; }
+    if (!razorpayConfigured()) { setFailure("Payments aren't configured yet."); return; }
+    setTrialing(true);
+    const r = await startTrial({ currency, email: user.email });
+    setTrialing(false);
+    if (r.ok) { setSuccess(true); return; }
+    if (r.reason && r.reason !== "dismissed") setFailure(r.reason === "not_configured" ? "Payments aren't configured yet." : r.reason);
   };
 
   if (!authReady) return <Centered>Loading…</Centered>;
@@ -156,9 +164,9 @@ function CheckoutInner() {
       <Centered>
         <div className="text-center">
           <p style={{ color: "var(--ezd-fg-muted)" }}>Sign in to continue to checkout.</p>
-          <Link href={`/auth?redirect=${encodeURIComponent(`/checkout?plan=${plan}`)}`}
+          <Link href={`/auth?redirect=${encodeURIComponent(`/checkout?product=${product}`)}`}
             className="mt-4 inline-flex rounded-full px-5 py-2 text-sm font-semibold"
-            style={{ background: ACCENT, color: "#fff" }}>Sign in</Link>
+            style={{ background: ACCENT, color: ON_ACCENT }}>Sign in</Link>
         </div>
       </Centered>
     );
@@ -168,7 +176,7 @@ function CheckoutInner() {
 
   return (
     <main className="min-h-screen" style={{ background: "var(--ezd-bg-page)", color: "var(--ezd-fg)" }}>
-      {success && <SuccessOverlay plan={plan} period={period} onClose={() => router.push("/app")} />}
+      {success && <SuccessOverlay name={planDef.name} period={period} onClose={() => router.push("/app")} />}
       {failure && <FailureOverlay reason={failure} onRetry={() => setFailure(null)} onClose={() => router.push("/app")} />}
 
       <header className="border-b" style={{ borderColor: "var(--ezd-divider)" }}>
@@ -183,7 +191,7 @@ function CheckoutInner() {
         <div>
           {appliedCoupon === LAUNCH_COUPON && couponState === "valid" && (
             <div className="mb-5 flex items-start gap-3 rounded-2xl border px-4 py-3"
-              style={{ background: "rgba(124,92,255,0.08)", borderColor: "rgba(124,92,255,0.45)" }}>
+              style={{ background: "var(--ezd-bg-hover)", borderColor: "var(--ezd-divider)" }}>
               <PartyPopper size={18} className="mt-0.5 shrink-0" style={{ color: ACCENT }} />
               <div>
                 <p className="text-[13.5px] font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>
@@ -317,14 +325,33 @@ function CheckoutInner() {
             <p className="mt-1 text-right text-[11.5px]" style={{ color: "var(--ezd-fg-quiet)" }}>≈ {fmt(monthlyEquivalent, currency)} / month</p>
           )}
 
+          {product === "pro" && !quote.free && (
+            <>
+              <button
+                onClick={startFreeTrial}
+                disabled={trialing || paying}
+                className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-[14px] font-semibold transition hover:opacity-90 disabled:opacity-60"
+                style={{ background: ACCENT, color: ON_ACCENT }}
+              >
+                {trialing ? <><Loader2 size={16} className="animate-spin" /> Starting trial…</> : <>Start 7-day free trial <ArrowRight size={16} /></>}
+              </button>
+              <p className="mt-2 text-center text-[11.5px]" style={{ color: "var(--ezd-fg-quiet)" }}>
+                Free for 7 days, then {fmt(monthlyOf("pro", currency), currency)}/month. Auto-renews. Cancel anytime.
+              </p>
+            </>
+          )}
+
           <button
             onClick={pay}
-            disabled={paying || couponState === "checking"}
-            className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-[14px] font-semibold transition hover:opacity-90 disabled:opacity-60"
-            style={{ background: ACCENT, color: "#ffffff" }}
+            disabled={paying || trialing || couponState === "checking"}
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border px-5 py-3 text-[14px] font-semibold transition hover:opacity-90 disabled:opacity-60"
+            style={product === "pro" && !quote.free
+              ? { borderColor: "var(--ezd-divider)", color: "var(--ezd-fg-strong)", background: "transparent" }
+              : { background: ACCENT, color: ON_ACCENT, border: "none" }}
           >
             {paying ? <><Loader2 size={16} className="animate-spin" /> Processing…</>
               : quote.free ? <>Activate free <ArrowRight size={16} /></>
+              : product === "pro" ? <>Or pay {fmt(quote.final, currency)} once</>
               : <>Pay {fmt(quote.final, currency)} <ArrowRight size={16} /></>}
           </button>
 
@@ -348,11 +375,11 @@ function RegionTab({ active, onClick, icon, title, sub }: { active: boolean; onC
   return (
     <button onClick={onClick}
       className="flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-left transition"
-      style={active ? { background: ACCENT, color: "#fff" } : { color: "var(--ezd-fg-muted)" }}>
-      <span style={{ color: active ? "#fff" : ACCENT }}>{icon}</span>
+      style={active ? { background: ACCENT, color: ON_ACCENT } : { color: "var(--ezd-fg-muted)" }}>
+      <span style={{ color: active ? ON_ACCENT : ACCENT }}>{icon}</span>
       <span>
-        <span className="block text-[13px] font-semibold" style={{ color: active ? "#fff" : "var(--ezd-fg-strong)" }}>{title}</span>
-        <span className="block text-[11px]" style={{ color: active ? "rgba(255,255,255,0.8)" : "var(--ezd-fg-quiet)" }}>{sub}</span>
+        <span className="block text-[13px] font-semibold" style={{ color: active ? ON_ACCENT : "var(--ezd-fg-strong)" }}>{title}</span>
+        <span className="block text-[11px]" style={{ color: active ? ON_ACCENT : "var(--ezd-fg-quiet)", opacity: active ? 0.8 : 1 }}>{sub}</span>
       </span>
     </button>
   );
@@ -362,10 +389,10 @@ function PeriodTab({ active, onClick, title, sub, badge }: { active: boolean; on
   return (
     <button onClick={onClick}
       className="relative rounded-xl px-4 py-3 text-left transition"
-      style={active ? { background: ACCENT, color: "#fff" } : { color: "var(--ezd-fg-muted)" }}>
-      <div className="text-[14px] font-semibold" style={{ color: active ? "#fff" : "var(--ezd-fg-strong)" }}>{title}</div>
-      <div className="text-[11.5px]" style={{ color: active ? "rgba(255,255,255,0.8)" : "var(--ezd-fg-quiet)" }}>{sub}</div>
-      {badge && <span className="absolute right-2 top-2 rounded-full px-1.5 py-0.5 text-[9px] font-bold" style={{ background: "#10b981", color: "#fff" }}>−10%</span>}
+      style={active ? { background: ACCENT, color: ON_ACCENT } : { color: "var(--ezd-fg-muted)" }}>
+      <div className="text-[14px] font-semibold" style={{ color: active ? ON_ACCENT : "var(--ezd-fg-strong)" }}>{title}</div>
+      <div className="text-[11.5px]" style={{ color: active ? ON_ACCENT : "var(--ezd-fg-quiet)", opacity: active ? 0.8 : 1 }}>{sub}</div>
+      {badge && <span className="absolute right-2 top-2 rounded-full px-1.5 py-0.5 text-[9px] font-bold" style={{ background: "var(--ezd-fg-strong)", color: "var(--ezd-bg-page)" }}>−10%</span>}
     </button>
   );
 }
@@ -385,12 +412,11 @@ function Centered({ children }: { children: React.ReactNode }) {
 
 /* ----------------------------- success screen ----------------------------- */
 
-function SuccessOverlay({ plan, period, onClose }: { plan: PlanId; period: BillingPeriod; onClose: () => void }) {
-  const name = PLANS[plan].name;
+function SuccessOverlay({ name, period, onClose }: { name: string; period: BillingPeriod; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-[120] grid place-items-center px-6" style={{ background: "var(--ezd-bg-page)", color: "var(--ezd-fg)" }}>
       <style>{overlayCss}</style>
-      <div className="ov-glow" style={{ ["--g" as any]: "rgba(124,92,255,0.30)" }} />
+      <div className="ov-glow" style={{ ["--g" as any]: "rgba(127,127,127,0.18)" }} />
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         {CONFETTI.map((c, i) => (<span key={i} className="ov-confetti" style={{ left: `${c.x}%`, background: c.col, animationDelay: `${c.d}s`, animationDuration: `${c.dur}s` }} />))}
       </div>
@@ -399,7 +425,7 @@ function SuccessOverlay({ plan, period, onClose }: { plan: PlanId; period: Billi
           <span className="ov-ring" style={{ borderColor: ACCENT }} />
           <span className="ov-ring ov-ring2" style={{ borderColor: ACCENT }} />
           <span className="ov-badge grid h-[68px] w-[68px] place-items-center rounded-full" style={{ background: ACCENT, ["--sh" as any]: ACCENT }}>
-            <Check size={38} strokeWidth={3} color="#ffffff" className="ov-icon" />
+            <Check size={38} strokeWidth={3} color="var(--ezd-bg-page)" className="ov-icon" />
           </span>
         </div>
         <div className="ov-l1 mt-6 inline-flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.22em]" style={{ color: ACCENT }}>
@@ -409,7 +435,7 @@ function SuccessOverlay({ plan, period, onClose }: { plan: PlanId; period: Billi
         <p className="ov-l3 mt-2 text-[14px] leading-relaxed" style={{ color: "var(--ezd-fg-muted)" }}>
           Welcome to EXdeck {name}. Your {period === "annual" ? "annual" : "monthly"} plan is active and everything&rsquo;s unlocked. Go build something great.
         </p>
-        <button onClick={onClose} className="ov-l4 mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-[14px] font-semibold transition hover:opacity-90" style={{ background: ACCENT, color: "#fff" }}>
+        <button onClick={onClose} className="ov-l4 mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-[14px] font-semibold transition hover:opacity-90" style={{ background: ACCENT, color: ON_ACCENT }}>
           Start creating <ArrowRight size={16} />
         </button>
       </div>
@@ -439,7 +465,7 @@ function FailureOverlay({ reason, onRetry, onClose }: { reason: string; onRetry:
         <p className="ov-l3 mt-2 text-[14px] leading-relaxed" style={{ color: "var(--ezd-fg-muted)" }}>{reason}</p>
         <div className="ov-l4 mt-6 flex gap-2.5">
           <button onClick={onClose} className="flex-1 rounded-xl border px-5 py-3 text-[14px] font-semibold" style={{ borderColor: "var(--ezd-divider)", color: "var(--ezd-fg-muted)" }}>Cancel</button>
-          <button onClick={onRetry} className="flex flex-1 items-center justify-center gap-2 rounded-xl px-5 py-3 text-[14px] font-semibold transition hover:opacity-90" style={{ background: ACCENT, color: "#fff" }}>
+          <button onClick={onRetry} className="flex flex-1 items-center justify-center gap-2 rounded-xl px-5 py-3 text-[14px] font-semibold transition hover:opacity-90" style={{ background: ACCENT, color: ON_ACCENT }}>
             <RotateCw size={15} /> Try again
           </button>
         </div>

@@ -83,7 +83,7 @@ export default function UpgradeDialog({
         </div>
 
         <p className="mt-4 text-center text-[11px]" style={{ color: "var(--ezd-fg-quiet)" }}>
-          You&rsquo;re on the {currentPlan === "free" ? "Free" : currentPlan === "pro" ? "Pro" : "Pro Plus"} plan.
+          You&rsquo;re on the {currentPlan === "free" ? "Free" : "Pro"} plan.
         </p>
       </div>
     </div>

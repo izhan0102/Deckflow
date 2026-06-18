@@ -1318,7 +1318,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
           updateActive({ elementHidden: { ...(deck.slides[active]?.elementHidden || {}), [id]: true } });
           setCanvasSelection(null);
         }}
-        onTranslate={() => requireFeatureOrUpgrade("translate", "Translation is a Pro Plus feature. Upgrade to translate decks.", () => setTranslateOpen(true))}
+        onTranslate={() => requireFeatureOrUpgrade("translate", "Translation is a Pro feature. Upgrade to translate decks.", () => setTranslateOpen(true))}
         translating={translating}
         onQAPrep={() => requireFeatureOrUpgrade("qaPrep", "Q&A prep is a Pro feature. Upgrade to use it.", () => setQaOpen(true))}
         translateLocked={!planHasFeature(plan, "translate")}

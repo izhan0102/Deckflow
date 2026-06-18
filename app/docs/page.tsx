@@ -17,7 +17,7 @@ import { createDoc, saveDoc, loadDoc } from "@/lib/docStore";
 import DocGenOverlay from "@/components/DocGenOverlay";
 
 const DENSITIES: DocDensity[] = ["concise", "balanced", "detailed", "comprehensive"];
-const ACC = "#7C5CFF";
+const ACC = "var(--ezd-fg-strong)";
 
 export default function DocsStudio() {
   const [user, setUser] = useState<AppUser | null>(null);
@@ -393,7 +393,7 @@ export default function DocsStudio() {
             style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: "var(--ezd-fg)", fontSize: 13.5 }}
           />
           <button onClick={runAiEdit} disabled={aiLoading || !aiInput.trim()}
-            style={{ display: "grid", placeItems: "center", width: 34, height: 34, borderRadius: 10, border: "none", background: ACC, color: "#fff", cursor: aiLoading || !aiInput.trim() ? "not-allowed" : "pointer", opacity: aiLoading || !aiInput.trim() ? 0.6 : 1, flexShrink: 0 }}>
+            style={{ display: "grid", placeItems: "center", width: 34, height: 34, borderRadius: 10, border: "none", background: ACC, color: "var(--ezd-bg-page)", cursor: aiLoading || !aiInput.trim() ? "not-allowed" : "pointer", opacity: aiLoading || !aiInput.trim() ? 0.6 : 1, flexShrink: 0 }}>
             {aiLoading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
           </button>
         </div>
@@ -587,5 +587,5 @@ function Center({ children }: { children: React.ReactNode }) {
 function TBtn({ children, onClick, title }: { children: React.ReactNode; onClick: () => void; title: string }) {
   return <button title={title} onMouseDown={(e) => e.preventDefault()} onClick={onClick} style={{ display: "grid", placeItems: "center", width: 32, height: 32, borderRadius: 7, border: "1px solid var(--ezd-divider)", background: "var(--ezd-bg-card)", color: "var(--ezd-fg-muted)", cursor: "pointer" }}>{children}</button>;
 }
-const btn = (disabled: boolean): React.CSSProperties => ({ display: "inline-flex", alignItems: "center", gap: 8, background: ACC, color: "#fff", border: "none", borderRadius: 9, padding: "8px 14px", fontSize: 13.5, fontWeight: 700, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.6 : 1 });
+const btn = (disabled: boolean): React.CSSProperties => ({ display: "inline-flex", alignItems: "center", gap: 8, background: ACC, color: "var(--ezd-bg-page)", border: "none", borderRadius: 9, padding: "8px 14px", fontSize: 13.5, fontWeight: 700, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.6 : 1 });
 const sel = (full?: boolean): React.CSSProperties => ({ background: "var(--ezd-bg-card)", border: "1px solid var(--ezd-divider)", borderRadius: 7, padding: "6px 8px", color: "var(--ezd-fg)", fontSize: 12.5, outline: "none", width: full ? "100%" : undefined });
