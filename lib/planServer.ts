@@ -34,6 +34,37 @@ function monthKey(d = new Date()): string {
   return d.toISOString().slice(0, 7);
 }
 
+function dayKey(d = new Date()): string {
+  return d.toISOString().slice(0, 10);
+}
+
+/** Hard daily generation cap for ANY account (free, Pro, trial) — a safety net
+ *  so no single user can run up the AI bill. Generous for real users. */
+export const DAILY_GEN_CAP = Number(process.env.DAILY_GEN_CAP) || 50;
+
+/** Throw if the user has hit the daily AI cap. Applies to everyone. */
+export async function requireDailyAllowance(uid: string): Promise<void> {
+  try {
+    const db = getDatabase(getAdminAppOrThrow());
+    const snap = await db.ref(`usage/${uid}/daily/${dayKey()}`).get();
+    const used = typeof snap.val() === "number" ? snap.val() : 0;
+    if (used >= DAILY_GEN_CAP) {
+      throw new PlanLimitError(`Daily limit reached (${DAILY_GEN_CAP} generations/day). Please try again tomorrow.`, "daily_limit", 429);
+    }
+  } catch (e) {
+    if (e instanceof PlanLimitError) throw e;
+    // On read error, don't block the user (fail open) — the monthly cap still applies.
+  }
+}
+
+/** Atomically bump today's daily generation count. */
+export async function incrementDailyServer(uid: string): Promise<void> {
+  try {
+    const db = getDatabase(getAdminAppOrThrow());
+    await db.ref(`usage/${uid}/daily/${dayKey()}`).transaction((c) => (typeof c === "number" && isFinite(c) ? c : 0) + 1);
+  } catch { /* ignore */ }
+}
+
 /** Read a user's plan server-side. Defaults to free on any error. Honors expiry. */
 export async function getUserPlanServer(uid: string): Promise<PlanId> {
   try {

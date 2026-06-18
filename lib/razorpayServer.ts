@@ -105,6 +105,25 @@ export async function setSubStatus(uid: string, status: string): Promise<void> {
   await db.ref(`plans/${uid}`).update({ subStatus: status });
 }
 
+/** Append a billing event for the admin log (server-only path). */
+export async function logBillingEvent(e: {
+  event: string; uid?: string; amount?: number; currency?: string; subscriptionId?: string; paymentId?: string; status?: string;
+}): Promise<void> {
+  try {
+    const db = getDatabase(getAdminAppOrThrow());
+    await db.ref("billingEvents").push({
+      event: e.event,
+      uid: e.uid || null,
+      amount: typeof e.amount === "number" ? e.amount : null,
+      currency: e.currency || null,
+      subscriptionId: e.subscriptionId || null,
+      paymentId: e.paymentId || null,
+      status: e.status || null,
+      ts: Date.now(),
+    });
+  } catch { /* logging must never break the webhook */ }
+}
+
 export function safeEqual(a: string, b: string): boolean {
   try {
     const ba = Buffer.from(a);
