@@ -29,9 +29,9 @@ export default function TrialDialog({ onClose, reason, email }: { onClose: () =>
   return (
     <div className="fixed inset-0 z-[120] grid place-items-center p-4" style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }} onClick={onClose}>
       <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md overflow-hidden rounded-3xl border shadow-2xl"
-        style={{ borderColor: "var(--ezd-divider)", background: "var(--ezd-bg-card)", color: "var(--ezd-fg)" }}>
+        style={{ borderColor: "var(--ezd-divider)", background: "var(--ezd-bg-elev)", color: "var(--ezd-fg)" }}>
         {/* header band */}
-        <div className="relative px-7 pt-7 pb-5" style={{ background: "var(--ezd-bg-hover)" }}>
+        <div className="relative px-7 pt-7 pb-5" style={{ background: "var(--ezd-bg-page-deep)", borderBottom: "1px solid var(--ezd-divider)" }}>
           <button onClick={onClose} aria-label="Close" className="absolute right-4 top-4" style={{ color: "var(--ezd-fg-quiet)" }}><X size={18} /></button>
           <div className="grid h-12 w-12 place-items-center rounded-2xl" style={{ background: "var(--ezd-fg-strong)", color: "var(--ezd-bg-page)" }}><Crown size={22} /></div>
           <div className="mt-4 inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--ezd-fg-quiet)" }}>
