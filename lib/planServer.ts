@@ -38,9 +38,12 @@ function dayKey(d = new Date()): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** Throw if the user has hit the daily AI cap. Applies to everyone. */
+/** Throw if a PRO user has hit the daily AI cap. Free users are bound by the
+ *  monthly limit (e.g. 3) instead, so the daily cap doesn't apply to them. */
 export async function requireDailyAllowance(uid: string): Promise<void> {
   try {
+    const plan = await getUserPlanServer(uid);
+    if (plan !== "pro") return; // free = monthly-limited; daily cap is Pro-only
     const db = getDatabase(getAdminAppOrThrow());
     const snap = await db.ref(`usage/${uid}/daily/${dayKey()}`).get();
     const used = typeof snap.val() === "number" ? snap.val() : 0;

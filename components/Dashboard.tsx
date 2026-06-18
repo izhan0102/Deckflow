@@ -100,9 +100,10 @@ export default function Dashboard({
   }, [user.uid]);
 
   useEffect(() => {
+    if (plan !== "pro") { setDailyUsed(0); return; }
     const unsub = watchDailyGenerations(user.uid, setDailyUsed);
     return () => unsub();
-  }, [user.uid]);
+  }, [user.uid, plan]);
 
   /* ----------------------------- derived ----------------------------- */
 
@@ -504,7 +505,8 @@ function PlanUsageCard({ used, plan, onUpgrade, membership, dailyUsed = 0 }: { u
         </div>
       )}
 
-      {/* Daily AI cap — applies to every plan */}
+      {/* Daily AI cap — Pro subscribers only (free users are monthly-limited) */}
+      {plan === "pro" && (
       <div className="mt-3 border-t pt-3" style={{ borderColor: "var(--ezd-divider)" }}>
         <div className="flex items-center justify-between">
           <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.2em]" style={{ color: "var(--ezd-fg-quiet)" }}>
@@ -519,6 +521,7 @@ function PlanUsageCard({ used, plan, onUpgrade, membership, dailyUsed = 0 }: { u
           {dailyLeft === 0 ? `Daily limit reached · resets in ${dailyResetIn}` : `${dailyLeft} of ${DAILY_GEN_CAP} left today · resets in ${dailyResetIn}`}
         </div>
       </div>
+      )}
 
       {plan === "free" ? (
         <button
