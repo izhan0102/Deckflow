@@ -7,7 +7,7 @@ import Logo from "@/components/Logo";
 import DocCanvas from "@/components/DocCanvas";
 import ResumeCanvas from "@/components/ResumeCanvas";
 import { onAuthStateChange, loginWithGoogle, type AppUser } from "@/lib/auth";
-import { markVisited, type GuestKind } from "@/lib/guestWork";
+import { stashGuestWork, readGuestWork, markVisited, KIND_PATH, type GuestKind } from "@/lib/guestWork";
 import { DEFAULT_DOC_THEME, blockId, type ExDoc } from "@/lib/docTypes";
 import { DEFAULT_RESUME, rid, type ResumeData } from "@/lib/resumeTypes";
 
@@ -60,16 +60,19 @@ export default function StartPage() {
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => { markVisited(); const u = onAuthStateChange((x) => { setUser(x); setReady(true); }); return () => u(); }, []);
-  // Guests only — if already signed in, go to the dashboard.
-  useEffect(() => { if (ready && user) router.replace("/app"); }, [ready, user, router]);
+  // Guests only — if already signed in (and not mid-guest-flow), go to the dashboard.
+  useEffect(() => { if (ready && user && !readGuestWork()) router.replace("/app"); }, [ready, user, router]);
 
   const choose = (k: GuestKind) => {
     setKind(k);
-    if (k === "resume") setStep("generating");
+    if (k === "resume") { stashGuestWork({ kind: "resume" }); setStep("generating"); }
     else setStep("brief");
   };
 
-  const reveal = () => { setStep("generating"); };
+  const reveal = () => {
+    stashGuestWork({ kind, topic: topic.trim(), settings: kind === "doc" ? { pages, densityIdx } : { slides } });
+    setStep("generating");
+  };
 
   // ~5s "generating" so the result feels really built, then reveal it (blurred).
   const [genStage, setGenStage] = useState(0);
@@ -83,10 +86,10 @@ export default function StartPage() {
 
   const continueGoogle = async () => {
     setAuthBusy(true); setErr(null);
-    try { await loginWithGoogle(); router.push("/app"); }
+    try { await loginWithGoogle(); router.push(KIND_PATH[kind]); }
     catch { setErr("Couldn't sign in. Please try again."); setAuthBusy(false); }
   };
-  const continueEmail = () => router.push(`/auth?redirect=${encodeURIComponent("/app")}`);
+  const continueEmail = () => router.push(`/auth?redirect=${encodeURIComponent(KIND_PATH[kind])}`);
 
   if (!ready) return <div className="grid min-h-screen place-items-center" style={{ background: "var(--ezd-bg-page)", color: "var(--ezd-fg-muted)" }}>Loading…</div>;
 
