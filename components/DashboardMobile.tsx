@@ -10,7 +10,7 @@ import { deleteDeck, watchDeckList, type DeckListItem } from "@/lib/decks";
 import DeckThumbnail from "./DeckThumbnail";
 import Logo from "./Logo";
 import ThemeToggle from "./ThemeToggle";
-import UpgradeDialog from "./UpgradeDialog";
+import TrialDialog from "./TrialDialog";
 import { watchMonthlyGenerations, formatMonthlyResetIn } from "@/lib/usage";
 import { watchUserPlan, getUserPlan } from "@/lib/plan";
 import { type PlanId, planDeckLimit, getPlan, FREE_FOR_ALL } from "@/lib/plans";
@@ -44,12 +44,12 @@ export default function DashboardMobile({
   const [upgradeReason, setUpgradeReason] = useState<string | undefined>(undefined);
 
   useEffect(() => {
-    if (FREE_FOR_ALL) return; // paywall dropped: never auto-open the plan popup
+    if (FREE_FOR_ALL) return;
     let cancelled = false;
-    getUserPlan(user.uid).then((p) => {
-      if (!cancelled && p === "free") setUpgradeOpen(true);
-    });
-    return () => { cancelled = true; };
+    const t = window.setTimeout(() => {
+      getUserPlan(user.uid).then((p) => { if (!cancelled && p === "free") setUpgradeOpen(true); });
+    }, 120_000);
+    return () => { cancelled = true; window.clearTimeout(t); };
   }, [user.uid]);
 
   useEffect(() => {
@@ -89,7 +89,7 @@ export default function DashboardMobile({
   const openUpgrade = (reason?: string) => { setUpgradeReason(reason); setUpgradeOpen(true); };
   const onNewDeck = () => {
     if (quotaExhausted) {
-      openUpgrade(`You've used all ${deckLimit} decks on the ${getPlan(plan).name} plan this month.`);
+      openUpgrade("You've hit your monthly limit");
       return;
     }
     onStartFromScratch();
@@ -97,7 +97,7 @@ export default function DashboardMobile({
 
   const onNewDoc = () => {
     if (!FREE_FOR_ALL && plan === "free") {
-      openUpgrade("AI Documents are a Pro feature. Upgrade to Pro to create documents.");
+      openUpgrade("AI Documents");
       return;
     }
     window.location.assign("/docs");
@@ -281,8 +281,7 @@ export default function DashboardMobile({
 
       {/* Pricing / upgrade modal — shown on every visit and on limits */}
       {upgradeOpen && (
-        <UpgradeDialog
-          currentPlan={plan}
+        <TrialDialog
           reason={upgradeReason}
           onClose={() => setUpgradeOpen(false)}
           email={user.email}

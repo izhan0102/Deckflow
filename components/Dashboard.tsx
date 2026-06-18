@@ -12,7 +12,7 @@ import {
 import DeckThumbnail from "./DeckThumbnail";
 import Logo from "./Logo";
 import ThemeToggle from "./ThemeToggle";
-import UpgradeDialog from "./UpgradeDialog";
+import TrialDialog from "./TrialDialog";
 import ReportDialog from "./ReportDialog";
 import { watchMonthlyGenerations, formatMonthlyResetIn, watchDailyGenerations, formatDailyResetIn } from "@/lib/usage";
 import { watchUserPlan, getUserPlan } from "@/lib/plan";
@@ -58,17 +58,15 @@ export default function Dashboard({
   const [upgradeReason, setUpgradeReason] = useState<string | undefined>(undefined);
   const [reportOpen, setReportOpen] = useState(false);
 
-  // Pricing modal once per dashboard mount — only for free users.
+  // Free users: gently surface the trial after 2 minutes on the dashboard
+  // (no popup on open). Premium clicks also open it (see openUpgrade).
   useEffect(() => {
-    if (FREE_FOR_ALL) return; // paywall dropped: never auto-open the plan popup
+    if (FREE_FOR_ALL) return;
     let cancelled = false;
-    getUserPlan(user.uid).then((p) => {
-      if (!cancelled && p === "free") {
-        setUpgradeReason(undefined);
-        setUpgradeOpen(true);
-      }
-    });
-    return () => { cancelled = true; };
+    const t = window.setTimeout(() => {
+      getUserPlan(user.uid).then((p) => { if (!cancelled && p === "free") { setUpgradeReason(undefined); setUpgradeOpen(true); } });
+    }, 120_000);
+    return () => { cancelled = true; window.clearTimeout(t); };
   }, [user.uid]);
 
   useEffect(() => {
@@ -118,7 +116,7 @@ export default function Dashboard({
 
   const onNewDeck = () => {
     if (limitReached) {
-      openUpgrade(`You've used all ${deckLimit} decks on the ${getPlan(plan).name} plan this month.`);
+      openUpgrade("You've hit your monthly limit");
       return;
     }
     onStartFromScratch();
@@ -127,7 +125,7 @@ export default function Dashboard({
   // AI Documents are a premium feature (Pro / Pro Plus only).
   const onNewDoc = () => {
     if (!FREE_FOR_ALL && plan === "free") {
-      openUpgrade("AI Documents are a Pro feature. Upgrade to Pro to create documents.");
+      openUpgrade("AI Documents");
       return;
     }
     window.location.assign("/docs");
@@ -235,8 +233,7 @@ export default function Dashboard({
       {/* ============== Main ============== */}
       <main className="px-4 py-8 sm:px-8 lg:px-12 lg:py-10">
         {upgradeOpen && (
-          <UpgradeDialog
-            currentPlan={plan}
+          <TrialDialog
             reason={upgradeReason}
             onClose={() => setUpgradeOpen(false)}
             email={user.email}
