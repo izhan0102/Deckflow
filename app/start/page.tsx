@@ -2,19 +2,55 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Wand2, FileText, Contact, ArrowRight, Loader2, Lock, Sparkles, Check } from "lucide-react";
+import { Wand2, FileText, Contact, ArrowRight, Loader2, Lock, Sparkles, Check, Presentation, Languages, Download, Star } from "lucide-react";
 import Logo from "@/components/Logo";
+import DocCanvas from "@/components/DocCanvas";
+import ResumeCanvas from "@/components/ResumeCanvas";
 import { onAuthStateChange, loginWithGoogle, type AppUser } from "@/lib/auth";
 import { stashGuestWork, readGuestWork, markVisited, KIND_PATH, type GuestKind } from "@/lib/guestWork";
+import { DEFAULT_DOC_THEME, blockId, type ExDoc } from "@/lib/docTypes";
+import { DEFAULT_RESUME, rid, type ResumeData } from "@/lib/resumeTypes";
 
 const DENSITIES = ["concise", "balanced", "detailed", "comprehensive"] as const;
 const LABEL: Record<GuestKind, string> = { deck: "presentation", doc: "document", resume: "resume" };
+const GEN_STAGES = ["Understanding your brief", "Researching the topic", "Writing the content", "Designing the layout", "Adding finishing touches"];
+
+/* sample output rendered (blurred) so the "result" looks real, not a mock */
+const SAMPLE_DOC: ExDoc = {
+  title: "Market Analysis: EV Adoption in India",
+  subtitle: "Trends, drivers, and a 3-year outlook",
+  theme: { ...DEFAULT_DOC_THEME, accent: "#2563eb" },
+  blocks: [
+    { id: blockId(), type: "heading", level: 2, text: "Executive Summary" },
+    { id: blockId(), type: "paragraph", text: "India's electric-vehicle market is accelerating, driven by falling battery costs, supportive policy (FAME-II), and rising fuel prices. Two-wheelers lead adoption while four-wheelers scale steadily across metros." },
+    { id: blockId(), type: "heading", level: 2, text: "Adoption by Segment" },
+    { id: blockId(), type: "table", headers: ["Segment", "2023", "2026 (est.)"], rows: [["Two-wheelers", "5.4%", "18%"], ["Cars", "2.1%", "9%"], ["Buses", "3.0%", "12%"]] },
+    { id: blockId(), type: "heading", level: 2, text: "Key Drivers" },
+    { id: blockId(), type: "bullets", items: ["Battery pack prices down ~40% since 2020", "State subsidies and road-tax waivers", "Expanding fast-charging corridors"] },
+    { id: blockId(), type: "callout", tone: "info", text: "By 2030, EVs could make up 30% of new vehicle sales in India under the base-case scenario." },
+  ],
+};
+
+const SAMPLE_RESUME: ResumeData = {
+  ...DEFAULT_RESUME,
+  templateId: "sidebar", accent: "#1f6f63", headingFontId: "poppins",
+  name: "Jordan Lee", headline: "Senior Product Designer",
+  contact: { email: "jordan.lee@email.com", phone: "+1 555 0142", location: "San Francisco, CA", linkedin: "linkedin.com/in/jordanlee" },
+  summary: "Product designer with 7+ years shipping consumer and B2B products end to end, from research to polished UI. Led design for two 0→1 launches.",
+  experience: [
+    { id: rid(), role: "Senior Product Designer", company: "Northwind", location: "Remote", start: "2021", end: "Present", current: true, bullets: ["Led the redesign that lifted activation 34%", "Built and scaled the design system across 6 squads"] },
+    { id: rid(), role: "Product Designer", company: "Brightlabs", start: "2018", end: "2021", bullets: ["Owned onboarding flows used by 2M+ users", "Ran weekly usability tests"] },
+  ],
+  education: [{ id: rid(), degree: "B.Des, Interaction Design", school: "RISD", start: "2014", end: "2018" }],
+  skills: ["Figma", "Prototyping", "Design systems", "User research", "HTML/CSS"],
+  languages: [{ id: rid(), name: "English", level: "Native" }, { id: rid(), name: "Spanish", level: "Fluent" }],
+};
 
 export default function StartPage() {
   const router = useRouter();
   const [user, setUser] = useState<AppUser | null>(null);
   const [ready, setReady] = useState(false);
-  const [step, setStep] = useState<"choose" | "brief" | "reveal">("choose");
+  const [step, setStep] = useState<"choose" | "brief" | "generating" | "reveal">("choose");
   const [kind, setKind] = useState<GuestKind>("deck");
   const [topic, setTopic] = useState("");
   const [pages, setPages] = useState(4);
@@ -29,14 +65,24 @@ export default function StartPage() {
 
   const choose = (k: GuestKind) => {
     setKind(k);
-    if (k === "resume") { stashGuestWork({ kind: "resume" }); setStep("reveal"); }
+    if (k === "resume") { stashGuestWork({ kind: "resume" }); setStep("generating"); }
     else setStep("brief");
   };
 
   const reveal = () => {
     stashGuestWork({ kind, topic: topic.trim(), settings: kind === "doc" ? { pages, densityIdx } : { slides } });
-    setStep("reveal");
+    setStep("generating");
   };
+
+  // ~5s "generating" so the result feels really built, then reveal it (blurred).
+  const [genStage, setGenStage] = useState(0);
+  useEffect(() => {
+    if (step !== "generating") return;
+    setGenStage(0);
+    const stageT = window.setInterval(() => setGenStage((s) => Math.min(s + 1, GEN_STAGES.length - 1)), 1000);
+    const doneT = window.setTimeout(() => setStep("reveal"), 5200);
+    return () => { window.clearInterval(stageT); window.clearTimeout(doneT); };
+  }, [step]);
 
   const continueGoogle = async () => {
     setAuthBusy(true); setErr(null);
@@ -67,6 +113,27 @@ export default function StartPage() {
             <ChooseCard icon={<Wand2 size={22} />} title="Presentation" desc="A full slide deck from one line." onClick={() => choose("deck")} />
             <ChooseCard icon={<FileText size={22} />} title="Document" desc="A structured, Word-style doc." onClick={() => choose("doc")} />
             <ChooseCard icon={<Contact size={22} />} title="Resume" desc="A polished, ATS-friendly resume." onClick={() => choose("resume")} />
+          </div>
+
+          {/* what you get */}
+          <div className="mt-12 grid gap-4 sm:grid-cols-3">
+            <Feature icon={<Sparkles size={16} />} title="AI does the work" body="Type a brief — get real content, charts, and layout in seconds." />
+            <Feature icon={<Presentation size={16} />} title="Edit everything" body="Drag, recolor, rewrite. Switch themes, fonts, and templates instantly." />
+            <Feature icon={<Download size={16} />} title="Export, no lock-in" body="Real .pptx and .pdf you own — plus translation and speaker notes." />
+          </div>
+
+          {/* social proof */}
+          <div className="mt-12 rounded-2xl border p-6 text-center" style={{ borderColor: "var(--ezd-divider)", background: "var(--ezd-bg-card)" }}>
+            <div className="inline-flex items-center gap-1" style={{ color: "var(--ezd-fg-strong)" }}>
+              {[0, 1, 2, 3, 4].map((i) => <Star key={i} size={15} fill="currentColor" strokeWidth={0} />)}
+            </div>
+            <p className="mt-3 text-[14px]" style={{ color: "var(--ezd-fg-strong)" }}>&ldquo;Made a full pitch deck in under a minute. The editor is the best part.&rdquo;</p>
+            <p className="mt-1 text-[12px]" style={{ color: "var(--ezd-fg-quiet)" }}>— loved by students, founders & teams</p>
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[12px]" style={{ color: "var(--ezd-fg-quiet)" }}>
+              <span className="inline-flex items-center gap-1"><Check size={12} /> Free to start</span>
+              <span className="inline-flex items-center gap-1"><Check size={12} /> No credit card</span>
+              <span className="inline-flex items-center gap-1"><Languages size={12} /> Export to PPTX &amp; PDF</span>
+            </div>
           </div>
         </div>
       )}
@@ -105,13 +172,38 @@ export default function StartPage() {
         </div>
       )}
 
+      {step === "generating" && (
+        <div className="relative min-h-[calc(100vh-57px)] overflow-hidden">
+          <div aria-hidden className="pointer-events-none absolute inset-0 grid place-items-center p-8" style={{ filter: "blur(7px)", opacity: 0.5 }}>
+            {kind === "deck" && <FakeSlide />}{kind === "doc" && <DocCanvas doc={SAMPLE_DOC} editable={false} scale={0.62} />}{kind === "resume" && <ResumeCanvas data={SAMPLE_RESUME} scale={0.6} />}
+          </div>
+          <div aria-hidden className="absolute inset-0" style={{ background: "var(--ezd-bg-page)", opacity: 0.7 }} />
+          <div className="relative z-10 grid min-h-[calc(100vh-57px)] place-items-center px-5">
+            <div className="flex flex-col items-center gap-5">
+              <div className="relative grid h-16 w-16 place-items-center">
+                <span className="absolute inset-0 rounded-full border-2" style={{ borderColor: "var(--ezd-divider)" }} />
+                <span className="absolute inset-0 animate-spin rounded-full border-2 border-transparent" style={{ borderTopColor: "var(--ezd-fg-strong)" }} />
+                <Wand2 size={22} style={{ color: "var(--ezd-fg-strong)" }} />
+              </div>
+              <div className="text-center">
+                <div className="text-[17px] font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>Building your {LABEL[kind]}…</div>
+                <div className="mt-1 text-[13px]" style={{ color: "var(--ezd-fg-muted)" }}>{GEN_STAGES[genStage]}…</div>
+              </div>
+              <div className="h-1 w-56 overflow-hidden rounded-full" style={{ background: "var(--ezd-bg-hover)" }}>
+                <div className="h-full rounded-full transition-all duration-1000 ease-out" style={{ width: `${((genStage + 1) / GEN_STAGES.length) * 100}%`, background: "var(--ezd-fg-strong)" }} />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {step === "reveal" && (
         <div className="relative min-h-[calc(100vh-57px)] overflow-hidden">
           {/* blurred fake result behind */}
-          <div aria-hidden className="pointer-events-none absolute inset-0 grid place-items-center p-8" style={{ filter: "blur(5px)", opacity: 0.9 }}>
+          <div aria-hidden className="pointer-events-none absolute inset-0 grid place-items-center p-8" style={{ filter: "blur(5px)", opacity: 0.92 }}>
             {kind === "deck" && <FakeSlide />}
-            {kind === "doc" && <FakeDoc />}
-            {kind === "resume" && <FakeResume />}
+            {kind === "doc" && <DocCanvas doc={SAMPLE_DOC} editable={false} scale={0.62} />}
+            {kind === "resume" && <ResumeCanvas data={SAMPLE_RESUME} scale={0.6} />}
           </div>
           <div aria-hidden className="absolute inset-0" style={{ background: "var(--ezd-bg-page)", opacity: 0.55 }} />
 
@@ -143,6 +235,18 @@ export default function StartPage() {
         </div>
       )}
     </main>
+  );
+}
+
+function Feature({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
+  return (
+    <div className="flex items-start gap-3 rounded-2xl border p-4 text-left" style={{ borderColor: "var(--ezd-divider)", background: "var(--ezd-bg-card)" }}>
+      <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg" style={{ background: "var(--ezd-bg-hover)", color: "var(--ezd-fg-strong)" }}>{icon}</span>
+      <span>
+        <span className="block text-[13.5px] font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>{title}</span>
+        <span className="mt-0.5 block text-[12px] leading-relaxed" style={{ color: "var(--ezd-fg-muted)" }}>{body}</span>
+      </span>
+    </div>
   );
 }
 
