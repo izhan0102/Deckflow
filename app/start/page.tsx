@@ -7,7 +7,7 @@ import Logo from "@/components/Logo";
 import DocCanvas from "@/components/DocCanvas";
 import ResumeCanvas from "@/components/ResumeCanvas";
 import { onAuthStateChange, loginWithGoogle, type AppUser } from "@/lib/auth";
-import { stashGuestWork, readGuestWork, markVisited, KIND_PATH, type GuestKind } from "@/lib/guestWork";
+import { markVisited, type GuestKind } from "@/lib/guestWork";
 import { DEFAULT_DOC_THEME, blockId, type ExDoc } from "@/lib/docTypes";
 import { DEFAULT_RESUME, rid, type ResumeData } from "@/lib/resumeTypes";
 
@@ -60,19 +60,16 @@ export default function StartPage() {
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => { markVisited(); const u = onAuthStateChange((x) => { setUser(x); setReady(true); }); return () => u(); }, []);
-  // Guests only — if already signed in (and not mid-guest-flow), go to the dashboard.
-  useEffect(() => { if (ready && user && !readGuestWork()) router.replace("/app"); }, [ready, user, router]);
+  // Guests only — if already signed in, go to the dashboard.
+  useEffect(() => { if (ready && user) router.replace("/app"); }, [ready, user, router]);
 
   const choose = (k: GuestKind) => {
     setKind(k);
-    if (k === "resume") { stashGuestWork({ kind: "resume" }); setStep("generating"); }
+    if (k === "resume") setStep("generating");
     else setStep("brief");
   };
 
-  const reveal = () => {
-    stashGuestWork({ kind, topic: topic.trim(), settings: kind === "doc" ? { pages, densityIdx } : { slides } });
-    setStep("generating");
-  };
+  const reveal = () => { setStep("generating"); };
 
   // ~5s "generating" so the result feels really built, then reveal it (blurred).
   const [genStage, setGenStage] = useState(0);
@@ -86,10 +83,10 @@ export default function StartPage() {
 
   const continueGoogle = async () => {
     setAuthBusy(true); setErr(null);
-    try { await loginWithGoogle(); router.push(KIND_PATH[kind]); }
+    try { await loginWithGoogle(); router.push("/app"); }
     catch { setErr("Couldn't sign in. Please try again."); setAuthBusy(false); }
   };
-  const continueEmail = () => router.push(`/auth?redirect=${encodeURIComponent(KIND_PATH[kind])}`);
+  const continueEmail = () => router.push(`/auth?redirect=${encodeURIComponent("/app")}`);
 
   if (!ready) return <div className="grid min-h-screen place-items-center" style={{ background: "var(--ezd-bg-page)", color: "var(--ezd-fg-muted)" }}>Loading…</div>;
 
@@ -173,12 +170,7 @@ export default function StartPage() {
       )}
 
       {step === "generating" && (
-        <div className="relative min-h-[calc(100vh-57px)] overflow-hidden">
-          <div aria-hidden className="pointer-events-none absolute inset-0 grid place-items-center p-8" style={{ filter: "blur(7px)", opacity: 0.5 }}>
-            {kind === "deck" && <FakeSlide />}{kind === "doc" && <DocCanvas doc={SAMPLE_DOC} editable={false} scale={0.62} />}{kind === "resume" && <ResumeCanvas data={SAMPLE_RESUME} scale={0.6} />}
-          </div>
-          <div aria-hidden className="absolute inset-0" style={{ background: "var(--ezd-bg-page)", opacity: 0.7 }} />
-          <div className="relative z-10 grid min-h-[calc(100vh-57px)] place-items-center px-5">
+        <div className="relative grid min-h-[calc(100vh-57px)] place-items-center overflow-hidden px-5" style={{ background: "var(--ezd-bg-page)" }}>
             <div className="flex flex-col items-center gap-5">
               <div className="relative grid h-16 w-16 place-items-center">
                 <span className="absolute inset-0 rounded-full border-2" style={{ borderColor: "var(--ezd-divider)" }} />
@@ -193,19 +185,18 @@ export default function StartPage() {
                 <div className="h-full rounded-full transition-all duration-1000 ease-out" style={{ width: `${((genStage + 1) / GEN_STAGES.length) * 100}%`, background: "var(--ezd-fg-strong)" }} />
               </div>
             </div>
-          </div>
         </div>
       )}
 
       {step === "reveal" && (
         <div className="relative min-h-[calc(100vh-57px)] overflow-hidden">
           {/* blurred fake result behind */}
-          <div aria-hidden className="pointer-events-none absolute inset-0 grid place-items-center p-8" style={{ filter: "blur(5px)", opacity: 0.92 }}>
+          <div aria-hidden className="pointer-events-none absolute inset-0 grid place-items-center p-8" style={{ filter: "blur(8px)", opacity: 0.5 }}>
             {kind === "deck" && <FakeSlide />}
             {kind === "doc" && <DocCanvas doc={SAMPLE_DOC} editable={false} scale={0.62} />}
             {kind === "resume" && <ResumeCanvas data={SAMPLE_RESUME} scale={0.6} />}
           </div>
-          <div aria-hidden className="absolute inset-0" style={{ background: "var(--ezd-bg-page)", opacity: 0.55 }} />
+          <div aria-hidden className="absolute inset-0" style={{ background: "var(--ezd-bg-page)", opacity: 0.62 }} />
 
           {/* login popup */}
           <div className="relative z-10 grid min-h-[calc(100vh-57px)] place-items-center px-5">

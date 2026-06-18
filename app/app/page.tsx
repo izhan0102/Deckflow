@@ -24,7 +24,6 @@ import { watchCustomTemplates, deleteCustomTemplate, type CustomTemplate } from 
 import { applyCustomTemplateToDeck } from "@/lib/applyCustomTemplate";
 import { createDeck, loadDeck, type ShareMode } from "@/lib/decks";
 import { logout, onAuthStateChange, getIdToken, reloadUser, type AppUser } from "@/lib/auth";
-import { readGuestWork, clearGuestWork } from "@/lib/guestWork";
 import { trackEvent } from "@/lib/stats";
 import {
   formatMonthlyResetIn,
@@ -84,20 +83,6 @@ function PageInner() {
     });
     return () => { cancelled = true; unsubscribe(); };
   }, [router]);
-
-  // Guest "try before signup": restore the brief entered on /start, drop the
-  // user on the prompt step ready to generate (deck flow keeps its template/
-  // clarify steps, so we pre-fill rather than auto-fire).
-  useEffect(() => {
-    if (!user) return;
-    const gw = readGuestWork();
-    if (gw?.kind === "deck") {
-      if (gw.topic) setPrompt(gw.topic);
-      if (gw.settings?.slides) setSlideCount(gw.settings.slides);
-      clearGuestWork();
-      setStep("prompt");
-    }
-  }, [user]);
 
   const [step, setStep] = useState<Step>("dashboard");
   const [prompt, setPrompt] = useState("");
