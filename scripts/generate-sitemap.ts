@@ -45,6 +45,7 @@ function build(): string {
   }
 
   // Evergreen / legal.
+  entries.push(urlEntry("/pdf-to-ppt", 0.9, "monthly", now));
   entries.push(urlEntry("/about", 0.6, "monthly", now));
   entries.push(urlEntry("/changelog", 0.5, "weekly", now));
   entries.push(urlEntry("/contact", 0.4, "monthly", now));
