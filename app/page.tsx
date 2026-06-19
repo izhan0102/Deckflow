@@ -120,7 +120,7 @@ export default function LandingPage() {
                 title="Sign out"
                 aria-label="Sign out"
                 className="grid h-7 w-7 place-items-center rounded-full border border-white/10 bg-white/5 transition hover:bg-white/10"
-                style={{ color: "var(--ezd-fg-muted)" }}
+                style={{ color: "var(--ezd-fg-muted)", touchAction: "manipulation", minHeight: "44px", minWidth: "44px" }}
               >
                 <LogOut size={12} />
               </button>
@@ -128,7 +128,7 @@ export default function LandingPage() {
               <Link
                 href="/auth"
                 className="hidden text-[12.5px] transition hover:text-white sm:inline-block"
-                style={{ color: "var(--ezd-fg-muted)" }}
+                style={{ color: "var(--ezd-fg-muted)", touchAction: "manipulation" }}
               >
                 Sign in
               </Link>
@@ -139,7 +139,12 @@ export default function LandingPage() {
                 "inline-flex items-center gap-1 rounded-full text-[12.5px] font-semibold transition-all duration-300 ease-out hover:opacity-90",
                 scrolled ? "px-3 py-1.5" : "px-4 py-1.5",
               ].join(" ")}
-              style={{ background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)" }}
+              style={{ 
+                background: "var(--ezd-button-strong)", 
+                color: "var(--ezd-button-strong-fg)",
+                touchAction: "manipulation",
+                minHeight: "44px",
+              }}
             >
               {user ? "Open editor" : "Get started"}
               <ArrowRight size={12} />
@@ -199,7 +204,12 @@ export default function LandingPage() {
                     <button
                       onClick={onGetStarted}
                       className="group inline-flex w-full items-center justify-center gap-2 rounded-full px-7 py-3 text-[14.5px] font-semibold transition hover:opacity-90 sm:w-auto"
-                      style={{ background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)" }}
+                      style={{ 
+                        background: "var(--ezd-button-strong)", 
+                        color: "var(--ezd-button-strong-fg)",
+                        touchAction: "manipulation",
+                        minHeight: "44px",
+                      }}
                     >
                       Start for free
                       <ArrowRight size={15} className="transition group-hover:translate-x-0.5" />
@@ -207,7 +217,13 @@ export default function LandingPage() {
                     <a
                       href="#how"
                       className="inline-flex w-full items-center justify-center gap-2 rounded-full border px-7 py-3 text-[14.5px] font-medium transition hover:border-white/25 sm:w-auto"
-                      style={{ borderColor: "var(--ezd-hairline)", background: "var(--ezd-bg-card)", color: "var(--ezd-fg-strong)" }}
+                      style={{ 
+                        borderColor: "var(--ezd-hairline)", 
+                        background: "var(--ezd-bg-card)", 
+                        color: "var(--ezd-fg-strong)",
+                        touchAction: "manipulation",
+                        minHeight: "44px",
+                      }}
                     >
                       <Play size={13} /> See how it works
                     </a>
@@ -215,7 +231,7 @@ export default function LandingPage() {
                   <Link
                     href="/changelog"
                     className="group inline-flex items-center gap-1.5 text-[12.5px] transition hover:text-white"
-                    style={{ color: "var(--ezd-fg-muted)" }}
+                    style={{ color: "var(--ezd-fg-muted)", touchAction: "manipulation" }}
                   >
                     <GitCommit size={13} className="transition-transform duration-300 group-hover:rotate-[20deg]" />
                     Changelog
@@ -481,7 +497,12 @@ export default function LandingPage() {
               <button
                 onClick={onGetStarted}
                 className="group inline-flex w-full items-center justify-center gap-2 rounded-full px-7 py-3 text-[14.5px] font-semibold transition hover:opacity-90 sm:w-auto"
-                style={{ background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)" }}
+                style={{ 
+                  background: "var(--ezd-button-strong)", 
+                  color: "var(--ezd-button-strong-fg)",
+                  touchAction: "manipulation",
+                  minHeight: "44px",
+                }}
               >
                 Start a presentation
                 <ArrowRight size={15} className="transition group-hover:translate-x-0.5" />
@@ -489,7 +510,12 @@ export default function LandingPage() {
               <Link
                 href="/docs"
                 className="inline-flex w-full items-center justify-center gap-2 rounded-full border px-7 py-3 text-[14.5px] font-medium transition hover:border-white/25 sm:w-auto"
-                style={{ borderColor: "var(--ezd-hairline)", color: "var(--ezd-fg-strong)" }}
+                style={{ 
+                  borderColor: "var(--ezd-hairline)", 
+                  color: "var(--ezd-fg-strong)",
+                  touchAction: "manipulation",
+                  minHeight: "44px",
+                }}
               >
                 <FileText size={14} /> Write a document
               </Link>
@@ -643,7 +669,12 @@ function FormatCard({
       <button
         onClick={onClick}
         className="mt-6 inline-flex items-center justify-center gap-2 self-start rounded-full px-5 py-2.5 text-[13.5px] font-semibold transition hover:opacity-90"
-        style={{ background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)" }}
+        style={{ 
+          background: "var(--ezd-button-strong)", 
+          color: "var(--ezd-button-strong-fg)",
+          touchAction: "manipulation",
+          minHeight: "44px",
+        }}
       >
         {cta} <ArrowRight size={14} />
       </button>
@@ -771,6 +802,14 @@ function TemplateShowcase() {
       className="relative mx-auto w-full max-w-[520px] lg:w-[520px]"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
+      // Touch support for mobile - pause on touch too
+      onTouchStart={() => setPaused(true)}
+      onTouchEnd={() => {
+        // Resume after a delay on touch end
+        setTimeout(() => setPaused(false), 3000);
+      }}
+      // Prevent scroll interference
+      style={{ touchAction: "manipulation" }}
     >
       <div
         className="overflow-hidden rounded-2xl border shadow-2xl"
@@ -1173,7 +1212,11 @@ function FaqItem({ q, a }: { q: string; a: string }) {
     <details className="group border-b" style={{ borderColor: "var(--ezd-divider)" }}>
       <summary
         className="flex cursor-pointer list-none items-center justify-between gap-4 py-4 text-left text-[15px] font-medium [&::-webkit-details-marker]:hidden"
-        style={{ color: "var(--ezd-fg-strong)" }}
+        style={{ 
+          color: "var(--ezd-fg-strong)",
+          touchAction: "manipulation",
+          minHeight: "44px",
+        }}
       >
         <span>{q}</span>
         <span aria-hidden className="shrink-0 text-[18px] leading-none transition-transform duration-200 group-open:rotate-45" style={{ color: "var(--ezd-fg-quiet)" }}>
@@ -1203,14 +1246,26 @@ function Footer() {
                 href="https://github.com/izhan0102/Deckflow"
                 target="_blank" rel="noreferrer"
                 className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition hover:border-white/25"
-                style={{ borderColor: "var(--ezd-hairline)", background: "var(--ezd-bg-card)", color: "var(--ezd-fg-muted)" }}
+                style={{ 
+                  borderColor: "var(--ezd-hairline)", 
+                  background: "var(--ezd-bg-card)", 
+                  color: "var(--ezd-fg-muted)",
+                  touchAction: "manipulation",
+                  minHeight: "32px",
+                }}
               >
                 <Github size={11} /> Source
               </a>
               <Link
                 href="/about"
                 className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition hover:border-white/25"
-                style={{ borderColor: "var(--ezd-hairline)", background: "var(--ezd-bg-card)", color: "var(--ezd-fg-muted)" }}
+                style={{ 
+                  borderColor: "var(--ezd-hairline)", 
+                  background: "var(--ezd-bg-card)", 
+                  color: "var(--ezd-fg-muted)",
+                  touchAction: "manipulation",
+                  minHeight: "32px",
+                }}
               >
                 <Sparkles size={11} /> Developer&rsquo;s note
               </Link>
@@ -1295,7 +1350,14 @@ function FooterCol({ title, items }: { title: string; items: { label: string; hr
       <ul className="mt-3 space-y-2 text-[12px]">
         {items.map((it) => (
           <li key={it.label}>
-            <Link href={it.href} className="transition hover:text-white" style={{ color: "var(--ezd-fg-muted)" }}>
+            <Link 
+              href={it.href} 
+              className="transition hover:text-white" 
+              style={{ 
+                color: "var(--ezd-fg-muted)",
+                touchAction: "manipulation",
+              }}
+            >
               {it.label}
             </Link>
           </li>

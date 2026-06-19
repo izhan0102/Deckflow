@@ -371,7 +371,9 @@ function Movable({
     if (!dragRef.current || !canvasRef.current || !elRef.current) return;
     if (!movedRef.current) {
       const moved = Math.abs(e.clientX - dragRef.current.startX) + Math.abs(e.clientY - dragRef.current.startY);
-      if (moved < 4) return;
+      // Lower threshold for touch devices to enable immediate drag response
+      const threshold = e.pointerType === 'touch' ? 0 : 4;
+      if (moved < threshold) return;
       movedRef.current = true;
       if (elRef.current) elRef.current.style.cursor = "grabbing";
       try { window.getSelection()?.removeAllRanges(); } catch { /* ignore */ }
@@ -457,6 +459,7 @@ function Movable({
         outline: selected ? `1.5px solid ${theme.accent}` : showControls ? `1px dashed ${theme.accent}80` : "none",
         outlineOffset: pt(4),
         willChange: interactive ? "transform" : undefined,
+        touchAction: 'none', // Prevent browser scroll interference on touch devices
       }}
     >
       {children}
@@ -581,6 +584,7 @@ function MovableDeco({
         outline: showControls ? `1px dashed ${theme.accent}80` : "none",
         outlineOffset: pt(3),
         willChange: interactive ? "transform" : undefined,
+        touchAction: 'none', // Prevent browser scroll interference on touch devices
       }}
     >
       {children}
@@ -785,6 +789,7 @@ function Deco({
         outline: selected ? `1.5px solid ${theme.accent}` : showControls ? `1px dashed ${theme.accent}80` : "none",
         outlineOffset: pt(3),
         willChange: interactive ? "transform" : undefined,
+        touchAction: 'none', // Prevent browser scroll interference on touch devices
       }}
     >
       {render(color, scale)}
@@ -3401,6 +3406,7 @@ function ImageBox({
         outlineOffset: pt(2),
         userSelect: "none",
         zIndex: selected ? 5 : 1,
+        touchAction: 'none', // Prevent browser scroll interference on touch devices
       }}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -3694,6 +3700,7 @@ function FreeTextBox({
         outline: showOutline ? `1px solid ${theme.accent}` : "none",
         outlineOffset: pt(3),
         zIndex: 6,
+        touchAction: 'none', // Prevent browser scroll interference on touch devices
       }}
     >
       <EditableText

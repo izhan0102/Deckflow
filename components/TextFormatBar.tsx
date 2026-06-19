@@ -61,6 +61,8 @@ export default function TextFormatBar({ enabled, canvasRef }: Props) {
   // the selection (clicking the toolbar moves focus and would otherwise
   // collapse the selection before exec runs).
   const savedRange = useRef<Range | null>(null);
+  // Track touch selection to prevent toolbar from closing prematurely
+  const touchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   /* ------------------------- selection tracking ------------------------- */
 
@@ -70,6 +72,12 @@ export default function TextFormatBar({ enabled, canvasRef }: Props) {
     const update = () => {
       const sel = window.getSelection();
       if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
+        // Don't close immediately on touch devices - iOS sometimes has
+        // a brief moment where selection appears collapsed
+        if (touchTimeoutRef.current) {
+          clearTimeout(touchTimeoutRef.current);
+          touchTimeoutRef.current = null;
+        }
         setOpen(false);
         return;
       }
@@ -137,13 +145,34 @@ export default function TextFormatBar({ enabled, canvasRef }: Props) {
       onSelectionChange();
     };
 
+    // Handle touch selection specifically
+    const onTouchSelection = () => {
+      // iOS sometimes takes a moment to show selection handles
+      // Delay update to let selection settle
+      if (touchTimeoutRef.current) {
+        clearTimeout(touchTimeoutRef.current);
+      }
+      touchTimeoutRef.current = setTimeout(() => {
+        onSelectionChange();
+      }, 100);
+    };
+
     document.addEventListener("selectionchange", onSelectionChange);
+    document.addEventListener("touchstart", onTouchSelection, { passive: true });
+    document.addEventListener("touchend", onTouchSelection, { passive: true });
     window.addEventListener("scroll", onScrollOrResize, true);
     window.addEventListener("resize", onScrollOrResize);
+    
     return () => {
       document.removeEventListener("selectionchange", onSelectionChange);
+      document.removeEventListener("touchstart", onTouchSelection);
+      document.removeEventListener("touchend", onTouchSelection);
       window.removeEventListener("scroll", onScrollOrResize, true);
       window.removeEventListener("resize", onScrollOrResize);
+      if (touchTimeoutRef.current) {
+        clearTimeout(touchTimeoutRef.current);
+        touchTimeoutRef.current = null;
+      }
     };
   }, [enabled, canvasRef]);
 
@@ -158,14 +187,19 @@ export default function TextFormatBar({ enabled, canvasRef }: Props) {
   // Close menus on outside click — but not on toolbar clicks.
   useEffect(() => {
     if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (!barRef.current?.contains(e.target as Node)) {
+    const onDoc = (e: MouseEvent | TouchEvent) => {
+      const target = e.target as Node;
+      if (!barRef.current?.contains(target)) {
         setSizeMenuOpen(false);
         setColorMenuOpen(false);
       }
     };
     document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
+    document.addEventListener("touchstart", onDoc, { passive: true });
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("touchstart", onDoc);
+    };
   }, [open]);
 
   if (!enabled || !open) return null;
@@ -236,9 +270,20 @@ export default function TextFormatBar({ enabled, canvasRef }: Props) {
         top: pos.top,
         left: pos.left,
         zIndex: 200,
+        // Ensure toolbar is clickable on mobile
+        touchAction: "manipulation",
       }}
       // Prevent mousedown on the toolbar from collapsing the selection.
       onMouseDown={(e) => e.preventDefault()}
+      // Prevent touch events from collapsing selection
+      onTouchStart={(e) => {
+        e.preventDefault();
+        // Store selection before touch interaction
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+          savedRange.current = sel.getRangeAt(0).cloneRange();
+        }
+      }}
     >
       <ToolbarButton
         active={marks.bold}
@@ -278,6 +323,7 @@ export default function TextFormatBar({ enabled, canvasRef }: Props) {
           title="Font size"
           onClick={() => { setColorMenuOpen(false); setSizeMenuOpen((v) => !v); }}
           className="ezd-fb-btn"
+          style={{ touchAction: "manipulation" }}
         >
           <Type size={13} />
           <ChevronDown size={10} className="opacity-60" />
@@ -290,6 +336,7 @@ export default function TextFormatBar({ enabled, canvasRef }: Props) {
                 type="button"
                 onClick={() => setSize(s)}
                 className="ezd-fb-row"
+                style={{ touchAction: "manipulation" }}
               >
                 {s}
                 <span className="text-white/30 text-[10px]">px</span>
@@ -306,6 +353,7 @@ export default function TextFormatBar({ enabled, canvasRef }: Props) {
           title={activeColor ? `Text color · ${activeColor.toUpperCase()}` : "Text color"}
           onClick={() => { setSizeMenuOpen(false); setColorMenuOpen((v) => !v); }}
           className="ezd-fb-btn"
+          style={{ touchAction: "manipulation" }}
         >
           <Palette size={13} />
           {/* Live swatch showing the current color of the selection.
@@ -342,6 +390,7 @@ export default function TextFormatBar({ enabled, canvasRef }: Props) {
                       backgroundImage: c.value
                         ? undefined
                         : "linear-gradient(45deg, transparent 45%, rgba(255,255,255,0.4) 45%, rgba(255,255,255,0.4) 55%, transparent 55%)",
+                      touchAction: "manipulation",
                     }}
                   >
                     {!c.value && <Eraser size={9} className="text-white/55" />}
@@ -376,6 +425,8 @@ export default function TextFormatBar({ enabled, canvasRef }: Props) {
           font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
           animation: ezd-fb-in 120ms ease-out;
           will-change: transform, opacity;
+          /* Ensure touch events work properly */
+          touch-action: manipulation;
         }
         @keyframes ezd-fb-in {
           from { opacity: 0; transform: translateY(4px) scale(0.97); }
@@ -394,6 +445,9 @@ export default function TextFormatBar({ enabled, canvasRef }: Props) {
           font-size: 11px;
           line-height: 1;
           transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+          touch-action: manipulation;
+          min-height: 28px;
+          min-width: 28px;
         }
         :global(.ezd-fb-btn:hover) {
           background: rgba(255, 255, 255, 0.08);
@@ -416,6 +470,7 @@ export default function TextFormatBar({ enabled, canvasRef }: Props) {
           box-shadow: 0 16px 40px -12px rgba(0, 0, 0, 0.7);
           z-index: 1;
           animation: ezd-fb-in 120ms ease-out;
+          touch-action: manipulation;
         }
         :global(.ezd-fb-row) {
           display: flex;
@@ -431,10 +486,24 @@ export default function TextFormatBar({ enabled, canvasRef }: Props) {
           font-size: 12px;
           line-height: 1;
           gap: 8px;
+          touch-action: manipulation;
+          min-height: 32px;
         }
         :global(.ezd-fb-row:hover) {
           background: rgba(255, 255, 255, 0.08);
           color: #fff;
+        }
+        /* Larger touch targets for mobile */
+        @media (max-width: 768px) {
+          :global(.ezd-fb-btn) {
+            padding: 7px 9px;
+            min-height: 32px;
+            min-width: 32px;
+          }
+          :global(.ezd-fb-row) {
+            padding: 8px 12px;
+            min-height: 38px;
+          }
         }
       `}</style>
     </div>
@@ -457,6 +526,7 @@ function ToolbarButton({
       title={title}
       onClick={onClick}
       className={`ezd-fb-btn ${active ? "ezd-fb-btn-active" : ""}`}
+      style={{ touchAction: "manipulation" }}
     >
       {children}
     </button>
