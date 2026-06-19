@@ -108,7 +108,8 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
   const [imageQuery, setImageQuery] = useState("");
   const [relatedImages, setRelatedImages] = useState<PexelsPhoto[]>([]);
   const [relatedLoading, setRelatedLoading] = useState(false);
-
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  
   // Load the user's saved custom templates for the gallery.
   useEffect(() => {
     if (!user) return;
@@ -350,22 +351,110 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
   /* ----------------------------- Image upload ----------------------------- */
 
   const onUploadImage = (file: File) => {
-    if (!file.type.startsWith("image/")) { alert("Please choose an image file."); return; }
-    if (file.size > 5 * 1024 * 1024) { alert("Image is over 5MB. Choose a smaller one."); return; }
+    // 1. Validate file type
+    if (!file.type.startsWith("image/")) {
+      alert("Please choose an image file (JPEG, PNG, WebP, etc.).");
+      return;
+    }
+
+    // 2. Check file size (max 20MB for raw upload)
+    if (file.size > 20 * 1024 * 1024) {
+      alert("Image is over 20MB. Please choose a smaller image (max 20MB).");
+      return;
+    }
+
+    // 3. Show loading indicator
+    setIsUploadingImage(true);
+
     const reader = new FileReader();
     reader.onload = () => {
       const dataUrl = String(reader.result || "");
       const probe = new window.Image();
+      
       probe.onload = () => {
+        // 4. Compress image if too large
+        let finalDataUrl = dataUrl;
+        let finalWidth = probe.width;
+        let finalHeight = probe.height;
+
+        // If image is larger than 1920px or 5MB, compress it
+        const MAX_WIDTH = 1920;
+        const MAX_HEIGHT = 1920;
+        const MAX_SIZE_MB = 5;
+
+        if (probe.width > MAX_WIDTH || probe.height > MAX_HEIGHT || file.size > MAX_SIZE_MB * 1024 * 1024) {
+          // Compress using canvas
+          const canvas = document.createElement("canvas");
+          let width = probe.width;
+          let height = probe.height;
+
+          // Calculate new dimensions
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height = Math.round((height * MAX_WIDTH) / width);
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width = Math.round((width * MAX_HEIGHT) / height);
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx?.drawImage(probe, 0, 0, width, height);
+
+          // Export as JPEG with 0.85 quality (smaller file size)
+          finalDataUrl = canvas.toDataURL("image/jpeg", 0.85);
+          
+          // Log compression
+          const originalSize = Math.round(file.size / 1024);
+          const compressedSize = Math.round(JSON.stringify(finalDataUrl).length / 1024);
+          console.log(`[Image] Compressed: ${originalSize}KB → ${compressedSize}KB (${Math.round((compressedSize/originalSize)*100)}%)`);
+        }
+
+        // 5. Add compressed image to slide
+        const slide = deck.slides[active];
+        const w = Math.min(5, (probe.width / probe.height) * 5);
+        const h = Math.min(5, (probe.height / probe.width) * 5);
+        
+        const newImage: UploadedImage = {
+          id: `img_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+          kind: "user",
+          dataUrl: finalDataUrl,
+          x: (13.333 - w) / 2, 
+          y: (7.5 - h) / 2, 
+          w, 
+          h,
+        };
+
+        setDeck({
+          ...deck,
+          slides: deck.slides.map((s, i) =>
+            i === active ? { ...s, uploadedImages: [...(slide.uploadedImages || []), newImage] } : s,
+          ),
+        });
+
+        setIsUploadingImage(false);
+      };
+
+      probe.onerror = () => {
+        // Fallback: use original if compression fails
+        setIsUploadingImage(false);
+        const slide = deck.slides[active];
         const w = 5;
-        const h = (probe.height / probe.width) * w;
+        const h = 3.5;
         const newImage: UploadedImage = {
           id: `img_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
           kind: "user",
           dataUrl,
-          x: (13.333 - w) / 2, y: (7.5 - h) / 2, w, h,
+          x: (13.333 - w) / 2, 
+          y: (7.5 - h) / 2, 
+          w, 
+          h,
         };
-        const slide = deck.slides[active];
         setDeck({
           ...deck,
           slides: deck.slides.map((s, i) =>
@@ -373,8 +462,15 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
           ),
         });
       };
-      probe.src = dataUrl;
+
+      probe.src = finalDataUrl;
     };
+
+    reader.onerror = () => {
+      setIsUploadingImage(false);
+      alert("Failed to read the image file. Please try again.");
+    };
+
     reader.readAsDataURL(file);
   };
 
@@ -846,7 +942,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
   };
 
   return (
-    <div className="fade-in mx-auto w-full max-w-[1400px]">
+    <div className="fade-in mx-auto w-full max-w-[1400px]" style={{ touchAction: "manipulation" }}>
       <DeckTour userId={user?.uid ?? null} />
       {(densifying || !!densityError) && (
         <GenerateOverlay
@@ -953,6 +1049,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
               className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 font-medium transition ${
                 viewMode === "slides" ? "bg-white text-black shadow-sm" : "text-white/70 hover:text-white"
               }`}
+              style={{ touchAction: "manipulation", minHeight: "36px" }}
               title="Edit slide by slide"
             >
               <LayoutGrid size={13} /> Slides
@@ -964,6 +1061,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
               className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 font-medium transition ${
                 viewMode === "outline" ? "bg-white text-black shadow-sm" : "text-white/70 hover:text-white"
               }`}
+              style={{ touchAction: "manipulation", minHeight: "36px" }}
               title="Edit the whole deck as an outline"
             >
               <List size={13} /> Outline
@@ -976,6 +1074,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
                 onClick={() => setDensityMenuOpen((o) => !o)}
                 disabled={densifying}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/[0.04] px-2.5 py-1.5 text-[12px] text-white/80 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+                style={{ touchAction: "manipulation", minHeight: "36px" }}
                 title="Change the whole deck's content density"
               >
                 <SlidersHorizontal size={13} className="opacity-70" />
@@ -1007,6 +1106,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
                           className={`flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-[12.5px] transition disabled:opacity-60 ${
                             activeD ? "bg-white/10 text-white" : "text-white/75 hover:bg-white/10"
                           }`}
+                          style={{ touchAction: "manipulation", minHeight: "40px" }}
                         >
                           <span>
                             <span className="font-medium">{d.label}</span>
@@ -1031,34 +1131,42 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
               if (fileInputRef.current) fileInputRef.current.value = "";
             }}
           />
+          {isUploadingImage && (
+            <span className="inline-flex items-center gap-2 text-sm text-white/70">
+              <Loader2 size={14} className="animate-spin" /> Compressing image...
+            </span>
+          )}
           {viewMode === "slides" && (
             <>
-          <button
-            onClick={undo}
-            disabled={!canUndo}
-            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
-            title="Undo last change (Ctrl/Cmd+Z)"
-          >
-            <Undo2 size={14} /> Undo
-          </button>
-          <button
-            onClick={() => requireFeatureOrUpgrade("icons", "Adding icons is a Pro feature. Upgrade to use the icon library.", () => setIconOpen(true))}
-            data-tour="tour-icon"
-            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
-            title="Search 200,000+ icons from Iconify"
-          >
-            <Smile size={14} /> Add icon
-            {!planHasFeature(plan, "icons") && <Lock size={12} className="opacity-60" />}
-          </button>
-          <button
-            onClick={openTemplateGallery}
-            data-tour="tour-template"
-            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
-            title="Switch the whole deck to a different template (theme, font, graphic, layout)"
-          >
-            <LayoutTemplate size={14} /> Template
-            {!planHasFeature(plan, "template") && <Lock size={12} className="opacity-60" />}
-          </button>
+              <button
+                onClick={undo}
+                disabled={!canUndo}
+                className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                style={{ touchAction: "manipulation", minHeight: "44px" }}
+                title="Undo last change (Ctrl/Cmd+Z)"
+              >
+                <Undo2 size={14} /> Undo
+              </button>
+              <button
+                onClick={() => requireFeatureOrUpgrade("icons", "Adding icons is a Pro feature. Upgrade to use the icon library.", () => setIconOpen(true))}
+                data-tour="tour-icon"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
+                style={{ touchAction: "manipulation", minHeight: "44px" }}
+                title="Search 200,000+ icons from Iconify"
+              >
+                <Smile size={14} /> Add icon
+                {!planHasFeature(plan, "icons") && <Lock size={12} className="opacity-60" />}
+              </button>
+              <button
+                onClick={openTemplateGallery}
+                data-tour="tour-template"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
+                style={{ touchAction: "manipulation", minHeight: "44px" }}
+                title="Switch the whole deck to a different template (theme, font, graphic, layout)"
+              >
+                <LayoutTemplate size={14} /> Template
+                {!planHasFeature(plan, "template") && <Lock size={12} className="opacity-60" />}
+              </button>
             </>
           )}
           {user && deckId && (
@@ -1067,16 +1175,18 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
               disabled={sharing}
               data-tour="tour-share"
               className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 disabled:opacity-60"
+              style={{ touchAction: "manipulation", minHeight: "44px" }}
               title="Get a public link to share this deck"
             >
               <LinkIcon size={14} /> {sharing ? "Sharing…" : "Share"}
             </button>
           )}
           <div className="relative" data-tour="tour-notes" />
-          {coverMode && (            <button
+          {coverMode && (            
+            <button
               onClick={openAddImages}
               className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition hover:opacity-90"
-              style={{ background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)" }}
+              style={{ background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)", touchAction: "manipulation", minHeight: "44px" }}
               title="Replace this slide's photo with a relevant one"
             >
               <ImageIcon size={14} /> Replace image
@@ -1086,6 +1196,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
             onClick={() => setPresenting(true)}
             data-tour="tour-present"
             className="inline-flex items-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm text-emerald-200 hover:bg-emerald-400/20"
+            style={{ touchAction: "manipulation", minHeight: "44px" }}
             title="Start full-screen presentation (Esc to exit)"
           >
             <Play size={14} /> Present
@@ -1093,6 +1204,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
           <button
             onClick={onRestart}
             className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
+            style={{ touchAction: "manipulation", minHeight: "44px" }}
           >
             <RotateCcw size={14} /> Start over
           </button>
@@ -1117,6 +1229,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
         <div className="min-w-0">
           <div
             className="overflow-hidden rounded-2xl border border-white/10 shadow-2xl"
+            style={{ touchAction: "manipulation" }}
             onDragOver={(e) => {
               if (e.dataTransfer.types.includes("application/x-exdeck-chart")) {
                 e.preventDefault();
@@ -1178,6 +1291,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
               onClick={goPrev}
               disabled={active === 0}
               className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm disabled:opacity-40"
+              style={{ touchAction: "manipulation", minHeight: "36px" }}
             >
               <ChevronLeft size={14} /> Prev
             </button>
@@ -1186,6 +1300,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
               onClick={goNext}
               disabled={active === deck.slides.length - 1}
               className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm disabled:opacity-40"
+              style={{ touchAction: "manipulation", minHeight: "36px" }}
             >
               Next <ChevronRight size={14} />
             </button>
@@ -1426,6 +1541,7 @@ function ShareModal({
             className={`flex flex-1 items-center justify-center gap-1.5 px-4 py-3 text-[12.5px] font-medium transition ${
               tab === "link" ? "text-white" : "text-white/45 hover:text-white/75"
             }`}
+            style={{ touchAction: "manipulation", minHeight: "44px" }}
           >
             <LinkIcon size={12} /> Share link
           </button>
@@ -1434,6 +1550,7 @@ function ShareModal({
             className={`flex flex-1 items-center justify-center gap-1.5 px-4 py-3 text-[12.5px] font-medium transition ${
               tab === "stats" ? "text-white" : "text-white/45 hover:text-white/75"
             }`}
+            style={{ touchAction: "manipulation", minHeight: "44px" }}
           >
             <BarChart3 size={12} /> Performance
           </button>
@@ -1456,6 +1573,7 @@ function ShareModal({
                   className={`rounded-lg px-3 py-2 text-[12.5px] font-medium transition ${
                     mode === "view" ? "bg-white text-black" : "text-white/65 hover:text-white"
                   }`}
+                  style={{ touchAction: "manipulation", minHeight: "44px" }}
                 >
                   Read only
                 </button>
@@ -1464,6 +1582,7 @@ function ShareModal({
                   className={`rounded-lg px-3 py-2 text-[12.5px] font-medium transition ${
                     mode === "edit" ? "bg-white text-black" : "text-white/65 hover:text-white"
                   }`}
+                  style={{ touchAction: "manipulation", minHeight: "44px" }}
                 >
                   Can edit
                 </button>
@@ -1476,6 +1595,7 @@ function ShareModal({
                     try { await navigator.clipboard.writeText(url); setCopied(true); window.setTimeout(() => setCopied(false), 1500); } catch { /* ignore */ }
                   }}
                   className="rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-black hover:bg-white/90"
+                  style={{ touchAction: "manipulation", minHeight: "36px", minWidth: "44px" }}
                 >
                   {copied ? "Copied" : "Copy"}
                 </button>
@@ -1487,12 +1607,14 @@ function ShareModal({
                 <button
                   onClick={() => onUnpublish()}
                   className="text-xs text-white/55 underline-offset-2 hover:text-white/85 hover:underline"
+                  style={{ touchAction: "manipulation", minHeight: "36px" }}
                 >
                   Stop sharing
                 </button>
                 <button
                   onClick={onClose}
                   className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-black hover:bg-white/90"
+                  style={{ touchAction: "manipulation", minHeight: "44px" }}
                 >
                   Done
                 </button>
@@ -1570,6 +1692,7 @@ function ShareStats({
         <button
           onClick={onRefresh}
           className="text-[11px] text-white/45 underline-offset-2 hover:text-white/80 hover:underline"
+          style={{ touchAction: "manipulation", minHeight: "32px", minWidth: "44px" }}
         >
           Refresh
         </button>
@@ -1622,6 +1745,7 @@ function ShareStats({
         <button
           onClick={onClose}
           className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-black hover:bg-white/90"
+          style={{ touchAction: "manipulation", minHeight: "44px" }}
         >
           Done
         </button>
@@ -1641,7 +1765,7 @@ function ThemeTransferModal({
             <div className="text-sm font-medium text-white">Apply a theme</div>
             <div className="text-[11px] text-white/50">Re-skins every slide instantly. Per-slide color overrides stay.</div>
           </div>
-          <button onClick={onClose} className="rounded-full p-1.5 text-white/60 hover:bg-white/10 hover:text-white">✕</button>
+          <button onClick={onClose} className="rounded-full p-1.5 text-white/60 hover:bg-white/10 hover:text-white" style={{ touchAction: "manipulation", minHeight: "36px", minWidth: "36px" }}>✕</button>
         </div>
         <div className="grid max-h-[65vh] grid-cols-2 gap-3 overflow-y-auto p-5 sm:grid-cols-3 md:grid-cols-4">
           {PRESET_THEMES.map((t) => {
@@ -1653,6 +1777,7 @@ function ThemeTransferModal({
                 className={`group overflow-hidden rounded-xl border text-left transition ${
                   active ? "border-white/60 ring-2 ring-white/30" : "border-white/10 hover:border-white/35"
                 }`}
+                style={{ touchAction: "manipulation" }}
               >
                 <div className="flex h-24 flex-col justify-between p-3" style={{ background: t.bg }}>
                   <div className="text-[11px] font-bold" style={{ color: t.accent }}>Sample title</div>
@@ -1739,7 +1864,7 @@ function ReviewGate({
           <span className="inline-flex items-center gap-2 text-[13px] font-medium" style={{ color: "var(--ezd-fg-strong)" }}>
             <Star size={13} /> One quick review, then download
           </span>
-          <button onClick={onClose} disabled={busy} className="grid h-7 w-7 place-items-center rounded-full transition hover:bg-white/10" style={{ color: "var(--ezd-fg-muted)" }}>
+          <button onClick={onClose} disabled={busy} className="grid h-7 w-7 place-items-center rounded-full transition hover:bg-white/10" style={{ color: "var(--ezd-fg-muted)", touchAction: "manipulation", minHeight: "36px" }}>
             <X size={14} />
           </button>
         </div>
@@ -1756,12 +1881,14 @@ function ReviewGate({
               onChange={(e) => setName(e.target.value.slice(0, REVIEW_LIMITS.name))}
               placeholder="Your name"
               className="w-full rounded-xl border border-white/12 bg-black/40 px-3 py-2.5 text-sm outline-none focus:border-white/30"
+              style={{ touchAction: "manipulation", minHeight: "44px" }}
             />
             <input
               value={role}
               onChange={(e) => setRole(e.target.value.slice(0, REVIEW_LIMITS.role))}
               placeholder="What you do"
               className="w-full rounded-xl border border-white/12 bg-black/40 px-3 py-2.5 text-sm outline-none focus:border-white/30"
+              style={{ touchAction: "manipulation", minHeight: "44px" }}
             />
           </div>
 
@@ -1774,6 +1901,7 @@ function ReviewGate({
                 onClick={() => setRating(n)}
                 aria-label={`${n} stars`}
                 className="p-0.5 transition-transform hover:scale-110"
+                style={{ touchAction: "manipulation", minHeight: "32px", minWidth: "32px" }}
               >
                 <Star
                   size={24}
@@ -1794,6 +1922,7 @@ function ReviewGate({
               placeholder="A line or two — the UI, speed, workflow, whatever stood out."
               rows={3}
               className="w-full resize-none rounded-xl border border-white/12 bg-black/40 p-3 pb-7 text-sm leading-relaxed outline-none placeholder:text-white/30 focus:border-white/30"
+              style={{ touchAction: "manipulation" }}
             />
             <span className="pointer-events-none absolute bottom-2 right-3 text-[11px] tabular-nums text-white/35">
               {text.length}/{REVIEW_LIMITS.text}
@@ -1806,7 +1935,7 @@ function ReviewGate({
             onClick={submit}
             disabled={busy}
             className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
-            style={{ background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)" }}
+            style={{ background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)", touchAction: "manipulation", minHeight: "44px" }}
           >
             {busy ? <Loader2 size={15} className="animate-spin" /> : <Star size={15} />}
             {busy ? "Submitting…" : "Submit & download"}
@@ -1856,7 +1985,7 @@ function PatternPicker({
           <span className="inline-flex items-center gap-2 text-[13px] font-medium" style={{ color: "var(--ezd-fg-strong)" }}>
             <Grid3x3 size={14} /> Background pattern
           </span>
-          <button onClick={onClose} className="grid h-7 w-7 place-items-center rounded-full transition hover:bg-white/10" style={{ color: "var(--ezd-fg-muted)" }}>
+          <button onClick={onClose} className="grid h-7 w-7 place-items-center rounded-full transition hover:bg-white/10" style={{ color: "var(--ezd-fg-muted)", touchAction: "manipulation", minHeight: "36px" }}>
             <X size={14} />
           </button>
         </div>
@@ -1878,6 +2007,7 @@ function PatternPicker({
                     border: activeColor.toLowerCase() === c.toLowerCase() ? "2px solid var(--ezd-fg-strong)" : "1px solid var(--ezd-divider)",
                     opacity: activeId ? 1 : 0.4,
                     cursor: activeId ? "pointer" : "not-allowed",
+                    touchAction: "manipulation",
                   }}
                   aria-label={`Pattern color ${c}`}
                   disabled={!activeId}
@@ -1909,6 +2039,7 @@ function PatternPicker({
               onChange={(e) => activeId && onApply({ id: activeId, color: current?.color, opacity: Number(e.target.value) / 100 })}
               disabled={!activeId}
               className="w-full accent-cyan-400 disabled:cursor-not-allowed disabled:opacity-40"
+              style={{ touchAction: "manipulation" }}
             />
           </div>
 
@@ -1925,6 +2056,7 @@ function PatternPicker({
                   style={{
                     borderColor: selected ? "var(--ezd-fg-strong)" : "var(--ezd-divider)",
                     outline: selected ? "2px solid var(--ezd-fg-strong)" : "none",
+                    touchAction: "manipulation",
                   }}
                 >
                   <div className="relative h-24 w-full" style={{ background: theme.bg }}>
@@ -1956,14 +2088,14 @@ function PatternPicker({
             onClick={() => { onApply(undefined); }}
             disabled={!activeId}
             className="rounded-xl border px-4 py-2 text-[12.5px] transition disabled:cursor-not-allowed disabled:opacity-40"
-            style={{ borderColor: "var(--ezd-divider)", color: "var(--ezd-fg-muted)" }}
+            style={{ borderColor: "var(--ezd-divider)", color: "var(--ezd-fg-muted)", touchAction: "manipulation", minHeight: "36px" }}
           >
             Remove pattern
           </button>
           <button
             onClick={onClose}
             className="rounded-xl px-5 py-2 text-[12.5px] font-semibold transition hover:brightness-110"
-            style={{ background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)" }}
+            style={{ background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)", touchAction: "manipulation", minHeight: "36px" }}
           >
             Done
           </button>
@@ -2038,7 +2170,12 @@ function InsertSidebar({
         onClick={onToggle}
         title={open ? "Close panel" : "Insert text or image"}
         className="fixed right-0 top-1/2 z-[120] flex h-12 w-7 -translate-y-1/2 items-center justify-center rounded-l-lg border border-r-0 border-white/15 bg-zinc-900/90 shadow-lg backdrop-blur transition hover:bg-zinc-800"
-        style={{ transform: open ? "translate(-300px, -50%)" : "translateY(-50%)", transition: "transform 240ms ease", color: "#ffffff" }}
+        style={{ 
+          transform: open ? "translate(-300px, -50%)" : "translateY(-50%)", 
+          transition: "transform 240ms ease", 
+          color: "#ffffff",
+          touchAction: "manipulation",
+        }}
       >
         <span className={!open ? "ezd-arrow-beat grid place-items-center rounded-full" : "grid place-items-center"}>
           {open ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
@@ -2054,7 +2191,7 @@ function InsertSidebar({
           <span className="inline-flex items-center gap-2 text-[13px] font-semibold text-white">
             <PanelRightOpen size={14} /> {panelTitle}
           </span>
-          <button onClick={onToggle} className="grid h-7 w-7 place-items-center rounded-full text-white/55 transition hover:bg-white/10 hover:text-white">
+          <button onClick={onToggle} className="grid h-7 w-7 place-items-center rounded-full text-white/55 transition hover:bg-white/10 hover:text-white" style={{ touchAction: "manipulation", minHeight: "36px" }}>
             <X size={14} />
           </button>
         </div>
@@ -2086,6 +2223,7 @@ function InsertSidebar({
                 className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm transition ${
                   placingText ? "border-cyan-300/50 bg-cyan-400/10 text-cyan-100" : "border-white/10 bg-white/[0.03] text-white/85 hover:bg-white/[0.06]"
                 }`}
+                style={{ touchAction: "manipulation", minHeight: "48px" }}
               >
                 <Type size={16} />
                 <span>
@@ -2096,6 +2234,7 @@ function InsertSidebar({
               <button
                 onClick={onAddImage}
                 className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white/85 transition hover:bg-white/[0.06]"
+                style={{ touchAction: "manipulation", minHeight: "48px" }}
               >
                 <ImageIcon size={16} />
                 <span>
@@ -2106,6 +2245,7 @@ function InsertSidebar({
               <button
                 onClick={onAddPhoto}
                 className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white/85 transition hover:bg-white/[0.06]"
+                style={{ touchAction: "manipulation", minHeight: "48px" }}
               >
                 <ImageIcon size={16} />
                 <span className="flex-1">
@@ -2116,6 +2256,7 @@ function InsertSidebar({
               <button
                 onClick={onAddVisuals}
                 className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white/85 transition hover:bg-white/[0.06]"
+                style={{ touchAction: "manipulation", minHeight: "48px" }}
               >
                 <BarChart3 size={16} />
                 <span className="flex-1">
@@ -2127,6 +2268,7 @@ function InsertSidebar({
                 onClick={onTranslate}
                 disabled={translating}
                 className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white/85 transition hover:bg-white/[0.06] disabled:opacity-60"
+                style={{ touchAction: "manipulation", minHeight: "48px" }}
               >
                 {translating ? <Loader2 size={16} className="animate-spin" /> : <Languages size={16} />}
                 <span className="flex-1">
@@ -2138,6 +2280,7 @@ function InsertSidebar({
               <button
                 onClick={onQAPrep}
                 className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white/85 transition hover:bg-white/[0.06]"
+                style={{ touchAction: "manipulation", minHeight: "48px" }}
               >
                 <MessageCircleQuestion size={16} />
                 <span className="flex-1">
@@ -2150,6 +2293,7 @@ function InsertSidebar({
                 onClick={onGenerateNotes}
                 disabled={notesLoading}
                 className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white/85 transition hover:bg-white/[0.06] disabled:opacity-60"
+                style={{ touchAction: "manipulation", minHeight: "48px" }}
               >
                 {notesLoading ? <Loader2 size={16} className="animate-spin" /> : <NotebookText size={16} />}
                 <span className="flex-1">
@@ -2161,6 +2305,7 @@ function InsertSidebar({
                 <button
                   onClick={onOpenTheme}
                   className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white/85 transition hover:bg-white/[0.06]"
+                  style={{ touchAction: "manipulation", minHeight: "48px" }}
                 >
                   <span className="inline-block h-4 w-4 shrink-0 rounded-full" style={{ background: theme.accent, boxShadow: "0 0 0 1px rgba(255,255,255,0.25)" }} />
                   <span className="flex-1">
@@ -2172,6 +2317,7 @@ function InsertSidebar({
               <button
                 onClick={onOpenPattern}
                 className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white/85 transition hover:bg-white/[0.06]"
+                style={{ touchAction: "manipulation", minHeight: "48px" }}
               >
                 <Grid3x3 size={16} />
                 <span className="flex-1">
@@ -2190,6 +2336,7 @@ function InsertSidebar({
                   onChange={(e) => onUpdateText({ text: e.target.value })}
                   rows={2}
                   className="w-full resize-none rounded-lg border border-white/12 bg-black/40 p-2.5 text-sm text-white outline-none focus:border-white/30"
+                  style={{ touchAction: "manipulation" }}
                 />
                 <p className="mt-1.5 text-[11px] text-white/40">Tip: drag the box on the slide to position it.</p>
               </div>
@@ -2214,6 +2361,7 @@ function InsertSidebar({
                       className={`rounded-md border px-2 py-1 text-[11px] tabular-nums transition ${
                         selectedText.fontSize === s ? "border-white bg-white text-black" : "border-white/12 text-white/75 hover:bg-white/10"
                       }`}
+                      style={{ touchAction: "manipulation", minHeight: "32px", minWidth: "36px" }}
                     >
                       {s}
                     </button>
@@ -2251,6 +2399,7 @@ function InsertSidebar({
                           background: c || "transparent",
                           backgroundImage: isDefault ? "linear-gradient(45deg, transparent 45%, rgba(255,255,255,0.4) 45%, rgba(255,255,255,0.4) 55%, transparent 55%)" : undefined,
                           border: active ? "2px solid #fff" : "1px solid rgba(255,255,255,0.25)",
+                          touchAction: "manipulation",
                         }}
                         title={isDefault ? "Default" : c}
                       />
@@ -2263,12 +2412,14 @@ function InsertSidebar({
                 <button
                   onClick={onClearSelection}
                   className="rounded-lg border border-white/12 bg-white/5 px-3 py-1.5 text-[12px] text-white/80 transition hover:bg-white/10"
+                  style={{ touchAction: "manipulation", minHeight: "36px" }}
                 >
                   Done
                 </button>
                 <button
                   onClick={onDeleteText}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-[12px] text-red-200 transition hover:bg-red-500/20"
+                  style={{ touchAction: "manipulation", minHeight: "36px" }}
                 >
                   <Trash2 size={12} /> Delete
                 </button>
@@ -2288,6 +2439,7 @@ function ToggleBtn({ active, onClick, children }: { active: boolean; onClick: ()
       className={`grid h-8 w-8 place-items-center rounded-md border transition ${
         active ? "border-white bg-white text-black" : "border-white/12 text-white/75 hover:bg-white/10"
       }`}
+      style={{ touchAction: "manipulation", minHeight: "36px", minWidth: "36px" }}
     >
       {children}
     </button>
@@ -2320,6 +2472,7 @@ function FontDropdown({
       <button
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center justify-between rounded-lg border border-white/12 bg-black/40 px-2.5 py-2 text-sm text-white outline-none transition focus:border-white/30"
+        style={{ touchAction: "manipulation", minHeight: "44px" }}
       >
         <span style={{ fontFamily: current ? resolveFontFamily(current.id) : undefined }}>
           {current ? current.name : "Theme default"}
@@ -2331,6 +2484,7 @@ function FontDropdown({
           <button
             onClick={() => { onChange(undefined); setOpen(false); }}
             className={`block w-full rounded-md px-2.5 py-1.5 text-left text-[13px] transition hover:bg-white/10 ${!value ? "text-white" : "text-white/70"}`}
+            style={{ touchAction: "manipulation", minHeight: "36px" }}
           >
             Theme default
           </button>
@@ -2339,7 +2493,7 @@ function FontDropdown({
               key={f.id}
               onClick={() => { onChange(f.id); setOpen(false); }}
               className={`block w-full rounded-md px-2.5 py-1.5 text-left text-[15px] transition hover:bg-white/10 ${value === f.id ? "bg-white/10 text-white" : "text-white/80"}`}
-              style={{ fontFamily: resolveFontFamily(f.id) }}
+              style={{ fontFamily: resolveFontFamily(f.id), touchAction: "manipulation", minHeight: "36px" }}
             >
               {f.name}
             </button>
@@ -2383,6 +2537,7 @@ function DecoSettings({
               className={`rounded-md border px-2.5 py-1 text-[11px] tabular-nums transition ${
                 curScale === m ? "border-white bg-white text-black" : "border-white/12 text-white/75 hover:bg-white/10"
               }`}
+              style={{ touchAction: "manipulation", minHeight: "32px", minWidth: "36px" }}
             >
               {m}×
             </button>
@@ -2398,7 +2553,7 @@ function DecoSettings({
               key={c}
               onClick={() => onUpdate({ color: c })}
               className="h-7 w-7 rounded-full transition"
-              style={{ background: c, border: curColor === c.toLowerCase() ? "2px solid #fff" : "1px solid rgba(255,255,255,0.25)" }}
+              style={{ background: c, border: curColor === c.toLowerCase() ? "2px solid #fff" : "1px solid rgba(255,255,255,0.25)", touchAction: "manipulation" }}
               aria-label={`Color ${c}`}
             />
           ))}
@@ -2409,6 +2564,7 @@ function DecoSettings({
         <button
           onClick={() => onUpdate({ dx: 0, dy: 0, scale: 1 })}
           className="rounded-lg border border-white/12 bg-white/5 px-3 py-1.5 text-[12px] text-white/80 transition hover:bg-white/10"
+          style={{ touchAction: "manipulation", minHeight: "36px" }}
         >
           Reset
         </button>
@@ -2416,12 +2572,14 @@ function DecoSettings({
           <button
             onClick={onDone}
             className="rounded-lg border border-white/12 bg-white/5 px-3 py-1.5 text-[12px] text-white/80 transition hover:bg-white/10"
+            style={{ touchAction: "manipulation", minHeight: "36px" }}
           >
             Done
           </button>
           <button
             onClick={onDelete}
             className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-[12px] text-red-200 transition hover:bg-red-500/20"
+            style={{ touchAction: "manipulation", minHeight: "36px" }}
           >
             <Trash2 size={12} /> Delete
           </button>
@@ -2484,6 +2642,7 @@ function ElementSettings({
               className={`rounded-md border px-2 py-1 text-[11px] tabular-nums transition ${
                 size === s ? "border-white bg-white text-black" : "border-white/12 text-white/75 hover:bg-white/10"
               }`}
+              style={{ touchAction: "manipulation", minHeight: "32px", minWidth: "36px" }}
             >
               {s}
             </button>
@@ -2493,6 +2652,7 @@ function ElementSettings({
             className={`rounded-md border px-2 py-1 text-[11px] transition ${
               !size ? "border-white bg-white text-black" : "border-white/12 text-white/75 hover:bg-white/10"
             }`}
+            style={{ touchAction: "manipulation", minHeight: "32px", minWidth: "36px" }}
           >
             Auto
           </button>
@@ -2529,6 +2689,7 @@ function ElementSettings({
                   background: c || "transparent",
                   backgroundImage: isDefault ? "linear-gradient(45deg, transparent 45%, rgba(255,255,255,0.4) 45%, rgba(255,255,255,0.4) 55%, transparent 55%)" : undefined,
                   border: active ? "2px solid #fff" : "1px solid rgba(255,255,255,0.25)",
+                  touchAction: "manipulation",
                 }}
                 title={isDefault ? "Default" : c}
               />
@@ -2541,6 +2702,7 @@ function ElementSettings({
         <button
           onClick={onReset}
           className="rounded-lg border border-white/12 bg-white/5 px-3 py-1.5 text-[12px] text-white/80 transition hover:bg-white/10"
+          style={{ touchAction: "manipulation", minHeight: "36px" }}
         >
           Reset position
         </button>
@@ -2548,12 +2710,14 @@ function ElementSettings({
           <button
             onClick={onDone}
             className="rounded-lg border border-white/12 bg-white/5 px-3 py-1.5 text-[12px] text-white/80 transition hover:bg-white/10"
+            style={{ touchAction: "manipulation", minHeight: "36px" }}
           >
             Done
           </button>
           <button
             onClick={onDelete}
             className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-[12px] text-red-200 transition hover:bg-red-500/20"
+            style={{ touchAction: "manipulation", minHeight: "36px" }}
           >
             <Trash2 size={12} /> Delete
           </button>
@@ -2626,6 +2790,7 @@ function NotesModeDialog({
           <button
             onClick={onQuick}
             className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left hover:bg-white/10"
+            style={{ touchAction: "manipulation", minHeight: "48px" }}
           >
             <div className="text-sm font-medium">Quick notes</div>
             <div className="text-[12px] text-white/45">One presenter, whole deck</div>
@@ -2633,6 +2798,7 @@ function NotesModeDialog({
           <button
             onClick={onCustom}
             className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-left hover:bg-emerald-400/20"
+            style={{ touchAction: "manipulation", minHeight: "48px" }}
           >
             <div className="flex items-center gap-1.5 text-sm font-medium text-emerald-100">
               <Users size={14} /> Split by speaker
@@ -2644,6 +2810,7 @@ function NotesModeDialog({
           <button
             onClick={onClose}
             className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
+            style={{ touchAction: "manipulation", minHeight: "44px" }}
           >
             Cancel
           </button>
@@ -2704,6 +2871,7 @@ function CustomNotesDialog({
           onChange={(e) => setSetting(e.target.value)}
           placeholder="e.g. class presentation, team standup, conference panel"
           className="mb-4 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none placeholder:text-white/30 focus:border-emerald-400/40"
+          style={{ touchAction: "manipulation", minHeight: "44px" }}
         />
 
         <label className="mb-1.5 block text-[12px] font-medium text-white/70">
@@ -2720,11 +2888,13 @@ function CustomNotesDialog({
                 onChange={(e) => setName(i, e.target.value)}
                 placeholder={`Speaker ${i + 1} name`}
                 className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none placeholder:text-white/30 focus:border-emerald-400/40"
+                style={{ touchAction: "manipulation", minHeight: "44px" }}
               />
               <button
                 onClick={() => removeName(i)}
                 disabled={names.length <= 2}
                 className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-white/10 bg-white/5 text-white/60 hover:bg-white/10 disabled:opacity-30"
+                style={{ touchAction: "manipulation", minHeight: "36px", minWidth: "36px" }}
                 title="Remove speaker"
               >
                 <Minus size={14} />
@@ -2737,6 +2907,7 @@ function CustomNotesDialog({
           onClick={addName}
           disabled={names.length >= 8}
           className="mt-2 inline-flex items-center gap-1.5 rounded-lg px-1 text-[13px] text-emerald-300 hover:text-emerald-200 disabled:opacity-40"
+          style={{ touchAction: "manipulation", minHeight: "36px" }}
         >
           <Plus size={14} /> Add speaker
         </button>
@@ -2745,6 +2916,7 @@ function CustomNotesDialog({
           <button
             onClick={onClose}
             className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
+            style={{ touchAction: "manipulation", minHeight: "44px" }}
           >
             Cancel
           </button>
@@ -2752,6 +2924,7 @@ function CustomNotesDialog({
             onClick={() => onGenerate(cleaned, setting.trim())}
             disabled={!canGenerate}
             className="rounded-xl border border-emerald-400/30 bg-emerald-400/15 px-4 py-2 text-sm text-emerald-100 hover:bg-emerald-400/25 disabled:cursor-not-allowed disabled:opacity-40"
+            style={{ touchAction: "manipulation", minHeight: "44px" }}
           >
             Generate
           </button>
@@ -2797,12 +2970,14 @@ function NotesViewModal({
             <button
               onClick={onRegenerate}
               className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-[13px] hover:bg-white/10"
+              style={{ touchAction: "manipulation", minHeight: "36px" }}
             >
               Regenerate
             </button>
             <button
               onClick={onClose}
               className="grid h-8 w-8 place-items-center rounded-lg border border-white/10 bg-white/5 hover:bg-white/10"
+              style={{ touchAction: "manipulation", minHeight: "36px", minWidth: "36px" }}
             >
               <X size={15} />
             </button>
@@ -2889,6 +3064,7 @@ function TranslateDialog({
           placeholder="Type a language, e.g. Spanish"
           disabled={busy}
           className="mb-3 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none placeholder:text-white/30 focus:border-cyan-400/40 disabled:opacity-60"
+          style={{ touchAction: "manipulation", minHeight: "44px" }}
         />
 
         <div className="mb-5 flex flex-wrap gap-1.5">
@@ -2902,6 +3078,7 @@ function TranslateDialog({
                   ? "border-cyan-300/50 bg-cyan-400/15 text-cyan-100"
                   : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10"
               }`}
+              style={{ touchAction: "manipulation", minHeight: "32px", minWidth: "36px" }}
             >
               {l}
             </button>
@@ -2913,6 +3090,7 @@ function TranslateDialog({
             onClick={onClose}
             disabled={busy}
             className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 disabled:opacity-60"
+            style={{ touchAction: "manipulation", minHeight: "44px" }}
           >
             Cancel
           </button>
@@ -2920,6 +3098,7 @@ function TranslateDialog({
             onClick={() => onTranslate(lang)}
             disabled={busy || !lang.trim()}
             className="inline-flex items-center gap-1.5 rounded-xl border border-cyan-400/30 bg-cyan-400/15 px-4 py-2 text-sm text-cyan-100 hover:bg-cyan-400/25 disabled:cursor-not-allowed disabled:opacity-40"
+            style={{ touchAction: "manipulation", minHeight: "44px" }}
           >
             {busy ? <Loader2 size={14} className="animate-spin" /> : <Languages size={14} />}
             {busy ? "Translating…" : "Translate"}
@@ -3027,6 +3206,7 @@ function QAPrepModal({ deck, onClose }: { deck: Deck; onClose: () => void }) {
           <button
             onClick={onClose}
             className="grid h-8 w-8 place-items-center rounded-lg border border-white/10 bg-white/5 hover:bg-white/10"
+            style={{ touchAction: "manipulation", minHeight: "36px", minWidth: "36px" }}
           >
             <X size={15} />
           </button>
@@ -3043,11 +3223,13 @@ function QAPrepModal({ deck, onClose }: { deck: Deck; onClose: () => void }) {
               placeholder="e.g. How does this scale to 10k users?"
               disabled={asking}
               className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none placeholder:text-white/30 focus:border-amber-400/40 disabled:opacity-60"
+              style={{ touchAction: "manipulation", minHeight: "44px" }}
             />
             <button
               onClick={ask}
               disabled={asking || !question.trim()}
               className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-amber-400/30 bg-amber-400/15 px-3 py-2 text-sm text-amber-100 hover:bg-amber-400/25 disabled:cursor-not-allowed disabled:opacity-40"
+              style={{ touchAction: "manipulation", minHeight: "44px" }}
             >
               {asking ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
               Ask
@@ -3071,6 +3253,7 @@ function QAPrepModal({ deck, onClose }: { deck: Deck; onClose: () => void }) {
               <button
                 onClick={generate}
                 className="inline-flex items-center gap-2 rounded-xl border border-amber-400/30 bg-amber-400/15 px-4 py-2 text-sm text-amber-100 hover:bg-amber-400/25"
+                style={{ touchAction: "manipulation", minHeight: "44px" }}
               >
                 <MessageCircleQuestion size={15} /> Generate likely questions
               </button>
@@ -3101,6 +3284,7 @@ function QAPrepModal({ deck, onClose }: { deck: Deck; onClose: () => void }) {
                 onClick={generate}
                 disabled={loading}
                 className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-[13px] hover:bg-white/10 disabled:opacity-60"
+                style={{ touchAction: "manipulation", minHeight: "36px" }}
               >
                 Regenerate questions
               </button>
