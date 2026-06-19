@@ -39,6 +39,37 @@ const ROTATING_LINES = [
   "Almost there…",
 ];
 
+/**
+ * Helper to handle API errors with specific error codes
+ */
+const handleApiError = (data: any): { title: string; message: string; code: string; shouldUpgrade: boolean } => {
+  const errorMessages: Record<string, string> = {
+    "RATE_LIMIT_EXCEEDED": "You've used your daily generations. Please wait a moment or upgrade for more.",
+    "INVALID_PROMPT": "Please provide a longer prompt (at least 5 characters).",
+    "PLAN_LIMIT_REACHED": "Free tier allows 3 decks/month. Upgrade to continue creating.",
+    "GROQ_API_ERROR": "AI service is temporarily unavailable. Please try again in a few moments.",
+    "DAILY_LIMIT_EXCEEDED": "You've reached the daily safety limit (5 generations). Please wait until tomorrow.",
+    "TIMEOUT": "The request took too long. Please try again with a shorter prompt.",
+    "VALIDATION_ERROR": "Invalid input provided. Please check your data and try again.",
+    "UNAUTHORIZED": "Please sign in to continue.",
+    "USER_AUTH": "Authentication failed. Please sign in again.",
+    "FORBIDDEN": "You don't have permission to perform this action.",
+    "NOT_FOUND": "The requested resource was not found.",
+    "INTERNAL_ERROR": "Something went wrong. Please try again later.",
+    "EXPORT_ERROR": "Could not export the presentation. Please try again.",
+  };
+
+  const code = data?.code || "INTERNAL_ERROR";
+  const defaultMessage = errorMessages[code] || "Something went wrong. Please try again.";
+  
+  return {
+    title: code.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l) => l.toUpperCase()),
+    message: data?.message || defaultMessage,
+    code: code,
+    shouldUpgrade: code === "PLAN_LIMIT_REACHED" || code === "RATE_LIMIT_EXCEEDED",
+  };
+};
+
 export default function GenerateOverlay({
   open,
   error,
@@ -155,11 +186,13 @@ export default function GenerateOverlay({
             <h3 className="text-2xl font-semibold text-white">Couldn&rsquo;t generate presentation</h3>
             <p className="mt-3 text-sm text-white/60">Something interrupted the generation process.</p>
             <div className="mt-4 rounded-xl bg-white/5 p-3 text-sm text-red-300">{error}</div>
-            <div className="mt-6 flex justify-center gap-3">
+            
+            {/* Error actions with upgrade handling */}
+            <div className="mt-6 flex flex-wrap justify-center gap-3">
               <button
                 onClick={onRetry}
                 disabled={loading}
-                className="rounded-xl bg-white px-5 py-2.5 font-medium text-black transition hover:opacity-90"
+                className="rounded-xl bg-white px-5 py-2.5 font-medium text-black transition hover:opacity-90 disabled:opacity-50"
               >
                 ↻ Try Again
               </button>
