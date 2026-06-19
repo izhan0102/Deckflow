@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState, useCallback, createContext, useContext, useMemo } from "react";
+import { useRef, useState, useCallback, createContext, useContext, useMemo, useEffect } from "react";
 import type {
   Slide, Annotation, Anchor, ElementId, ElementOffset,
   TableData, Reference, UploadedImage, TextBox,
@@ -15,7 +15,7 @@ import TextFormatBar from "./TextFormatBar";
 import { getGraphic, svgToDataUri } from "@/lib/graphics";
 import { getPattern, PATTERN_OPACITY } from "@/lib/patterns";
 import { decorationDataUri, applyDecorationOverrides } from "@/lib/decorations";
-import { resolveFontFamily } from "@/lib/fonts";
+import { resolveFontFamily, getFontDisplay, getFont, getGoogleFontUrlForId } from "@/lib/fonts";
 import { iconifySvgUrl } from "@/lib/iconify";
 import { chartDataUri } from "@/lib/charts";
 
@@ -32,6 +32,245 @@ function shadeHex(hex: string, t: number): string {
   const r = parseInt(full.slice(0, 2), 16) || 0;
   const g = parseInt(full.slice(2, 4), 16) || 0;
   const b = parseInt(full.slice(4, 6), 16) || 0;
+  const m = (c: number) => Math.round(c + (255 - c) * Math.max(0, Math.min(1, t)));
+  return `rgb(${m(r)}, ${m(g)}, ${m(b)})`;
+}
+
+/** Resolve a per-role template font-family (title/subtitle/kicker/body),
+ *  falling back to undefined so the slide's base font applies. */
+function roleFontFamily(slide: Slide | undefined, role: "title" | "subtitle" | "kicker" | "body"): string | undefined {
+  const id = slide?.templateFonts?.[role];
+  return id ? resolveFontFamily(id) : undefined;
+}
+
+/* ------------------- Canvas element selection context --------------------- */
+
+export type CanvasSelection =
+  | { kind: "deco"; key: string; defaultColor: string }
+  | { kind: "element"; id: ElementId; defaultColor: string }
+  | null;
+
+type CanvasSelCtx = {
+  selection: CanvasSelection;
+  select: (sel: CanvasSelection) => void;
+};
+const CanvasSelectionContext = createContext<CanvasSelCtx>({ selection: null, select: () => {} });
+export function useCanvasSelection() { return useContext(CanvasSelectionContext); }
+
+export type SlideUpdater = (patch: Partial<Slide>) => void;
+export type ImageSelector = (id: string | null) => void;
+
+/**
+ * Preload a font when it's needed to prevent FOUT (Flash of Unstyled Text)
+ */
+function preloadFontIfNeeded(fontId?: string) {
+  if (typeof document === "undefined" || !fontId) return;
+  
+  const font = getFont(fontId);
+  if (!font?.googleFontUrl) return;
+
+  // Check if already preloaded
+  const existing = document.querySelector(`link[data-font="${fontId}"]`);
+  if (existing) return;
+
+  // Create and append preload link
+  const link = document.createElement("link");
+  link.rel = "preload";
+  link.href = font.googleFontUrl;
+  link.as = "style";
+  link.type = "text/css";
+  link.crossOrigin = "anonymous";
+  link.setAttribute("data-font", fontId);
+  document.head.appendChild(link);
+
+  // Also load the actual stylesheet
+  const styleLink = document.createElement("link");
+  styleLink.rel = "stylesheet";
+  styleLink.href = font.googleFontUrl;
+  styleLink.type = "text/css";
+  styleLink.setAttribute("data-font", fontId);
+  document.head.appendChild(styleLink);
+}
+
+export default function SlideCanvas({
+  slide, theme, idx, total, deckTitle, graphicId, graphicAccent, fontId,
+  interactive = false,
+  onUpdate,
+  selectedImageId,
+  onSelectImage,
+  onEditChart,
+  placingText = false,
+  onPlaceText,
+  selectedTextId,
+  onSelectText,
+  canvasSelection,
+  onCanvasSelect,
+  watermark = false,
+  onWatermarkClick,
+}: {
+  slide: Slide;
+  theme: Theme;
+  idx: number;
+  total: number;
+  deckTitle: string;
+  graphicId?: string;
+  graphicAccent?: string;
+  fontId?: string;
+  interactive?: boolean;
+  onUpdate?: SlideUpdater;
+  selectedImageId?: string | null;
+  onSelectImage?: ImageSelector;
+  onEditChart?: (id: string) => void;
+  placingText?: boolean;
+  onPlaceText?: (x: number, y: number) => void;
+  selectedTextId?: string | null;
+  onSelectText?: (id: string | null) => void;
+  canvasSelection?: CanvasSelection;
+  onCanvasSelect?: (sel: CanvasSelection) => void;
+  watermark?: boolean;
+  onWatermarkClick?: () => void;
+}) {
+  const font = effectiveFont(theme.font, slide);
+  const themeFontFallback =
+    font === "serif" ? "Georgia, serif"
+    : font === "mono" ? "Consolas, ui-monospace, monospace"
+    : "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
+  const fontFamily = resolveFontFamily(fontId, themeFontFallback);
+  const fontDisplay = fontId ? getFontDisplay(fontId) : "swap";
+
+  // Preload the font when it changes to prevent FOUT
+  useEffect(() => {
+    preloadFontIfNeeded(fontId);
+  }, [fontId]);
+
+  const effective: Theme = {
+    ...theme,
+    fg: slide.textColorOverride || theme.fg,
+    accent: slide.accentColorOverride || theme.accent,
+    bg: slide.backgroundColorOverride || theme.bg,
+  };
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const graphic = getGraphic(graphicId);
+  const graphicTheme: Theme = graphicAccent ? { ...effective, accent: graphicAccent } : effective;
+  const graphicSvgMarkup = graphic.id === "none" ? null : graphic.render(graphicTheme);
+
+  const pattern = slide.pattern?.id ? getPattern(slide.pattern.id) : undefined;
+  const patternColor = slide.pattern?.color || effective.fg;
+  const patternOpacity = slide.pattern?.opacity ?? PATTERN_OPACITY;
+  const patternMarkup = pattern ? pattern.render(patternColor) : null;
+
+  const selectCtx: CanvasSelCtx = {
+    selection: canvasSelection ?? null,
+    select: (sel) => onCanvasSelect?.(sel),
+  };
+
+  return (
+    <CanvasSelectionContext.Provider value={selectCtx}>
+    <div
+      ref={containerRef}
+      className="relative w-full"
+      onPointerDown={(e) => {
+        const target = e.target as HTMLElement;
+        if (interactive && placingText && onPlaceText && containerRef.current) {
+          const rect = containerRef.current.getBoundingClientRect();
+          const x = ((e.clientX - rect.left) / rect.width) * SLIDE_W_IN;
+          const y = ((e.clientY - rect.top) / rect.height) * SLIDE_H_IN;
+          onPlaceText(x, y);
+          return;
+        }
+        if (interactive && target === e.currentTarget) {
+          if (onSelectImage) onSelectImage(null);
+          if (onSelectText) onSelectText(null);
+          if (onCanvasSelect) onCanvasSelect(null);
+        }
+      }}
+      style={{
+        aspectRatio: `${SLIDE_W_IN} / ${SLIDE_H_IN}`,
+        background: effective.bg,
+        color: effective.fg,
+        fontFamily,
+        fontDisplay: fontDisplay,
+        containerType: "inline-size",
+        overflow: "hidden",
+        cursor: interactive && placingText ? "crosshair" : undefined,
+      } as React.CSSProperties}
+    >
+      {patternMarkup && (
+        <div
+          aria-hidden
+          style={{
+            position: "absolute", inset: 0,
+            pointerEvents: "none", zIndex: 0, overflow: "hidden",
+            opacity: patternOpacity,
+          }}
+          dangerouslySetInnerHTML={{
+            __html: patternMarkup.replace(
+              /^<svg /,
+              `<svg style="display:block;width:100%;height:100%;" `,
+            ),
+          }}
+        />
+      )}
+      {graphicSvgMarkup && (
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            inset: 0,
+            pointerEvents: "none",
+            zIndex: 0,
+            overflow: "hidden",
+          }}
+          dangerouslySetInnerHTML={{
+            __html: graphicSvgMarkup.replace(
+              /^<svg /,
+              `<svg style="display:block;width:100%;height:100%;" `,
+            ),
+          }}
+        />
+      )}
+      <Inner
+        slide={slide} theme={effective} idx={idx} total={total} deckTitle={deckTitle}
+        interactive={interactive} onUpdate={onUpdate} canvasRef={containerRef}
+        onEditChart={onEditChart}
+      />
+      <ImageLayer
+        key="imagelayer"
+        slide={slide} interactive={interactive} onUpdate={onUpdate}
+        canvasRef={containerRef} theme={effective}
+        selectedImageId={selectedImageId}
+        onSelectImage={onSelectImage}
+        onEditChart={onEditChart}
+      />
+      <AnnotationLayer slide={slide} theme={effective} interactive={interactive} onUpdate={onUpdate} />
+      <FreeTextLayer
+        slide={slide} theme={effective} interactive={interactive} onUpdate={onUpdate}
+        canvasRef={containerRef}
+        selectedTextId={selectedTextId} onSelectText={onSelectText}
+      />
+      <TextFormatBar enabled={!!interactive} canvasRef={containerRef} />
+      {watermark && (
+        <WatermarkBadge interactive={interactive} onClick={onWatermarkClick} />
+      )}
+    </div>
+    </CanvasSelectionContext.Provider>
+  );
+}
+
+// ... rest of the file continues with all existing layout components ...
+// (The rest of the file should remain unchanged from the original)
+
+function clamp(n: number, lo: number, hi: number) { return Math.max(lo, Math.min(hi, n)); }
+
+/** Mix a hex color toward white by t (0..1). Used for accent-gradient bands. */
+function shadeHex(hex: string, t: number): string {
+  const h = (hex || "#888888").replace("#", "");
+  const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+  const r = parseInt(full.slice(0, 2), 16) || 0;
+  const g = parseInt(full.slice(2, 4), 16) || 0;
+  const b = parseInt(full.slice(4, 6), 16) || 0;
+  const [fontLoaded, setFontLoaded] = useState(false);
   const m = (c: number) => Math.round(c + (255 - c) * Math.max(0, Math.min(1, t)));
   return `rgb(${m(r)}, ${m(g)}, ${m(b)})`;
 }
