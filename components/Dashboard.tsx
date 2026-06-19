@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle, ArrowRight, Clock, Copy, FileText, Home, Info, LayoutGrid,
-  LogOut, MoreVertical, Pencil, Plus, Search, Share2, Sparkles, Trash2, Wand2, X, Zap, Lock, Contact, Settings,
+  LogOut, MoreVertical, Pencil, Plus, Search, Share2, Sparkles, Trash2, Wand2, X, Zap, Lock, Contact, Settings, MonitorPlay,
 } from "lucide-react";
 import { type AppUser, getIdToken } from "@/lib/auth";
 import {
@@ -304,6 +304,14 @@ export default function Dashboard({
               cta="New resume"
               onClick={onNewResume}
             />
+            <CreateCard
+              icon={<MonitorPlay size={22} />}
+              title="Present a PDF"
+              desc="Only have the PDF, not the PowerPoint? Upload it and present every page full-screen like a real deck — arrow-key navigation, no .pptx needed. Free."
+              cta="Open presenter"
+              onClick={() => window.location.assign("/pdf-to-ppt")}
+              className="lg:col-start-2"
+            />
           </div>
         </div>
 
@@ -393,8 +401,8 @@ function NavItem({
   return <div className={className} style={style}>{inner}</div>;
 }
 
-function CreateCard({ icon, title, desc, cta, onClick, disabled, badge, golden, locked }: {
-  icon: React.ReactNode; title: string; desc: string; cta: string; onClick: () => void; disabled?: boolean; badge?: string; golden?: boolean; locked?: boolean;
+function CreateCard({ icon, title, desc, cta, onClick, disabled, badge, golden, locked, className }: {
+  icon: React.ReactNode; title: string; desc: string; cta: string; onClick: () => void; disabled?: boolean; badge?: string; golden?: boolean; locked?: boolean; className?: string;
 }) {
   const GOLD = "#C9A227";
   const GOLD_SOFT = "rgba(201,162,39,0.10)";
@@ -402,7 +410,7 @@ function CreateCard({ icon, title, desc, cta, onClick, disabled, badge, golden, 
     <button
       onClick={onClick}
       disabled={disabled}
-      className="group relative flex flex-col items-start overflow-hidden rounded-2xl border p-6 text-left transition hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
+      className={`group relative flex flex-col items-start overflow-hidden rounded-2xl border p-6 text-left transition hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60${className ? ` ${className}` : ""}`}
       style={{
         borderColor: golden ? GOLD : "var(--ezd-divider)",
         background: golden ? `linear-gradient(180deg, ${GOLD_SOFT}, transparent)` : "var(--ezd-bg-card)",

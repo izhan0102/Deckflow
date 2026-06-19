@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  ArrowRight, Clock, FileText, LayoutGrid, Loader2, LogOut, Monitor, Search,
+  ArrowRight, Clock, FileText, LayoutGrid, Loader2, LogOut, Monitor, MonitorPlay, Search,
   Trash2, Wand2, X, Zap,
 } from "lucide-react";
 import { type AppUser } from "@/lib/auth";
@@ -207,6 +207,13 @@ export default function DashboardMobile({
           className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-2xl border border-white/12 bg-white/5 px-4 py-3.5 text-[14px] font-semibold text-white/85 transition active:scale-[0.98]"
         >
           <FileText size={15} /> New resume
+        </button>
+
+        <button
+          onClick={() => window.location.assign("/pdf-to-ppt")}
+          className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-2xl border border-white/12 bg-white/5 px-4 py-3.5 text-[14px] font-semibold text-white/85 transition active:scale-[0.98]"
+        >
+          <MonitorPlay size={15} /> Present a PDF
         </button>
 
         {/* ---------- Continue working ---------- */}

@@ -12,7 +12,6 @@ import ThemeToggle from "@/components/ThemeToggle";
 import SupportButton from "@/components/SupportDialog";
 import { trackEvent } from "@/lib/stats";
 import { isLoggedIn, logout, onAuthStateChange, type AppUser } from "@/lib/auth";
-import { hasVisited } from "@/lib/guestWork";
 import { FAQ, faqJsonLd } from "@/lib/seo";
 import PricingPlans from "@/components/PricingPlans";
 import SlideCanvas from "@/components/SlideCanvas";
@@ -57,8 +56,6 @@ export default function LandingPage() {
 
   const onGetStarted = () => {
     if (isLoggedIn()) { router.push("/app"); return; }
-    // New visitors get the no-signup "try it" flow; returning visitors sign in.
-    if (!hasVisited()) { router.push("/start"); return; }
     router.push("/auth?redirect=/app");
   };
   const onSignOut = async () => { await logout(); setUser(null); };
