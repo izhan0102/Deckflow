@@ -32,6 +32,24 @@ export default function OutlineReview({
   // Only content slides are editable in the outline; the hero/closing keep
   // their role but we still show their title so the structure reads clearly.
   const slides = deck.slides;
+  const slidesWithNotes = slides.filter(
+  (slide) => slide.notes && slide.notes.trim().length > 0
+);
+
+const coveragePercentage =
+  slides.length > 0
+    ? Math.round((slidesWithNotes.length / slides.length) * 100)
+    : 0;
+
+const missingSlides = slides
+  .map((slide, index) => ({
+    slide,
+    number: index + 1,
+  }))
+  .filter(
+    ({ slide }) =>
+      !slide.notes || slide.notes.trim().length === 0
+  );
 
   const setSlide = (i: number, patch: Partial<Slide>) => {
     const next = slides.map((s, idx) => (idx === i ? { ...s, ...patch } : s));
@@ -103,6 +121,60 @@ export default function OutlineReview({
             <span aria-hidden>·</span>
             <span>Editable · text-only</span>
           </div>
+          <div
+  className="mx-auto mt-6 max-w-xl rounded-2xl border p-4 text-left"
+  style={{
+    borderColor: "var(--ezd-divider)",
+    background: "var(--ezd-bg-card)",
+  }}
+>
+  <h3
+    className="text-sm font-semibold"
+    style={{ color: "var(--ezd-fg)" }}
+  >
+    Speaker Notes Coverage
+  </h3>
+
+  <p
+    className="mt-2 text-sm"
+    style={{ color: "var(--ezd-fg-muted)" }}
+  >
+    {slidesWithNotes.length} / {slides.length} slides ({coveragePercentage}%)
+  </p>
+
+  {missingSlides.length > 0 ? (
+    <div className="mt-3">
+      <p
+        className="text-xs font-medium"
+        style={{ color: "var(--ezd-fg-muted)" }}
+      >
+        Missing notes:
+      </p>
+
+      <div className="mt-2 flex flex-wrap gap-2">
+        {missingSlides.map(({ number }) => (
+          <span
+            key={number}
+            className="rounded-full px-2 py-1 text-xs"
+            style={{
+              background: `${accent}15`,
+              color: accent,
+            }}
+          >
+            Slide {number}
+          </span>
+        ))}
+      </div>
+    </div>
+  ) : (
+    <p
+      className="mt-3 text-xs font-medium"
+      style={{ color: "#22c55e" }}
+    >
+      All slides have speaker notes.
+    </p>
+  )}
+</div>
         </div>
       </header>
 
