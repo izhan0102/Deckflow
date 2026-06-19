@@ -168,15 +168,16 @@ export default function Dashboard({
     <div className="min-h-screen lg:pl-[264px]">
       {/* ============== Sidebar ============== */}
       <aside
-        className="fixed inset-y-0 left-0 z-30 hidden w-[264px] flex-col border-r p-5 backdrop-blur lg:flex"
+        className="fixed inset-y-0 left-0 z-30 hidden w-[264px] flex-col overflow-hidden border-r p-5 backdrop-blur lg:flex"
         style={{ background: "var(--ezd-nav-bg)", borderColor: "var(--ezd-divider)" }}
       >
-        <div className="flex items-center justify-between">
+        <div className="flex shrink-0 items-center justify-between">
           <Logo size="md" />
           <ThemeToggle variant="compact" />
         </div>
 
-        <nav className="mt-8 space-y-1 text-sm">
+        <div className="mt-8 flex-1 min-h-0 overflow-y-auto pr-1">
+        <nav className="space-y-1 text-sm">
           <NavItem icon={<Home size={15} />} label="Dashboard" active />
           <NavItem icon={<FileText size={15} />} label="My decks" href="/app/decks" count={decks.length || undefined} />
           <NavItem icon={<FileText size={15} />} label="My docs" href="/app/docs" />
@@ -190,9 +191,10 @@ export default function Dashboard({
         <div className="mt-6">
           <PlanUsageCard used={monthGenerations} plan={plan} onUpgrade={() => openUpgrade()} membership={membership} dailyUsed={dailyUsed} />
         </div>
+        </div>
 
-        {/* Bottom-anchored account block */}
-        <div className="mt-auto space-y-2.5">
+        {/* Bottom-anchored account block — always visible */}
+        <div className="mt-4 shrink-0 space-y-2.5">
           <div
             className="rounded-2xl border p-3"
             style={{ borderColor: "var(--ezd-divider)", background: "var(--ezd-bg-card)" }}
