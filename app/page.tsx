@@ -220,8 +220,7 @@ export default function LandingPage() {
                 className="relative rounded-2xl border-2 p-3"
                 style={{ 
                   borderColor: "var(--ezd-fg-strong)",
-                  background: "var(--ezd-bg-card)",
-                  boxShadow: "0 0 120px -5px var(--ezd-fg-strong)"
+                  background: "var(--ezd-bg-card)"
                 }}
               >
                 <video
