@@ -3,9 +3,9 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ArrowRight, BarChart3, Download,
+  ArrowRight, BarChart3, Check, Download, Contact, MonitorPlay,
   GitCommit, Github, Languages, LayoutTemplate, LogOut, MessageSquare,
-  Play, Presentation, Shapes, Sparkles, Star, Wand2, FileText,
+  Play, Presentation, Shapes, Sparkles, Star, Wand2, FileText, X,
 } from "lucide-react";
 import Logo from "@/components/Logo";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -168,63 +168,41 @@ export default function LandingPage() {
                   color: "var(--ezd-fg-strong)",
                 }}
               >
-                Presentations and documents,{" "}
-                <span style={{ color: "var(--ezd-fg-quiet)" }}>written and designed in seconds.</span>
+                AI presentations in seconds.
                 <span className="sr-only">
                   {" "}EXdeck is a free AI PPT maker that turns your text into an
-                  editable PowerPoint presentation — and an AI document maker that
-                  writes structured, exportable documents — with one-click PPTX and PDF export.
+                  editable PowerPoint presentation with one-click PPTX and PDF export.
                 </span>
               </h1>
             </Reveal>
 
             <Reveal delay={120}>
               <p
-                className="mx-auto mt-5 max-w-lg text-[14.5px] leading-relaxed sm:text-[15.5px] lg:mx-0"
+                className="mx-auto mt-5 max-w-lg text-[15.5px] leading-relaxed sm:text-[16.5px] lg:mx-0"
                 style={{ color: "var(--ezd-fg-muted)" }}
               >
-                Type a brief and EXdeck builds it — a fully editable slide deck with
-                real charts and speaker notes, or a structured, Word-style document
-                with tables and charts. Export to PowerPoint or PDF, no lock-in.
+                Type a brief, pick a template, and get a fully designed deck with real charts and speaker notes. 
+                Also does documents, resumes, and PDF presenting.
               </p>
             </Reveal>
 
             <Reveal delay={180}>
               <div className="mt-8 flex justify-center lg:justify-start">
-                <div className="flex w-full flex-col items-center gap-4 sm:w-auto">
-                  <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
-                    <button
-                      onClick={onGetStarted}
-                      className="group inline-flex w-full items-center justify-center gap-2 rounded-full px-7 py-3 text-[14.5px] font-semibold transition hover:opacity-90 sm:w-auto"
-                      style={{ background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)" }}
-                    >
-                      Start for free
-                      <ArrowRight size={15} className="transition group-hover:translate-x-0.5" />
-                    </button>
-                    <a
-                      href="#how"
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-full border px-7 py-3 text-[14.5px] font-medium transition hover:border-white/25 sm:w-auto"
-                      style={{ borderColor: "var(--ezd-hairline)", background: "var(--ezd-bg-card)", color: "var(--ezd-fg-strong)" }}
-                    >
-                      <Play size={13} /> See how it works
-                    </a>
-                  </div>
-                  <Link
-                    href="/changelog"
-                    className="group inline-flex items-center gap-1.5 text-[12.5px] transition hover:text-white"
-                    style={{ color: "var(--ezd-fg-muted)" }}
-                  >
-                    <GitCommit size={13} className="transition-transform duration-300 group-hover:rotate-[20deg]" />
-                    Changelog
-                  </Link>
-                </div>
+                <button
+                  onClick={onGetStarted}
+                  className="group inline-flex items-center gap-2 rounded-full px-8 py-3.5 text-[15px] font-semibold transition hover:opacity-90"
+                  style={{ background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)" }}
+                >
+                  Start for free
+                  <ArrowRight size={16} className="transition group-hover:translate-x-0.5" />
+                </button>
               </div>
             </Reveal>
 
             <Reveal delay={240}>
               <div
-                className="mt-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[12.5px] lg:justify-start"
-                style={{ color: "var(--ezd-fg-quiet)" }}
+                className="mt-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[13.5px] font-medium lg:justify-start"
+                style={{ color: "var(--ezd-fg-muted)" }}
               >
                 <span>Free to start</span>
                 <Dot />
@@ -235,10 +213,41 @@ export default function LandingPage() {
             </Reveal>
           </div>
 
-          {/* ---------- Right: live template showcase ---------- */}
-          <Reveal delay={300} className="lg:justify-self-end lg:pl-10 xl:pl-16">
-            <div>
-              <TemplateShowcase />
+          {/* ---------- Right: product demo video ---------- */}
+          <Reveal delay={300} className="lg:justify-self-end">
+            <div className="relative w-full" style={{ maxWidth: "680px" }}>
+              <div 
+                className="relative rounded-2xl border-2 p-3"
+                style={{ 
+                  borderColor: "var(--ezd-fg-strong)",
+                  background: "var(--ezd-bg-card)",
+                  boxShadow: "0 0 120px -5px var(--ezd-fg-strong)"
+                }}
+              >
+                <video
+                  src="/preview0.mp4"
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="w-full cursor-pointer rounded-lg"
+                  onClick={(e) => {
+                    if (e.currentTarget.paused) {
+                      e.currentTarget.play();
+                    } else {
+                      e.currentTarget.pause();
+                    }
+                  }}
+                  style={{ display: "block", opacity: 1, objectFit: "contain" }}
+                />
+              </div>
+              <a
+                href="#how"
+                className="mt-4 block text-center text-[13px] transition hover:text-white"
+                style={{ color: "var(--ezd-fg-muted)" }}
+              >
+                See how it works →
+              </a>
             </div>
           </Reveal>
         </div>
@@ -278,6 +287,48 @@ export default function LandingPage() {
               onClick={onGetStarted}
             />
           </Reveal>
+        </div>
+      </section>
+
+      {/* ================== Explore by Feature ================== */}
+      <section className="relative z-10 mx-auto max-w-5xl px-5 pt-16 sm:px-6">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Link href="/presentations" className="group flex flex-col items-center gap-3 rounded-2xl border p-6 transition hover:border-white/25" style={{ borderColor: "var(--ezd-hairline)", background: "var(--ezd-bg-card)" }}>
+            <div className="grid h-12 w-12 place-items-center rounded-xl border transition group-hover:scale-105" style={{ borderColor: "var(--ezd-hairline)", background: "var(--ezd-bg-hover)", color: "var(--ezd-fg-strong)" }}>
+              <Presentation size={20} />
+            </div>
+            <div className="text-center">
+              <div className="text-[13px] font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>Presentations</div>
+              <div className="mt-0.5 text-[11px]" style={{ color: "var(--ezd-fg-quiet)" }}>AI slide maker</div>
+            </div>
+          </Link>
+          <Link href="/documents" className="group flex flex-col items-center gap-3 rounded-2xl border p-6 transition hover:border-white/25" style={{ borderColor: "var(--ezd-hairline)", background: "var(--ezd-bg-card)" }}>
+            <div className="grid h-12 w-12 place-items-center rounded-xl border transition group-hover:scale-105" style={{ borderColor: "var(--ezd-hairline)", background: "var(--ezd-bg-hover)", color: "var(--ezd-fg-strong)" }}>
+              <FileText size={20} />
+            </div>
+            <div className="text-center">
+              <div className="text-[13px] font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>Documents</div>
+              <div className="mt-0.5 text-[11px]" style={{ color: "var(--ezd-fg-quiet)" }}>AI doc writer</div>
+            </div>
+          </Link>
+          <Link href="/resumes" className="group flex flex-col items-center gap-3 rounded-2xl border p-6 transition hover:border-white/25" style={{ borderColor: "var(--ezd-hairline)", background: "var(--ezd-bg-card)" }}>
+            <div className="grid h-12 w-12 place-items-center rounded-xl border transition group-hover:scale-105" style={{ borderColor: "var(--ezd-hairline)", background: "var(--ezd-bg-hover)", color: "var(--ezd-fg-strong)" }}>
+              <Contact size={20} />
+            </div>
+            <div className="text-center">
+              <div className="text-[13px] font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>Resumes</div>
+              <div className="mt-0.5 text-[11px]" style={{ color: "var(--ezd-fg-quiet)" }}>CV builder</div>
+            </div>
+          </Link>
+          <Link href="/pdf-presenter" className="group flex flex-col items-center gap-3 rounded-2xl border p-6 transition hover:border-white/25" style={{ borderColor: "var(--ezd-hairline)", background: "var(--ezd-bg-card)" }}>
+            <div className="grid h-12 w-12 place-items-center rounded-xl border transition group-hover:scale-105" style={{ borderColor: "var(--ezd-hairline)", background: "var(--ezd-bg-hover)", color: "var(--ezd-fg-strong)" }}>
+              <MonitorPlay size={20} />
+            </div>
+            <div className="text-center">
+              <div className="text-[13px] font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>PDF Presenter</div>
+              <div className="mt-0.5 text-[11px]" style={{ color: "var(--ezd-fg-quiet)" }}>Present PDFs</div>
+            </div>
+          </Link>
         </div>
       </section>
 
@@ -416,6 +467,104 @@ export default function LandingPage() {
           <SectionLabel center kicker="Loved by builders" title="What early users say." />
         </Reveal>
         <Testimonials />
+      </section>
+
+      {/* ================== Competitors Comparison ================== */}
+      <section className="relative z-10 mx-auto max-w-6xl px-5 pb-8 pt-20 sm:px-6">
+        <Reveal>
+          <SectionLabel center kicker="Why choose EXdeck" title="Better than the rest — honest comparison." />
+        </Reveal>
+        <Reveal delay={80}>
+          <div className="mx-auto mt-10 max-w-4xl overflow-x-auto">
+            <table className="w-full min-w-[600px] border-collapse text-[13px]">
+              <thead>
+                <tr style={{ borderBottom: "1px solid var(--ezd-divider)" }}>
+                  <th className="pb-4 pr-4 text-left font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>Feature</th>
+                  <th className="px-3 pb-4 text-center font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>
+                    <div className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1" style={{ background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)" }}>
+                      EXdeck
+                    </div>
+                  </th>
+                  <th className="px-3 pb-4 text-center font-medium" style={{ color: "var(--ezd-fg-muted)" }}>Gamma</th>
+                  <th className="px-3 pb-4 text-center font-medium" style={{ color: "var(--ezd-fg-muted)" }}>Tome</th>
+                  <th className="px-3 pb-4 text-center font-medium" style={{ color: "var(--ezd-fg-muted)" }}>Canva AI</th>
+                  <th className="px-3 pb-4 text-center font-medium" style={{ color: "var(--ezd-fg-muted)" }}>Beautiful.ai</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style={{ borderBottom: "1px solid var(--ezd-divider)" }}>
+                  <td className="py-4 pr-4 font-medium" style={{ color: "var(--ezd-fg-strong)" }}>Price (Pro)</td>
+                  <td className="px-3 py-4 text-center font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>$5/mo</td>
+                  <td className="px-3 py-4 text-center" style={{ color: "var(--ezd-fg-muted)" }}>$15/mo</td>
+                  <td className="px-3 py-4 text-center" style={{ color: "var(--ezd-fg-muted)" }}>$20/mo</td>
+                  <td className="px-3 py-4 text-center" style={{ color: "var(--ezd-fg-muted)" }}>$15/mo</td>
+                  <td className="px-3 py-4 text-center" style={{ color: "var(--ezd-fg-muted)" }}>$12/mo</td>
+                </tr>
+                <tr style={{ borderBottom: "1px solid var(--ezd-divider)" }}>
+                  <td className="py-4 pr-4 font-medium" style={{ color: "var(--ezd-fg-strong)" }}>Real .pptx export</td>
+                  <td className="px-3 py-4 text-center"><Check size={18} style={{ color: "#34D399" }} className="mx-auto" /></td>
+                  <td className="px-3 py-4 text-center"><Check size={18} style={{ color: "#34D399" }} className="mx-auto" /></td>
+                  <td className="px-3 py-4 text-center"><X size={18} style={{ color: "var(--ezd-fg-quiet)", opacity: 0.4 }} className="mx-auto" /></td>
+                  <td className="px-3 py-4 text-center"><Check size={18} style={{ color: "#34D399" }} className="mx-auto" /></td>
+                  <td className="px-3 py-4 text-center"><Check size={18} style={{ color: "#34D399" }} className="mx-auto" /></td>
+                </tr>
+                <tr style={{ borderBottom: "1px solid var(--ezd-divider)" }}>
+                  <td className="py-4 pr-4 font-medium" style={{ color: "var(--ezd-fg-strong)" }}>Free plan</td>
+                  <td className="px-3 py-4 text-center"><Check size={18} style={{ color: "#34D399" }} className="mx-auto" /></td>
+                  <td className="px-3 py-4 text-center" style={{ color: "var(--ezd-fg-muted)" }}>Limited</td>
+                  <td className="px-3 py-4 text-center"><X size={18} style={{ color: "var(--ezd-fg-quiet)", opacity: 0.4 }} className="mx-auto" /></td>
+                  <td className="px-3 py-4 text-center"><Check size={18} style={{ color: "#34D399" }} className="mx-auto" /></td>
+                  <td className="px-3 py-4 text-center"><X size={18} style={{ color: "var(--ezd-fg-quiet)", opacity: 0.4 }} className="mx-auto" /></td>
+                </tr>
+                <tr style={{ borderBottom: "1px solid var(--ezd-divider)" }}>
+                  <td className="py-4 pr-4 font-medium" style={{ color: "var(--ezd-fg-strong)" }}>Inline editor</td>
+                  <td className="px-3 py-4 text-center"><Check size={18} style={{ color: "#34D399" }} className="mx-auto" /></td>
+                  <td className="px-3 py-4 text-center"><Check size={18} style={{ color: "#34D399" }} className="mx-auto" /></td>
+                  <td className="px-3 py-4 text-center" style={{ color: "var(--ezd-fg-muted)" }}>Limited</td>
+                  <td className="px-3 py-4 text-center"><Check size={18} style={{ color: "#34D399" }} className="mx-auto" /></td>
+                  <td className="px-3 py-4 text-center"><Check size={18} style={{ color: "#34D399" }} className="mx-auto" /></td>
+                </tr>
+                <tr style={{ borderBottom: "1px solid var(--ezd-divider)" }}>
+                  <td className="py-4 pr-4 font-medium" style={{ color: "var(--ezd-fg-strong)" }}>Docs + Decks</td>
+                  <td className="px-3 py-4 text-center"><Check size={18} style={{ color: "#34D399" }} className="mx-auto" /></td>
+                  <td className="px-3 py-4 text-center" style={{ color: "var(--ezd-fg-muted)" }}>Decks only</td>
+                  <td className="px-3 py-4 text-center" style={{ color: "var(--ezd-fg-muted)" }}>Decks only</td>
+                  <td className="px-3 py-4 text-center"><Check size={18} style={{ color: "#34D399" }} className="mx-auto" /></td>
+                  <td className="px-3 py-4 text-center" style={{ color: "var(--ezd-fg-muted)" }}>Decks only</td>
+                </tr>
+                <tr>
+                  <td className="py-4 pr-4 font-medium" style={{ color: "var(--ezd-fg-strong)" }}>No lock-in</td>
+                  <td className="px-3 py-4 text-center"><Check size={18} style={{ color: "#34D399" }} className="mx-auto" /></td>
+                  <td className="px-3 py-4 text-center" style={{ color: "var(--ezd-fg-muted)" }}>Partial</td>
+                  <td className="px-3 py-4 text-center"><X size={18} style={{ color: "var(--ezd-fg-quiet)", opacity: 0.4 }} className="mx-auto" /></td>
+                  <td className="px-3 py-4 text-center"><Check size={18} style={{ color: "#34D399" }} className="mx-auto" /></td>
+                  <td className="px-3 py-4 text-center" style={{ color: "var(--ezd-fg-muted)" }}>Partial</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </Reveal>
+        <Reveal delay={140}>
+          <div className="mx-auto mt-10 max-w-2xl space-y-6 text-[13.5px] leading-relaxed" style={{ color: "var(--ezd-fg-muted)" }}>
+            <p>
+              <span className="font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>Why EXdeck costs 3× less:</span> We're
+              an indie project built for designers, developers, and students who need fast, honest presentations — not enterprise
+              sales teams. No bloat, no upsells, no tiered feature walls. You get everything at $5/month, and your decks export
+              to real PowerPoint files you own forever.
+            </p>
+            <p>
+              <span className="font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>What makes us different:</span> Most AI
+              presentation tools lock you into their web editor or charge per-seat for teams. EXdeck gives you true .pptx export
+              from day one — take your deck to PowerPoint, Google Slides, or Keynote and never look back. We also build documents
+              and resumes with the same AI engine, so you're not paying for three separate tools.
+            </p>
+            <p>
+              <span className="font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>No vendor lock-in:</span> Your presentations
+              are yours. Export to .pptx or .pdf anytime, no restrictions, no watermarks on the Pro plan. Edit them locally, share
+              them freely, present them anywhere. We believe you should own what you create.
+            </p>
+          </div>
+        </Reveal>
       </section>
 
       {/* ================== Pricing ================== */}

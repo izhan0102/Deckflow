@@ -44,6 +44,12 @@ function build(): string {
     entries.push(urlEntry(`/blog/${p.slug}`, 0.7, "monthly", lm));
   }
 
+  // Feature landing pages (high SEO priority).
+  entries.push(urlEntry("/presentations", 1.0, "weekly", now));
+  entries.push(urlEntry("/documents", 1.0, "weekly", now));
+  entries.push(urlEntry("/resumes", 1.0, "weekly", now));
+  entries.push(urlEntry("/pdf-presenter", 1.0, "weekly", now));
+
   // Evergreen / legal.
   entries.push(urlEntry("/pdf-to-ppt", 0.9, "monthly", now));
   entries.push(urlEntry("/about", 0.6, "monthly", now));
