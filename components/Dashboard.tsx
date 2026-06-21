@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle, ArrowRight, Clock, Copy, FileText, Home, Info, LayoutGrid,
-  LogOut, MoreVertical, Pencil, Plus, Search, Share2, Sparkles, Trash2, Wand2, X, Zap, Lock, Contact, Settings, Loader2,
+  LogOut, MoreVertical, Pencil, Plus, Search, Share2, Sparkles, Trash2, Wand2, X, Zap, Lock, Contact, Settings, MonitorPlay, Loader2,
 } from "lucide-react";
 import { type AppUser, getIdToken } from "@/lib/auth";
 import {
@@ -178,15 +178,16 @@ export default function Dashboard({
     <div className="min-h-screen lg:pl-[264px]">
       {/* ============== Sidebar ============== */}
       <aside
-        className="fixed inset-y-0 left-0 z-30 hidden w-[264px] flex-col border-r p-5 backdrop-blur lg:flex"
+        className="fixed inset-y-0 left-0 z-30 hidden w-[264px] flex-col overflow-hidden border-r p-5 backdrop-blur lg:flex"
         style={{ background: "var(--ezd-nav-bg)", borderColor: "var(--ezd-divider)" }}
       >
-        <div className="flex items-center justify-between">
+        <div className="flex shrink-0 items-center justify-between">
           <Logo size="md" />
           <ThemeToggle variant="compact" />
         </div>
 
-        <nav className="mt-8 space-y-1 text-sm">
+        <div className="mt-8 flex-1 min-h-0 overflow-y-auto pr-1">
+        <nav className="space-y-1 text-sm">
           <NavItem icon={<Home size={15} />} label="Dashboard" active />
           <NavItem icon={<FileText size={15} />} label="My decks" href="/app/decks" count={decks.length || undefined} />
           <NavItem icon={<FileText size={15} />} label="My docs" href="/app/docs" />
@@ -200,9 +201,10 @@ export default function Dashboard({
         <div className="mt-6">
           <PlanUsageCard used={monthGenerations} plan={plan} onUpgrade={() => openUpgrade()} membership={membership} dailyUsed={dailyUsed} />
         </div>
+        </div>
 
-        {/* Bottom-anchored account block */}
-        <div className="mt-auto space-y-2.5">
+        {/* Bottom-anchored account block — always visible */}
+        <div className="mt-4 shrink-0 space-y-2.5">
           <div
             className="rounded-2xl border p-3"
             style={{ borderColor: "var(--ezd-divider)", background: "var(--ezd-bg-card)" }}
@@ -313,6 +315,14 @@ export default function Dashboard({
               desc="Build a polished, ATS-friendly resume from templates — fill in your details, auto-fit to one page, and export a clean PDF. Free for everyone."
               cta="New resume"
               onClick={onNewResume}
+            />
+            <CreateCard
+              icon={<MonitorPlay size={22} />}
+              title="Present a PDF"
+              desc="Only have the PDF, not the PowerPoint? Upload it and present every page full-screen like a real deck — arrow-key navigation, no .pptx needed. Free."
+              cta="Open presenter"
+              onClick={() => window.location.assign("/pdf-to-ppt")}
+              className="lg:col-start-2"
             />
           </div>
         </div>
@@ -447,8 +457,8 @@ function NavItem({
   return <div className={className} style={style}>{inner}</div>;
 }
 
-function CreateCard({ icon, title, desc, cta, onClick, disabled, badge, golden, locked }: {
-  icon: React.ReactNode; title: string; desc: string; cta: string; onClick: () => void; disabled?: boolean; badge?: string; golden?: boolean; locked?: boolean;
+function CreateCard({ icon, title, desc, cta, onClick, disabled, badge, golden, locked, className }: {
+  icon: React.ReactNode; title: string; desc: string; cta: string; onClick: () => void; disabled?: boolean; badge?: string; golden?: boolean; locked?: boolean; className?: string;
 }) {
   const GOLD = "#C9A227";
   const GOLD_SOFT = "rgba(201,162,39,0.10)";
@@ -456,7 +466,7 @@ function CreateCard({ icon, title, desc, cta, onClick, disabled, badge, golden, 
     <button
       onClick={onClick}
       disabled={disabled}
-      className="group relative flex flex-col items-start overflow-hidden rounded-2xl border p-6 text-left transition hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
+      className={`group relative flex flex-col items-start overflow-hidden rounded-2xl border p-6 text-left transition hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60${className ? ` ${className}` : ""}`}
       style={{
         borderColor: golden ? GOLD : "var(--ezd-divider)",
         background: golden ? `linear-gradient(180deg, ${GOLD_SOFT}, transparent)` : "var(--ezd-bg-card)",
