@@ -15,7 +15,7 @@ import { getDatabase } from "firebase-admin/database";
 import { getAdminAppOrThrow } from "./firebaseAdmin";
 import {
   type PlanId, type PlanFeature, DEFAULT_PLAN, resolvePlanFromNode,
-  planHasFeature, planDeckLimit, getPlan,
+  planHasFeature, planDeckLimit, getPlan, DAILY_GEN_CAP,
 } from "./plans";
 
 /** Thrown when a plan doesn't allow the requested action. Maps to 402/403. */
@@ -32,6 +32,36 @@ export class PlanLimitError extends Error {
 
 function monthKey(d = new Date()): string {
   return d.toISOString().slice(0, 7);
+}
+
+function dayKey(d = new Date()): string {
+  return d.toISOString().slice(0, 10);
+}
+
+/** Throw if a PRO user has hit the daily AI cap. Free users are bound by the
+ *  monthly limit (e.g. 3) instead, so the daily cap doesn't apply to them. */
+export async function requireDailyAllowance(uid: string): Promise<void> {
+  try {
+    const plan = await getUserPlanServer(uid);
+    if (plan !== "pro") return; // free = monthly-limited; daily cap is Pro-only
+    const db = getDatabase(getAdminAppOrThrow());
+    const snap = await db.ref(`usage/${uid}/daily/${dayKey()}`).get();
+    const used = typeof snap.val() === "number" ? snap.val() : 0;
+    if (used >= DAILY_GEN_CAP) {
+      throw new PlanLimitError(`Daily limit reached (${DAILY_GEN_CAP} generations/day). Please try again tomorrow.`, "daily_limit", 429);
+    }
+  } catch (e) {
+    if (e instanceof PlanLimitError) throw e;
+    // On read error, don't block the user (fail open) — the monthly cap still applies.
+  }
+}
+
+/** Atomically bump today's daily generation count. */
+export async function incrementDailyServer(uid: string): Promise<void> {
+  try {
+    const db = getDatabase(getAdminAppOrThrow());
+    await db.ref(`usage/${uid}/daily/${dayKey()}`).transaction((c) => (typeof c === "number" && isFinite(c) ? c : 0) + 1);
+  } catch { /* ignore */ }
 }
 
 /** Read a user's plan server-side. Defaults to free on any error. Honors expiry. */

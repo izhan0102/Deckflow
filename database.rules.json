@@ -33,6 +33,11 @@
       ".write": false
     },
 
+    "billingEvents": {
+      ".read": false,
+      ".write": false
+    },
+
     "templates": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",

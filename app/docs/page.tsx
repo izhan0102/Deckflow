@@ -15,6 +15,7 @@ import { searchPexels, type PexelsPhoto } from "@/lib/pexels";
 import { renderPagesToPdf } from "@/lib/docPdf";
 import { createDoc, saveDoc, loadDoc } from "@/lib/docStore";
 import DocGenOverlay from "@/components/DocGenOverlay";
+import { readGuestWork, clearGuestWork } from "@/lib/guestWork";
 
 const DENSITIES: DocDensity[] = ["concise", "balanced", "detailed", "comprehensive"];
 const ACC = "var(--ezd-fg-strong)";
@@ -104,6 +105,20 @@ export default function DocsStudio() {
       }
     } catch (e: any) { setErr(e?.message || "Failed."); } finally { setLoading(false); }
   };
+
+  // Guest "try before signup": pre-fill the brief they typed on /start. We do
+  // NOT auto-generate — they can tweak the prompt, settings, and design first.
+  useEffect(() => {
+    if (!user) return;
+    const gw = readGuestWork();
+    if (gw?.kind === "doc") {
+      if (gw.topic) setTopic(gw.topic);
+      if (gw.settings?.pages) setPages(gw.settings.pages);
+      if (typeof gw.settings?.densityIdx === "number") setDensityIdx(gw.settings.densityIdx);
+      clearGuestWork();
+      setStep("prompt");
+    }
+  }, [user]);
 
   /* block ops */
   const update = (id: string, patch: Partial<DocBlock>) => setBlocks((bs) => bs.map((b) => (b.id === id ? { ...b, ...patch } as DocBlock : b)));

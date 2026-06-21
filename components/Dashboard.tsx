@@ -12,12 +12,12 @@ import {
 import DeckThumbnail from "./DeckThumbnail";
 import Logo from "./Logo";
 import ThemeToggle from "./ThemeToggle";
-import UpgradeDialog from "./UpgradeDialog";
+import TrialDialog from "./TrialDialog";
 import ReportDialog from "./ReportDialog";
-import { watchMonthlyGenerations, formatMonthlyResetIn } from "@/lib/usage";
+import { watchMonthlyGenerations, formatMonthlyResetIn, watchDailyGenerations, formatDailyResetIn } from "@/lib/usage";
 import { watchUserPlan, getUserPlan } from "@/lib/plan";
 import { watchMembership, type MemberPlan } from "@/lib/seats";
-import { type PlanId, planDeckLimit, getPlan, FREE_FOR_ALL } from "@/lib/plans";
+import { type PlanId, planDeckLimit, getPlan, FREE_FOR_ALL, DAILY_GEN_CAP } from "@/lib/plans";
 
 /**
  * Dashboard shown on /app (desktop).
@@ -50,6 +50,7 @@ export default function Dashboard({
   const [renameTarget, setRenameTarget] = useState<{ id: string; title: string } | null>(null);
   const [query, setQuery] = useState("");
   const [monthGenerations, setMonthGenerations] = useState(0);
+  const [dailyUsed, setDailyUsed] = useState(0);
   const [plan, setPlan] = useState<PlanId>("free");
   const [membership, setMembership] = useState<MemberPlan | null>(null);
 
@@ -57,17 +58,15 @@ export default function Dashboard({
   const [upgradeReason, setUpgradeReason] = useState<string | undefined>(undefined);
   const [reportOpen, setReportOpen] = useState(false);
 
-  // Pricing modal once per dashboard mount — only for free users.
+  // Free users: gently surface the trial after 2 minutes on the dashboard
+  // (no popup on open). Premium clicks also open it (see openUpgrade).
   useEffect(() => {
-    if (FREE_FOR_ALL) return; // paywall dropped: never auto-open the plan popup
+    if (FREE_FOR_ALL) return;
     let cancelled = false;
-    getUserPlan(user.uid).then((p) => {
-      if (!cancelled && p === "free") {
-        setUpgradeReason(undefined);
-        setUpgradeOpen(true);
-      }
-    });
-    return () => { cancelled = true; };
+    const t = window.setTimeout(() => {
+      getUserPlan(user.uid).then((p) => { if (!cancelled && p === "free") { setUpgradeReason(undefined); setUpgradeOpen(true); } });
+    }, 120_000);
+    return () => { cancelled = true; window.clearTimeout(t); };
   }, [user.uid]);
 
   useEffect(() => {
@@ -98,6 +97,12 @@ export default function Dashboard({
     return () => unsub();
   }, [user.uid]);
 
+  useEffect(() => {
+    if (plan !== "pro") { setDailyUsed(0); return; }
+    const unsub = watchDailyGenerations(user.uid, setDailyUsed);
+    return () => unsub();
+  }, [user.uid, plan]);
+
   /* ----------------------------- derived ----------------------------- */
 
   const deckLimit = planDeckLimit(plan);
@@ -111,7 +116,7 @@ export default function Dashboard({
 
   const onNewDeck = () => {
     if (limitReached) {
-      openUpgrade(`You've used all ${deckLimit} decks on the ${getPlan(plan).name} plan this month.`);
+      openUpgrade("You've hit your monthly limit");
       return;
     }
     onStartFromScratch();
@@ -120,7 +125,7 @@ export default function Dashboard({
   // AI Documents are a premium feature (Pro / Pro Plus only).
   const onNewDoc = () => {
     if (!FREE_FOR_ALL && plan === "free") {
-      openUpgrade("AI Documents are a Pro feature. Upgrade to Pro to create documents.");
+      openUpgrade("AI Documents");
       return;
     }
     window.location.assign("/docs");
@@ -193,7 +198,7 @@ export default function Dashboard({
 
         {/* Combined plan + usage (#2) */}
         <div className="mt-6">
-          <PlanUsageCard used={monthGenerations} plan={plan} onUpgrade={() => openUpgrade()} membership={membership} />
+          <PlanUsageCard used={monthGenerations} plan={plan} onUpgrade={() => openUpgrade()} membership={membership} dailyUsed={dailyUsed} />
         </div>
 
         {/* Bottom-anchored account block */}
@@ -238,8 +243,7 @@ export default function Dashboard({
       {/* ============== Main ============== */}
       <main className="px-4 py-8 sm:px-8 lg:px-12 lg:py-10">
         {upgradeOpen && (
-          <UpgradeDialog
-            currentPlan={plan}
+          <TrialDialog
             reason={upgradeReason}
             onClose={() => setUpgradeOpen(false)}
             email={user.email}
@@ -487,7 +491,7 @@ function CreateCard({ icon, title, desc, cta, onClick, disabled, badge, golden, 
 
 /* ----------------------- Combined plan + usage card ----------------------- */
 
-function PlanUsageCard({ used, plan, onUpgrade, membership }: { used: number; plan: PlanId; onUpgrade: () => void; membership?: MemberPlan | null }) {
+function PlanUsageCard({ used, plan, onUpgrade, membership, dailyUsed = 0 }: { used: number; plan: PlanId; onUpgrade: () => void; membership?: MemberPlan | null; dailyUsed?: number }) {
   const limit = planDeckLimit(plan);
   const unlimited = limit === Infinity;
   const remaining = unlimited ? Infinity : Math.max(0, limit - used);
@@ -495,10 +499,14 @@ function PlanUsageCard({ used, plan, onUpgrade, membership }: { used: number; pl
   const pct = unlimited ? 0 : Math.min(100, (used / limit) * 100);
 
   const [resetIn, setResetIn] = useState(formatMonthlyResetIn());
+  const [dailyResetIn, setDailyResetIn] = useState(formatDailyResetIn());
   useEffect(() => {
-    const id = window.setInterval(() => setResetIn(formatMonthlyResetIn()), 60_000);
+    const id = window.setInterval(() => { setResetIn(formatMonthlyResetIn()); setDailyResetIn(formatDailyResetIn()); }, 60_000);
     return () => window.clearInterval(id);
   }, []);
+
+  const dailyLeft = Math.max(0, DAILY_GEN_CAP - dailyUsed);
+  const dailyPct = Math.min(100, (dailyUsed / DAILY_GEN_CAP) * 100);
 
   const planName = getPlan(plan).name;
   const ctaLabel = plan === "free" ? "Upgrade" : "Manage plan";
@@ -546,6 +554,24 @@ function PlanUsageCard({ used, plan, onUpgrade, membership }: { used: number; pl
         <div className="mt-2.5 inline-flex items-center gap-1.5 text-[10.5px]" style={{ color: "var(--ezd-fg-quiet)" }}>
           <Sparkles size={11} /> No monthly limit
         </div>
+      )}
+
+      {/* Daily AI cap — Pro subscribers only (free users are monthly-limited) */}
+      {plan === "pro" && (
+      <div className="mt-3 border-t pt-3" style={{ borderColor: "var(--ezd-divider)" }}>
+        <div className="flex items-center justify-between">
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.2em]" style={{ color: "var(--ezd-fg-quiet)" }}>
+            <Zap size={11} style={{ color: dailyLeft === 0 ? RED : "var(--ezd-fg-muted)" }} /> AI generations today
+          </span>
+          <span className="text-[12.5px] font-semibold tabular-nums" style={{ color: dailyLeft === 0 ? RED : "var(--ezd-fg-strong)" }}>{dailyUsed}/{DAILY_GEN_CAP}</span>
+        </div>
+        <div className="mt-2 h-[4px] w-full overflow-hidden rounded-full" style={{ background: "var(--ezd-bg-hover)" }}>
+          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${dailyPct}%`, background: dailyLeft === 0 ? RED : "var(--ezd-fg-strong)" }} />
+        </div>
+        <div className="mt-1 text-[10px]" style={{ color: "var(--ezd-fg-quiet)" }}>
+          {dailyLeft === 0 ? `Daily limit reached · resets in ${dailyResetIn}` : `${dailyLeft} of ${DAILY_GEN_CAP} left today · resets in ${dailyResetIn}`}
+        </div>
+      </div>
       )}
 
       {plan === "free" ? (

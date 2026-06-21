@@ -46,7 +46,7 @@ export const PLANS: Record<PlanId, Plan> = {
     id: "free",
     name: "Free",
     price: 0,
-    decksPerMonth: 3,
+    decksPerMonth: 1,
     tagline: "Try it out, no card needed.",
     features: {
       speakerNotes: false,
@@ -59,7 +59,7 @@ export const PLANS: Record<PlanId, Plan> = {
       template: false,
     },
     highlights: [
-      "3 decks per month",
+      "1 AI generation per month",
       "Full AI deck generation",
       "All themes, fonts, and layouts",
       "PDF and PPTX export",
@@ -95,6 +95,10 @@ export const PLANS: Record<PlanId, Plan> = {
 
 export const PLAN_ORDER: PlanId[] = ["free", "pro"];
 export const DEFAULT_PLAN: PlanId = "free";
+
+/** Hard daily AI-generation cap for ANY account (free, Pro, trial) — a cost
+ *  safety net so no single user can run up the bill. Shared client+server. */
+export const DAILY_GEN_CAP = 10;
 
 /**
  * Purchasable products. "pro" is the individual plan; "team" and "org" are

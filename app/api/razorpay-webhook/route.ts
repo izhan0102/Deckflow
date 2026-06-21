@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { grantPlan, grantSubscription, setSubStatus, hmacHex, safeEqual } from "@/lib/razorpayServer";
+import { grantProduct, grantSubscription, setSubStatus, logBillingEvent, hmacHex, safeEqual } from "@/lib/razorpayServer";
 
 export const runtime = "nodejs";
 
@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
 
     try {
       if (!subUid || !subId) return NextResponse.json({ ok: true });
+      await logBillingEvent({ event, uid: subUid, amount: subAmount, currency: subCurrency, subscriptionId: subId, status: sub?.status });
       if (event === "subscription.charged") {
         await grantSubscription(subUid, { subscriptionId: subId, product: subProduct, status: "active", expiresAt, period: "monthly", amountPaid: subAmount, payCurrency: subCurrency });
       } else if (event === "subscription.authenticated" || event === "subscription.activated") {
@@ -65,7 +66,7 @@ export async function POST(req: NextRequest) {
   const entity = evt?.payload?.payment?.entity || evt?.payload?.order?.entity || {};
   const notes = entity?.notes || {};
   const uid: string | undefined = notes?.uid;
-  const plan: string | undefined = notes?.plan;
+  const plan: string | undefined = notes?.plan || notes?.product;
   const period = notes?.period === "annual" ? "annual" : "monthly";
   const paymentId: string | undefined = entity?.id;
   const amountPaid = typeof entity?.amount === "number" ? entity.amount / 100 : undefined; // paise/cents -> major
@@ -73,7 +74,8 @@ export async function POST(req: NextRequest) {
 
   try {
     if ((event === "payment.captured" || event === "order.paid") && uid && plan) {
-      await grantPlan(uid, plan, paymentId, period, amountPaid, payCurrency);
+      await grantProduct(uid, plan, paymentId, period, amountPaid, payCurrency);
+      await logBillingEvent({ event, uid, amount: amountPaid, currency: payCurrency, paymentId, status: "captured" });
     }
     return NextResponse.json({ ok: true });
   } catch (e: any) {

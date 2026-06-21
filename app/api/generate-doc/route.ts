@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest, AuthError } from "@/lib/firebaseAdmin";
-import { requireDeckAllowance, incrementMonthlyGenerationsServer, getUserPlanServer, PlanLimitError } from "@/lib/planServer";
+import { requireDeckAllowance, incrementMonthlyGenerationsServer, getUserPlanServer, requireDailyAllowance, incrementDailyServer, PlanLimitError } from "@/lib/planServer";
 import { rateLimitResponse } from "@/lib/rateLimit";
 import { generateDoc } from "@/lib/groqDoc";
 import { FREE_FOR_ALL } from "@/lib/plans";
@@ -23,6 +23,7 @@ export async function POST(req: NextRequest) {
       }
     }
     await requireDeckAllowance(uid); // documents count against the same monthly allowance
+    await requireDailyAllowance(uid); // daily safety cap (all tiers)
     const body = await req.json().catch(() => ({}));
     const topic = String(body?.topic || "").trim();
     const pages = Math.min(20, Math.max(1, Number(body?.pages) || 3));
@@ -34,6 +35,7 @@ export async function POST(req: NextRequest) {
     if (doc.blocks.length === 0) return NextResponse.json({ error: "Generation returned no content.", code: "parse" }, { status: 502 });
 
     incrementMonthlyGenerationsServer(uid).catch(() => {});
+    incrementDailyServer(uid).catch(() => {});
     return NextResponse.json({ doc });
   } catch (err: any) {
     if (err instanceof PlanLimitError) return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });

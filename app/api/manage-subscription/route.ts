@@ -79,6 +79,7 @@ export async function POST(req: NextRequest) {
       expiresAt: typeof refreshed.expiresAt === "number" ? refreshed.expiresAt : null,
       ownerName: refreshed.ownerName || null,
       seatKind: refreshed.seatKind || null,
+      trialUsed: refreshed.trialUsed === true,
       canCancel: source === "razorpay-sub" && subStatus !== "cancelled" && !!subscriptionId,
       cancelled: subStatus === "cancelled",
     });

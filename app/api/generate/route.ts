@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateDeck, generateDeckFromContent } from "@/lib/groq";
 import { authenticateRequest, AuthError } from "@/lib/firebaseAdmin";
-import { requireDeckAllowance, incrementMonthlyGenerationsServer, PlanLimitError } from "@/lib/planServer";
+import { requireDeckAllowance, incrementMonthlyGenerationsServer, requireDailyAllowance, incrementDailyServer, PlanLimitError } from "@/lib/planServer";
 import { rateLimitResponse } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
@@ -15,6 +15,7 @@ export async function POST(req: NextRequest) {
     // Hard, non-bypassable monthly deck limit by plan. Throws PlanLimitError
     // (402) when the allowance is used up.
     await requireDeckAllowance(uid);
+    await requireDailyAllowance(uid); // daily safety cap (all tiers)
     const body = await req.json();
     const { prompt, slideCount, audience, tone, density, includeReferences, directives, sourceText } = body || {};
 
@@ -65,6 +66,7 @@ export async function POST(req: NextRequest) {
     // Count the successful generation against the monthly allowance.
     // Server-side so it can't be skipped by a crafted client.
     incrementMonthlyGenerationsServer(uid).catch(() => {});
+    incrementDailyServer(uid).catch(() => {});
 
     return NextResponse.json({ deck });
   } catch (err: any) {
