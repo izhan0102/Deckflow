@@ -21,26 +21,15 @@ export default function DeckHealthAnalyzer({
   deck.slides.forEach((slide, index) => {
     // Missing speaker notes
     if (!slide.notes || slide.notes.trim().length === 0) {
-      findings.push({
-        slideIndex: index,
-        message: "Missing speaker notes",
-      });
+      findings.push({ slideIndex: index, message: "Missing speaker notes" });
     }
-
     // Too many bullets
     if (slide.bullets && slide.bullets.length > 6) {
-      findings.push({
-        slideIndex: index,
-        message: `Contains ${slide.bullets.length} bullet points`,
-      });
+      findings.push({ slideIndex: index, message: `Contains ${slide.bullets.length} bullet points` });
     }
-
     // Long body text
     if (slide.body && slide.body.length > 500) {
-      findings.push({
-        slideIndex: index,
-        message: "Slide contains a large amount of text",
-      });
+      findings.push({ slideIndex: index, message: "Slide contains a large amount of text" });
     }
   });
 
@@ -54,47 +43,47 @@ export default function DeckHealthAnalyzer({
       : 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="w-full max-w-2xl rounded-2xl border border-white/10 bg-zinc-950 p-6 text-white">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.6)" }} onClick={onClose}>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-2xl rounded-2xl border p-6"
+        style={{ background: "var(--ezd-bg-elev)", color: "var(--ezd-fg)", borderColor: "var(--ezd-divider)" }}
+      >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Deck Health</h2>
-
+          <h2 className="text-xl font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>Deck Health</h2>
           <button
             onClick={onClose}
-            className="rounded-lg border border-white/10 px-3 py-1 text-sm"
+            className="rounded-lg border px-3 py-1 text-sm transition hover:opacity-80"
+            style={{ borderColor: "var(--ezd-divider)", color: "var(--ezd-fg-muted)" }}
           >
             Close
           </button>
         </div>
 
-        <div className="mb-6 rounded-xl border border-white/10 p-4">
-          <h3 className="font-medium">Speaker Notes Coverage</h3>
-
-          <p className="mt-2 text-sm text-white/70">
+        <div className="mb-6 rounded-xl border p-4" style={{ borderColor: "var(--ezd-divider)", background: "var(--ezd-bg-card)" }}>
+          <h3 className="font-medium" style={{ color: "var(--ezd-fg-strong)" }}>Speaker Notes Coverage</h3>
+          <p className="mt-2 text-sm" style={{ color: "var(--ezd-fg-muted)" }}>
             {slidesWithNotes} / {deck.slides.length} slides ({coverage}%)
           </p>
         </div>
 
         <div>
-          <h3 className="mb-3 font-medium">Findings</h3>
-
+          <h3 className="mb-3 font-medium" style={{ color: "var(--ezd-fg-strong)" }}>Findings</h3>
           {findings.length === 0 ? (
-            <p className="text-green-400">
-              No major issues detected.
-            </p>
+            <p style={{ color: "#22c55e" }}>No major issues detected.</p>
           ) : (
-            <div className="space-y-2">
+            <div className="max-h-[50vh] space-y-2 overflow-y-auto">
               {findings.map((finding, idx) => (
                 <button
                   key={idx}
                   onClick={() => onJumpToSlide(finding.slideIndex)}
-                  className="block w-full rounded-xl border border-white/10 p-3 text-left hover:bg-white/5"
+                  className="block w-full rounded-xl border p-3 text-left transition hover:opacity-80"
+                  style={{ borderColor: "var(--ezd-divider)", background: "var(--ezd-bg-card)" }}
                 >
-                  <div className="font-medium">
+                  <div className="font-medium" style={{ color: "var(--ezd-fg-strong)" }}>
                     Slide {finding.slideIndex + 1}
                   </div>
-
-                  <div className="text-sm text-white/70">
+                  <div className="text-sm" style={{ color: "var(--ezd-fg-muted)" }}>
                     {finding.message}
                   </div>
                 </button>
