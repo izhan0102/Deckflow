@@ -1,5 +1,7 @@
 "use client";
 import { useMemo, useRef, useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Plus, Download, FileSpreadsheet, FileText, Loader2, Send, Sparkles, Trash2, AlertTriangle, Check,
   Upload, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, Baseline, PaintBucket, Eraser, Maximize2, Minimize2,
@@ -44,8 +46,11 @@ export default function SpreadsheetApp() {
   const rootRef = useRef<HTMLDivElement>(null);
 
   const evaluated = useMemo(() => evaluateSheet(sheet), [sheet]);
+  const router = useRouter();
 
   useEffect(() => { const unsub = onAuthStateChange((u) => { setSignedIn(!!u); setAuthReady(true); }); return () => unsub(); }, []);
+  // AI page — require login first.
+  useEffect(() => { if (authReady && !signedIn) router.replace(`/auth?redirect=${encodeURIComponent("/spreadsheet")}`); }, [authReady, signedIn, router]);
   useEffect(() => () => { if (noticeTimer.current) window.clearTimeout(noticeTimer.current); }, []);
   useEffect(() => {
     const onFs = () => setIsFull(!!(document.fullscreenElement || (document as any).webkitFullscreenElement));
@@ -169,6 +174,24 @@ export default function SpreadsheetApp() {
   };
 
   /* ------------------------------- render ------------------------------ */
+  if (!authReady || !signedIn) {
+    return (
+      <div className="grid place-items-center py-16 text-center">
+        <div>
+          <p className="text-[15px] font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>
+            {authReady ? "Sign in to use the AI Spreadsheet" : "Loading…"}
+          </p>
+          {authReady && (
+            <>
+              <p className="mt-1 text-[13px]" style={{ color: "var(--ezd-fg-muted)" }}>It&rsquo;s free — create an account or log in to start building sheets with AI.</p>
+              <Link href={`/auth?redirect=${encodeURIComponent("/spreadsheet")}`} className="mt-4 inline-flex items-center gap-1.5 rounded-xl px-5 py-2.5 text-[14px] font-semibold" style={{ background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)" }}>Sign in</Link>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   const ToolBtn = ({ onClick, title, children }: { onClick: () => void; title: string; children: React.ReactNode }) => (
     <button onClick={onClick} title={title} className="grid h-8 w-8 place-items-center rounded-lg border transition hover:opacity-80" style={{ borderColor: "var(--ezd-divider)", color: "var(--ezd-fg-muted)" }}>{children}</button>
   );

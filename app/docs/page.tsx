@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Wand2, Loader2, FileDown, Bold, Underline, Italic, AlignLeft, AlignCenter, AlignRight, AlignJustify,
@@ -22,6 +23,7 @@ const ACC = "var(--ezd-fg-strong)";
 export default function DocsStudio() {
   const [user, setUser] = useState<AppUser | null>(null);
   const [ready, setReady] = useState(false);
+  const router = useRouter();
   const [step, setStep] = useState<"prompt" | "template" | "edit">("prompt");
 
   const [topic, setTopic] = useState("");
@@ -50,6 +52,8 @@ export default function DocsStudio() {
   const savingRef = useRef(false);
 
   useEffect(() => { const u = onAuthStateChange((x) => { setUser(x); setReady(true); }); return () => u(); }, []);
+  // AI page — require login first.
+  useEffect(() => { if (ready && !user) router.replace(`/auth?redirect=${encodeURIComponent("/docs")}`); }, [ready, user, router]);
   useEffect(() => { loadDocFonts([theme.fontId, theme.headingFontId || theme.fontId]); }, [theme.fontId, theme.headingFontId]);
 
   // Open an existing document via /docs?id=...
