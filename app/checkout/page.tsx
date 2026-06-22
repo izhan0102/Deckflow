@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -10,6 +10,7 @@ import Logo from "@/components/Logo";
 import { PRODUCTS, getProduct, normalizeProduct, type ProductId } from "@/lib/plans";
 import { onAuthStateChange, getIdToken, type AppUser } from "@/lib/auth";
 import { startSubscription, startTrial, razorpayConfigured, type BillingPeriod } from "@/lib/razorpay";
+import { guessCurrencyFromLocale, fetchCurrencyFromIp } from "@/lib/geo";
 
 type Currency = "USD" | "INR";
 const ACCENT = "var(--ezd-fg-strong)";
@@ -43,6 +44,22 @@ function CheckoutInner() {
     const unsub = onAuthStateChange((u) => { setUser(u); setAuthReady(true); });
     return () => unsub();
   }, []);
+
+  // Auto-pick currency by location: India -> INR ("I'm in India"), else USD.
+  // Instant locale guess first, then confirm via server IP geo. Stops once the
+  // user manually chooses a region.
+  const pickedRef = useRef(false);
+  useEffect(() => {
+    const guess = guessCurrencyFromLocale();
+    if (guess && !pickedRef.current) setCurrency(guess);
+    let cancelled = false;
+    fetchCurrencyFromIp().then((c) => {
+      if (c && !cancelled && !pickedRef.current) setCurrency(c);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  const chooseCurrency = (c: Currency) => { pickedRef.current = true; setCurrency(c); };
 
   // Look up whether the user already used their trial / is already Pro.
   useEffect(() => {
@@ -119,8 +136,8 @@ function CheckoutInner() {
           {/* Region / currency switch */}
           <div className="mt-6 rounded-2xl border p-1.5" style={card}>
             <div className="grid grid-cols-2 gap-1.5">
-              <RegionTab active={currency === "USD"} onClick={() => setCurrency("USD")} icon={<Globe size={15} />} title="International" sub="Pay in USD" />
-              <RegionTab active={currency === "INR"} onClick={() => setCurrency("INR")} icon={<QrCode size={15} />} title="I'm in India" sub="Pay in ₹ · UPI / QR" />
+              <RegionTab active={currency === "USD"} onClick={() => chooseCurrency("USD")} icon={<Globe size={15} />} title="International" sub="Pay in USD" />
+              <RegionTab active={currency === "INR"} onClick={() => chooseCurrency("INR")} icon={<QrCode size={15} />} title="I'm in India" sub="Pay in ₹ · UPI / QR" />
             </div>
           </div>
           {currency === "INR" && (
