@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -56,6 +56,7 @@ export default function ShareViewer({ params }: { params: { id: string } }) {
   // log dwell time when they move off it. Held in a ref so it doesn't
   // trigger re-renders.
   const slideEnterRef = useRef<number>(Date.now());
+  const currentSlideRef = useRef<number>(active);
   const trackedOpenRef = useRef(false);
 
   /* ----------------------------- auth ----------------------------- */
@@ -126,6 +127,21 @@ export default function ShareViewer({ params }: { params: { id: string } }) {
 
   /* ----------------------- view analytics ----------------------- */
 
+  const flushSlideTime = useCallback(() => {
+    const now = Date.now();
+    const spent = now - slideEnterRef.current;
+
+    if (spent <= 0) return;
+
+    trackSlideTime(
+      params.id,
+      currentSlideRef.current,
+      spent
+    );
+
+    slideEnterRef.current = now;
+  }, [params.id]);
+
   // Log one deck open, once, after the deck loads.
   useEffect(() => {
     if (!data || trackedOpenRef.current) return;
@@ -134,35 +150,42 @@ export default function ShareViewer({ params }: { params: { id: string } }) {
     trackShareOpen(params.id);
   }, [data, params.id]);
 
-  // Whenever the active slide changes, flush the time spent on the
-  // previous one. The cleanup runs with the OLD `active` value (closure),
-  // which is exactly the slide the viewer is leaving.
+  // Keep the current slide ref up to date and flush the previous slide's time when active changes.
   useEffect(() => {
     if (!data) return;
-    slideEnterRef.current = Date.now();
-    return () => {
-      const spent = Date.now() - slideEnterRef.current;
-      trackSlideTime(params.id, active, spent);
-    };
-  }, [active, data, params.id]);
 
-  // Also flush when the tab is hidden or the page unloads, so a viewer
-  // who closes the tab on a slide still gets that time counted.
+    if (currentSlideRef.current !== active) {
+      flushSlideTime();
+      currentSlideRef.current = active;
+    }
+  }, [active, data, flushSlideTime]);
+
+  // Also flush when the tab is hidden, the page unloads, or the component unmounts,
+  // so a viewer who closes the tab or navigates away still gets that time counted.
   useEffect(() => {
     if (!data) return;
-    const flush = () => {
-      const spent = Date.now() - slideEnterRef.current;
-      trackSlideTime(params.id, active, spent);
-      slideEnterRef.current = Date.now();
+
+    const onVis = () => {
+      if (document.visibilityState === "hidden") {
+        flushSlideTime();
+      } else if (document.visibilityState === "visible") {
+        slideEnterRef.current = Date.now();
+      }
     };
-    const onVis = () => { if (document.visibilityState === "hidden") flush(); };
+
+    const onPageHide = () => {
+      flushSlideTime();
+    };
+
     document.addEventListener("visibilitychange", onVis);
-    window.addEventListener("pagehide", flush);
+    window.addEventListener("pagehide", onPageHide);
+
     return () => {
       document.removeEventListener("visibilitychange", onVis);
-      window.removeEventListener("pagehide", flush);
+      window.removeEventListener("pagehide", onPageHide);
+      flushSlideTime();
     };
-  }, [active, data, params.id]);
+  }, [data, flushSlideTime]);
 
   /* ------------------------- keyboard nav ------------------------- */
 
