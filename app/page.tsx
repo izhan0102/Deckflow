@@ -1368,7 +1368,7 @@ function Footer() {
   return (
     <footer className="relative z-10 border-t" style={{ borderColor: "var(--ezd-divider)" }}>
       <div className="mx-auto max-w-6xl px-5 py-12 sm:px-6">
-        <div className="grid grid-cols-2 gap-8 md:grid-cols-6">
+        <div className="grid grid-cols-2 gap-8 md:grid-cols-3 lg:grid-cols-7">
           <div className="col-span-2">
             <Logo size="sm" />
             <p className="mt-3 max-w-xs text-[12px] leading-relaxed" style={{ color: "var(--ezd-fg-muted)" }}>
@@ -1437,6 +1437,18 @@ function Footer() {
               { label: "Text to PPT", href: "/text-to-ppt" },
               { label: "PowerPoint generator", href: "/powerpoint-generator" },
               { label: "Blog", href: "/blog" },
+            ]}
+          />
+          <FooterCol
+            title="Free tools"
+            items={[
+              { label: "All converters", href: "/converter" },
+              { label: "AI spreadsheet", href: "/spreadsheet" },
+              { label: "PDF to PPT presenter", href: "/pdf-to-ppt" },
+              { label: "Image to PDF", href: "/converter/image-to-pdf" },
+              { label: "PDF to JPG", href: "/converter/pdf-to-jpg" },
+              { label: "Merge PDF", href: "/converter/merge-pdf" },
+              { label: "PNG to JPG", href: "/converter/png-to-jpg" },
             ]}
           />
           <FooterCol

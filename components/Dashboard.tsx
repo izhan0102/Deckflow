@@ -3,12 +3,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle, ArrowRight, Clock, Copy, FileText, Home, Info, LayoutGrid,
-  LogOut, MoreVertical, Pencil, Plus, Search, Share2, Sparkles, Trash2, Wand2, X, Zap, Lock, Contact, Settings, MonitorPlay, Loader2,
+  LogOut, MoreVertical, Pencil, Plus, Search, Share2, Sparkles, Trash2, Wand2, X, Zap, Lock, Contact, Settings, MonitorPlay, Loader2, ArrowLeftRight, Table,
 } from "lucide-react";
 import { type AppUser, getIdToken } from "@/lib/auth";
 import {
   deleteDeck, duplicateDeck, renameDeck, watchDeckList, type DeckListItem,
 } from "@/lib/decks";
+import { watchDocList, type DocListItem } from "@/lib/docStore";
+import { watchResumeList, type ResumeListItem } from "@/lib/resumeStore";
 import DeckThumbnail from "./DeckThumbnail";
 import Logo from "./Logo";
 import ThemeToggle from "./ThemeToggle";
@@ -41,10 +43,34 @@ const RED = "rgba(239,68,68,1)";
 const RED_SOFT = "rgba(239,68,68,0.12)";
 const RED_BORDER = "rgba(239,68,68,0.40)";
 
+type ContinueItem = {
+  kind: "deck" | "doc" | "resume";
+  id: string;
+  title: string;
+  sub: string;
+  updatedAt: number;
+  href: string;
+  accent?: string;
+};
+
+function relTime(ts: number): string {
+  const diff = Date.now() - ts;
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `${d}d ago`;
+  return new Date(ts).toLocaleDateString();
+}
+
 export default function Dashboard({
   user, onStartFromScratch, onStartFromTemplate, onSignOut,
 }: Props) {
   const [decks, setDecks] = useState<DeckListItem[]>([]);
+  const [docs, setDocs] = useState<DocListItem[]>([]);
+  const [resumes, setResumes] = useState<ResumeListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [renameTarget, setRenameTarget] = useState<{ id: string; title: string } | null>(null);
@@ -90,6 +116,12 @@ export default function Dashboard({
       setLoading(false);
     });
     return () => unsub();
+  }, [user.uid]);
+
+  useEffect(() => {
+    const unsubD = watchDocList(user.uid, setDocs);
+    const unsubR = watchResumeList(user.uid, setResumes);
+    return () => { unsubD(); unsubR(); };
   }, [user.uid]);
 
   useEffect(() => {
@@ -153,6 +185,23 @@ export default function Dashboard({
   // When searching, show ALL matches; otherwise a recent preview of 9 (#3).
   const gridDecks = hasQuery ? gridSource : gridSource.slice(0, 9);
 
+  // Most-recently-edited item across decks, docs, and resumes — drives the
+  // "Continue working" card for returning users.
+  const continueItem = useMemo<ContinueItem | null>(() => {
+    const newest = <T,>(arr: T[], at: (t: T) => number): T | null =>
+      arr.length ? arr.reduce((m, x) => (at(x) > at(m) ? x : m), arr[0]) : null;
+    const d = newest(decks, (x) => (typeof x.updatedAt === "number" ? x.updatedAt : 0));
+    const doc = newest(docs, (x) => x.updatedAt || 0);
+    const r = newest(resumes, (x) => x.updatedAt || 0);
+    const cands: ContinueItem[] = [];
+    if (d) cands.push({ kind: "deck", id: d.id, title: d.title || "Untitled deck", sub: "Presentation", updatedAt: typeof d.updatedAt === "number" ? d.updatedAt : 0, href: `/app?id=${d.id}` });
+    if (doc) cands.push({ kind: "doc", id: doc.id, title: doc.title || "Untitled document", sub: "Document", updatedAt: doc.updatedAt || 0, href: `/docs?id=${doc.id}`, accent: doc.theme?.accent });
+    if (r) cands.push({ kind: "resume", id: r.id, title: r.name || "Untitled resume", sub: r.headline || "Resume", updatedAt: r.updatedAt || 0, href: `/resume?id=${r.id}`, accent: r.accent });
+    if (!cands.length) return null;
+    cands.sort((a, b) => b.updatedAt - a.updatedAt);
+    return cands[0];
+  }, [decks, docs, resumes]);
+
   return (
     <div className="min-h-screen lg:pl-[264px]">
       {/* ============== Sidebar ============== */}
@@ -172,6 +221,7 @@ export default function Dashboard({
           <NavItem icon={<FileText size={15} />} label="My docs" href="/app/docs" />
           <NavItem icon={<Contact size={15} />} label="My resumes" href="/app/resumes" />
           <NavItem icon={<LayoutGrid size={15} />} label="Templates" onClick={onStartFromTemplate} />
+          <NavItem icon={<ArrowLeftRight size={15} />} label="Convert files" href="/converter" />
           <NavItem icon={<Settings size={15} />} label="Settings" href="/app/settings" />
           <NavItem icon={<Info size={15} />} label="About / Dev's note" href="/about" />
         </nav>
@@ -270,6 +320,13 @@ export default function Dashboard({
             </p>
           </div>
 
+          {continueItem && (
+            <div className="w-full max-w-4xl">
+              <ContinueWorking item={continueItem} />
+              <div className="my-7 h-px w-full" style={{ background: "var(--ezd-divider)" }} />
+            </div>
+          )}
+
           <div className="grid w-full max-w-4xl gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <CreateCard
               icon={<Wand2 size={22} />}
@@ -287,6 +344,13 @@ export default function Dashboard({
               onClick={onNewDoc}
             />
             <CreateCard
+              icon={<Table size={22} />}
+              title="Make a spreadsheet"
+              desc="Build and edit spreadsheets with AI — say 'make a table of this data' or 'add a total column'. Live formulas, export to Excel or PDF. Free."
+              cta="Open spreadsheet"
+              onClick={() => window.location.assign("/spreadsheet")}
+            />
+            <CreateCard
               icon={<Contact size={22} />}
               title="Make a resume"
               desc="Build a polished, ATS-friendly resume from templates — fill in your details, auto-fit to one page, and export a clean PDF. Free for everyone."
@@ -299,7 +363,13 @@ export default function Dashboard({
               desc="Only have the PDF, not the PowerPoint? Upload it and present every page full-screen like a real deck — arrow-key navigation, no .pptx needed. Free."
               cta="Open presenter"
               onClick={() => window.location.assign("/pdf-to-ppt")}
-              className="lg:col-start-2"
+            />
+            <CreateCard
+              icon={<ArrowLeftRight size={22} />}
+              title="Convert files"
+              desc="Free file converters — PNG/JPG/WebP, image to PDF, PDF to JPG/PNG, merge, split & organize PDFs, and OCR. Private, in your browser."
+              cta="Open converters"
+              onClick={() => window.location.assign("/converter")}
             />
           </div>
         </div>
@@ -386,6 +456,34 @@ function NavItem({
   if (href) return <Link href={href} className={`${className} hover:opacity-80`} style={style}>{inner}</Link>;
   if (onClick) return <button type="button" onClick={onClick} className={`${className} hover:opacity-80`} style={style}>{inner}</button>;
   return <div className={className} style={style}>{inner}</div>;
+}
+
+function ContinueWorking({ item }: { item: ContinueItem }) {
+  const Icon = item.kind === "deck" ? Wand2 : item.kind === "resume" ? Contact : FileText;
+  return (
+    <Link
+      href={item.href}
+      className="group relative flex items-center gap-4 overflow-hidden rounded-2xl border p-4 transition hover:shadow-lg sm:p-5"
+      style={{ borderColor: "var(--ezd-divider)", background: "var(--ezd-bg-card)" }}
+    >
+      <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl" style={{ background: "var(--ezd-fg-strong)", color: "var(--ezd-bg-page)" }}>
+        <Icon size={22} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--ezd-fg-quiet)" }}>
+          <Clock size={11} /> Continue working
+        </div>
+        <div className="mt-0.5 truncate text-[16px] font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>{item.title}</div>
+        <div className="mt-0.5 truncate text-[12.5px]" style={{ color: "var(--ezd-fg-muted)" }}>
+          {item.sub}{item.updatedAt ? ` · edited ${relTime(item.updatedAt)}` : ""}
+        </div>
+      </div>
+      <span className="hidden shrink-0 items-center gap-1.5 rounded-xl px-4 py-2.5 text-[13.5px] font-semibold transition group-hover:opacity-90 sm:inline-flex" style={{ background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)" }}>
+        Continue <ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5" />
+      </span>
+      <ArrowRight size={20} className="shrink-0 transition-transform group-hover:translate-x-0.5 sm:hidden" style={{ color: "var(--ezd-fg-strong)" }} />
+    </Link>
+  );
 }
 
 function CreateCard({ icon, title, desc, cta, onClick, disabled, badge, golden, locked, className }: {
