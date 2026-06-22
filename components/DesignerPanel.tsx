@@ -19,6 +19,7 @@ export default function DesignerPanel({
   slide, theme, deck, onUpdate, onReplace,
   selectedImageId, onDeselectImage,
   relatedImages, relatedLoading, onReplaceImage, onSearchImages,
+  hideStyleVariants,
 }: {
   slide: Slide;
   theme: Theme;
@@ -32,6 +33,8 @@ export default function DesignerPanel({
   relatedLoading?: boolean;
   onReplaceImage?: (photo: PexelsPhoto) => void;
   onSearchImages?: () => void;
+  /** Hide the style-variants block (e.g. while the insert sidebar covers it). */
+  hideStyleVariants?: boolean;
 }) {
   const selectedImage =
     selectedImageId
@@ -62,6 +65,7 @@ export default function DesignerPanel({
 
   return (
     <aside className="flex max-h-[calc(100vh-160px)] flex-col gap-5 overflow-y-auto border-l border-white/10 bg-zinc-950/60 p-4">
+      {!hideStyleVariants && (
       <StyleVariants
         slide={slide}
         deck={deck}
@@ -79,7 +83,7 @@ export default function DesignerPanel({
           });
         }}
       />
-
+      )}
       {slide.layout === "chart" && slide.chart && (
         <ChartSizeRow
           value={typeof slide.chartScale === "number" ? slide.chartScale : 1}

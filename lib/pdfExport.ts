@@ -80,6 +80,53 @@ export async function exportSlidesToPdf(
 }
 
 /**
+ * Export slides to a real .pptx while preserving EVERY pixel of the design.
+ *
+ * Native shape rebuilding (pptxgenjs text/shapes) loses fonts, textures,
+ * decorations, and per-element styling. Instead we capture each slide exactly
+ * like the PDF export (html2canvas at 2x) and place that image full-bleed on a
+ * 16:9 PowerPoint slide. The result opens in PowerPoint/Keynote/Google Slides
+ * looking identical to the editor. pptxgenjs is dynamically imported so its
+ * bundle only loads when someone actually exports.
+ */
+export async function exportSlidesToPptx(
+  nodes: HTMLElement[],
+  filename: string,
+): Promise<void> {
+  const PptxGen = (await import("pptxgenjs")).default;
+  const pptx = new PptxGen();
+  // 13.333in x 7.5in = 16:9 widescreen (matches the slide aspect exactly).
+  pptx.defineLayout({ name: "EZD_16x9", width: 13.333, height: 7.5 });
+  pptx.layout = "EZD_16x9";
+
+  try { await (document as any).fonts?.ready; } catch { /* ignore */ }
+
+  for (const node of nodes) {
+    await waitForImages(node);
+    await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+
+    const canvas = await html2canvas(node, {
+      backgroundColor: null,
+      scale: 2,
+      width: 1280,
+      height: 720,
+      windowWidth: 1280,
+      windowHeight: 720,
+      useCORS: true,
+      logging: false,
+    });
+    // PNG keeps text edges crisp (no JPEG ringing around letters).
+    const data = canvas.toDataURL("image/png");
+    const slide = pptx.addSlide();
+    slide.background = { color: "FFFFFF" };
+    slide.addImage({ data, x: 0, y: 0, w: 13.333, h: 7.5 });
+  }
+
+  // Triggers the browser download directly.
+  await pptx.writeFile({ fileName: filename });
+}
+
+/**
  * Capture a list of handout "page" nodes (each a US-Letter portrait page
  * containing a slide thumbnail plus its speaker notes) into a portrait PDF.
  * Pages are authored at 816x1056 px (8.5x11in @ 96dpi).

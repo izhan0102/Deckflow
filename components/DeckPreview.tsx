@@ -19,7 +19,7 @@ import HiddenSlidesRenderer, { type HiddenSlidesHandle } from "./HiddenSlidesRen
 import HiddenHandoutRenderer, { type HiddenHandoutHandle } from "./HiddenHandoutRenderer";
 import ExportButton from "./ExportButton";
 import DecorationDrawer from "./DecorationDrawer";
-import { exportSlidesToPdf, exportHandoutToPdf } from "@/lib/pdfExport";
+import { exportSlidesToPdf, exportHandoutToPdf, exportSlidesToPptx } from "@/lib/pdfExport";
 import { trackEvent } from "@/lib/stats";
 import type { ExportFormat } from "./ExportFormatPicker";
 import { getDecoration } from "@/lib/decorations";
@@ -721,18 +721,17 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
   };
 
   const downloadPptx = async () => {
-    const token = await getIdToken();
-    const res = await fetch("/api/export", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify({ deck, theme }),
-    });
-    if (!res.ok) throw new Error(await res.text());
-    const blob = await res.blob();
-    triggerDownload(blob, `${slugify(deck.title)}.pptx`);
+    // Render the real slides (hidden) and build a pixel-perfect .pptx from the
+    // same high-res capture used for PDF — keeps every style, font, and texture.
+    setRenderForPdf(true);
+    await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+    try {
+      const nodes = hiddenRef.current?.getNodes() ?? [];
+      if (nodes.length === 0) throw new Error("Could not render slides for PPTX.");
+      await exportSlidesToPptx(nodes, `${slugify(deck.title)}.pptx`);
+    } finally {
+      setRenderForPdf(false);
+    }
   };
 
   const downloadPdf = async () => {
@@ -1255,8 +1254,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
       {viewMode === "outline" ? (
         <OutlineEditor deck={deck} setDeck={setDeck} active={active} setActive={setActive} />
       ) : (
-      <div className={`grid grid-cols-1 gap-4 transition-[grid-template-columns] duration-300 ease-in-out ${sidebarOpen ? "lg:grid-cols-[0px_minmax(0,1fr)_320px]" : "lg:grid-cols-[200px_minmax(0,1fr)_320px]"}`}>
-        <div className={`overflow-hidden transition-opacity duration-300 ease-in-out ${sidebarOpen ? "lg:pointer-events-none lg:opacity-0" : "opacity-100"}`}>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[200px_minmax(0,1fr)_320px]">
         <SlideRail
           deck={deck} theme={theme}
           active={active} setActive={setActive}
@@ -1264,7 +1262,6 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
           canReorder={planHasFeature(plan, "reorder")}
           onLockedReorder={() => requireFeatureOrUpgrade("reorder", "Reordering slides is a Pro feature. Upgrade to rearrange your deck.", () => {})}
         />
-        </div>
 
         <div className="min-w-0">
           <div
@@ -1371,6 +1368,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
             deck={deck}
             onUpdate={updateActive}
             onReplace={replaceActive}
+            hideStyleVariants={sidebarOpen}
             selectedImageId={selectedImageId}
             onDeselectImage={() => setSelectedImageId(null)}
             relatedImages={relatedImages}
@@ -2268,6 +2266,17 @@ function InsertSidebar({
             />
           ) : !selectedText ? (
             <div className="space-y-2.5">
+              <button
+                onClick={onToggle}
+                className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm text-white/85 transition hover:bg-white/[0.06]"
+                style={{ touchAction: "manipulation", minHeight: "48px" }}
+              >
+                <LayoutTemplate size={16} />
+                <span>
+                  <span className="block font-medium">Show more styles</span>
+                  <span className="block text-[11px] text-white/45">Close this panel to reveal the style variants</span>
+                </span>
+              </button>
               <button
                 onClick={onStartPlaceText}
                 className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm transition ${
