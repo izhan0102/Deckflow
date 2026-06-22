@@ -33,6 +33,7 @@ export default function ImagesDrawer({
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const reqRef = useRef(0);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const run = async (q: string, pg: number, orient: PexelsOrientation) => {
     const term = q.trim();
@@ -62,6 +63,16 @@ export default function ImagesDrawer({
     setPage(1);
     setPhotos([]);
     setError(null);
+    // Focus input after drawer opens (with delay for mobile)
+    setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+        // On mobile, select all text to make it easy to replace
+        if (window.innerWidth < 768) {
+          inputRef.current.select();
+        }
+      }
+    }, 300);
     if (initialQuery.trim()) run(initialQuery, 1, "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initialQuery]);
@@ -73,6 +84,13 @@ export default function ImagesDrawer({
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [open, onClose]);
+
+  // Prevent body scroll when drawer is open
+  useEffect(() => {
+    if (!open) return;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, [open]);
 
   if (!open) return null;
 
@@ -86,9 +104,21 @@ export default function ImagesDrawer({
       onClick={onClose}
       role="dialog"
       aria-modal="true"
+      style={{
+        touchAction: "manipulation",
+        // Prevent scroll on touch
+        overscrollBehavior: "contain",
+      }}
+      // Prevent scroll on touch for iOS
+      onTouchMove={(e) => {
+        // Allow scrolling inside the drawer content
+        const target = e.target as HTMLElement;
+        if (target.closest('.drawer-content')) return;
+        e.preventDefault();
+      }}
     >
       <div
-        className="flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border shadow-2xl"
+        className="flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border shadow-2xl drawer-content"
         style={{ background: "var(--ezd-bg-elev)", borderColor: "var(--ezd-divider)" }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -100,8 +130,12 @@ export default function ImagesDrawer({
           <button
             onClick={onClose}
             className="grid h-8 w-8 place-items-center rounded-full transition hover:opacity-70"
-            style={{ color: "var(--ezd-fg-muted)" }}
             aria-label="Close"
+            style={{ 
+              color: "var(--ezd-fg-muted)",
+              minWidth: "44px",
+              minHeight: "44px",
+            }}
           >
             <X size={15} />
           </button>
@@ -113,19 +147,39 @@ export default function ImagesDrawer({
             <label className="relative flex-1">
               <Search size={13} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--ezd-fg-quiet)" }} />
               <input
+                ref={inputRef}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 autoFocus
                 placeholder="Search photos — e.g. babies, data center, mountains"
                 className="w-full rounded-xl border py-2.5 pl-9 pr-3 text-[13.5px] outline-none transition"
-                style={{ borderColor: "var(--ezd-hairline)", background: "var(--ezd-bg-card)", color: "var(--ezd-fg-strong)" }}
+                style={{ 
+                  borderColor: "var(--ezd-hairline)", 
+                  background: "var(--ezd-bg-card)", 
+                  color: "var(--ezd-fg-strong)",
+                  touchAction: "manipulation",
+                  // Larger tap target on mobile
+                  minHeight: "44px",
+                }}
+                // Prevent zoom on iOS
+                inputMode="search"
+                enterKeyHint="search"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
               />
             </label>
             <button
               type="submit"
               disabled={loading}
               className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-[13px] font-semibold transition hover:opacity-90 disabled:opacity-60"
-              style={{ background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)" }}
+              style={{ 
+                background: "var(--ezd-button-strong)", 
+                color: "var(--ezd-button-strong-fg)",
+                touchAction: "manipulation",
+                minHeight: "44px",
+                minWidth: "44px",
+              }}
             >
               {loading ? <Loader2 size={13} className="animate-spin" /> : <Search size={13} />}
               Search
@@ -139,8 +193,8 @@ export default function ImagesDrawer({
                 className="rounded-full border px-3 py-1 text-[11.5px] transition"
                 style={
                   orientation === o.id
-                    ? { borderColor: "var(--ezd-fg-strong)", background: "var(--ezd-bg-hover)", color: "var(--ezd-fg-strong)" }
-                    : { borderColor: "var(--ezd-hairline)", color: "var(--ezd-fg-muted)" }
+                    ? { borderColor: "var(--ezd-fg-strong)", background: "var(--ezd-bg-hover)", color: "var(--ezd-fg-strong)", minHeight: "32px", minWidth: "44px", touchAction: "manipulation" }
+                    : { borderColor: "var(--ezd-hairline)", color: "var(--ezd-fg-muted)", minHeight: "32px", minWidth: "44px", touchAction: "manipulation" }
                 }
               >
                 {o.label}
@@ -150,7 +204,7 @@ export default function ImagesDrawer({
         </div>
 
         {/* Results */}
-        <div className="flex-1 overflow-y-auto p-5">
+        <div className="flex-1 overflow-y-auto p-5 drawer-content" style={{ WebkitOverflowScrolling: "touch" }}>
           {loading && photos.length === 0 ? (
             <div className="grid h-[220px] place-items-center" style={{ color: "var(--ezd-fg-muted)" }}>
               <Loader2 size={20} className="animate-spin" />
@@ -171,7 +225,13 @@ export default function ImagesDrawer({
                     key={p.id}
                     onClick={() => { onPick(p); onClose(); }}
                     className="group relative overflow-hidden rounded-xl border transition hover:-translate-y-0.5"
-                    style={{ borderColor: "var(--ezd-divider)", background: p.avg_color || "var(--ezd-bg-hover)" }}
+                    style={{ 
+                      borderColor: "var(--ezd-divider)", 
+                      background: p.avg_color || "var(--ezd-bg-hover)",
+                      touchAction: "manipulation",
+                      // Larger touch target for images
+                      minHeight: "80px",
+                    }}
                     title={p.alt ? `${p.alt} — by ${p.photographer}` : `Photo by ${p.photographer}`}
                   >
                     <div className="aspect-[4/3] w-full overflow-hidden">
@@ -181,6 +241,7 @@ export default function ImagesDrawer({
                         alt={p.alt || "Stock photo"}
                         loading="lazy"
                         className="h-full w-full object-cover"
+                        draggable={false}
                       />
                     </div>
                     <span
@@ -202,7 +263,13 @@ export default function ImagesDrawer({
                     onClick={() => goPage(page - 1)}
                     disabled={page <= 1 || loading}
                     className="rounded-lg border px-3 py-1.5 text-[12px] transition hover:opacity-80 disabled:opacity-40"
-                    style={{ borderColor: "var(--ezd-hairline)", color: "var(--ezd-fg-strong)" }}
+                    style={{ 
+                      borderColor: "var(--ezd-hairline)", 
+                      color: "var(--ezd-fg-strong)",
+                      touchAction: "manipulation",
+                      minHeight: "36px",
+                      minWidth: "44px",
+                    }}
                   >
                     ← Prev
                   </button>
@@ -210,7 +277,13 @@ export default function ImagesDrawer({
                     onClick={() => goPage(page + 1)}
                     disabled={loading}
                     className="rounded-lg border px-3 py-1.5 text-[12px] transition hover:opacity-80 disabled:opacity-40"
-                    style={{ borderColor: "var(--ezd-hairline)", color: "var(--ezd-fg-strong)" }}
+                    style={{ 
+                      borderColor: "var(--ezd-hairline)", 
+                      color: "var(--ezd-fg-strong)",
+                      touchAction: "manipulation",
+                      minHeight: "36px",
+                      minWidth: "44px",
+                    }}
                   >
                     Next →
                   </button>

@@ -138,6 +138,26 @@ export default function EditableText({
   // Hard-stop pointer events from bubbling to the Movable parent.
   const stop = (e: React.SyntheticEvent) => e.stopPropagation();
 
+  // Handle touch events specifically for mobile text selection
+  const onTouchStart = (e: React.TouchEvent) => {
+    e.stopPropagation();
+    // Allow text selection on touch devices
+    // Don't prevent default so the caret appears
+  };
+
+  const onTouchEnd = (e: React.TouchEvent) => {
+    e.stopPropagation();
+    // Ensure the element stays focused after touch
+    if (ref.current && document.activeElement !== ref.current) {
+      // On iOS, sometimes focus is lost after touch
+      // Only refocus if it was touched
+      const target = e.target as HTMLElement;
+      if (target === ref.current || ref.current.contains(target)) {
+        ref.current.focus();
+      }
+    }
+  };
+
   return (
     <span
       ref={ref}
@@ -146,11 +166,16 @@ export default function EditableText({
       contentEditable
       suppressContentEditableWarning
       spellCheck={false}
+      // Pointer events - prevent bubbling to parent drag handlers
       onPointerDown={stop}
       onPointerMove={stop}
       onPointerUp={stop}
+      // Mouse events - prevent drag interference
       onMouseDown={stop}
       onDoubleClick={stop}
+      // Touch events - allow text selection but prevent drag
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
       onBlur={commit}
       onKeyDown={onKey}
       onPaste={onPaste}
@@ -160,6 +185,11 @@ export default function EditableText({
         outline: "none",
         whiteSpace: multiline ? "pre-wrap" : "normal",
         cursor: "text",
+        // Allow touch selection but prevent scroll interference
+        touchAction: "manipulation",
+        // Ensure text is selectable on mobile
+        userSelect: "text",
+        WebkitUserSelect: "text",
         ...style,
       }}
     />

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Download, FileText, Presentation, NotebookText, Lock } from "lucide-react";
+import { Download, FileText, Presentation, NotebookText, Lock, Loader2 } from "lucide-react";
 import type { ExportFormat } from "./ExportFormatPicker";
 
 export default function ExportButton({
@@ -14,6 +14,7 @@ export default function ExportButton({
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [pos, setPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
+  const [exporting, setExporting] = useState<ExportFormat | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -52,8 +53,24 @@ export default function ExportButton({
   }, [open]);
 
   const pick = async (f: ExportFormat) => {
+    if (busy || exporting) return;
+    setExporting(f);
     setOpen(false);
-    await onExport(f);
+    try {
+      await onExport(f);
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  const isExporting = busy || !!exporting;
+
+  // Get dynamic loading text based on format
+  const getLoadingText = () => {
+    if (exporting === "pptx") return "Generating PowerPoint…";
+    if (exporting === "pdf") return "Generating PDF…";
+    if (exporting === "handout") return "Generating handout…";
+    return "Exporting…";
   };
 
   return (
@@ -61,32 +78,52 @@ export default function ExportButton({
       <button
         ref={btnRef}
         onClick={() => setOpen((v) => !v)}
-        disabled={busy}
+        disabled={isExporting}
         className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-medium text-black hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
         aria-haspopup="menu"
         aria-expanded={open}
+        style={{ touchAction: "manipulation", minHeight: "44px" }}
+        title={isExporting ? "Exporting…" : "Export presentation"}
       >
-        <Download size={14} />
-        {busy ? "Building…" : "Export"}
+        {isExporting ? (
+          <>
+            <Loader2 size={14} className="animate-spin" />
+            {getLoadingText()}
+          </>
+        ) : (
+          <>
+            <Download size={14} />
+            Export
+          </>
+        )}
       </button>
 
-      {mounted && open && !busy && createPortal(
+      {mounted && open && !isExporting && createPortal(
         <div
           ref={menuRef}
           role="menu"
           style={{ position: "fixed", top: pos.top, right: pos.right }}
           className="fade-in z-[120] w-56 overflow-hidden rounded-xl border border-white/10 bg-zinc-950/95 p-1 text-sm shadow-2xl backdrop-blur"
         >
-          <Row icon={<Presentation size={14} className="text-white/70" />} label=".pptx"
-               sub="PowerPoint, Keynote, Slides"
-               onClick={() => pick("pptx")} />
-          <Row icon={<FileText size={14} className="text-white/70" />} label=".pdf"
-               sub="Locked layout for sharing"
-               onClick={() => pick("pdf")} />
-          <Row icon={<NotebookText size={14} className="text-white/70" />} label="Notes handout"
-               sub="Slides with speaker notes (PDF)"
-               trailing={handoutLocked ? <Lock size={12} className="text-white/40" /> : undefined}
-               onClick={() => pick("handout")} />
+          <Row 
+            icon={<Presentation size={14} className="text-white/70" />} 
+            label=".pptx"
+            sub="PowerPoint, Keynote, Slides"
+            onClick={() => pick("pptx")} 
+          />
+          <Row 
+            icon={<FileText size={14} className="text-white/70" />} 
+            label=".pdf"
+            sub="Locked layout for sharing"
+            onClick={() => pick("pdf")} 
+          />
+          <Row 
+            icon={<NotebookText size={14} className="text-white/70" />} 
+            label="Notes handout"
+            sub="Slides with speaker notes (PDF)"
+            trailing={handoutLocked ? <Lock size={12} className="text-white/40" /> : undefined}
+            onClick={() => pick("handout")} 
+          />
         </div>,
         document.body,
       )}
@@ -101,6 +138,7 @@ function Row({
     <button
       onClick={onClick}
       className="flex w-full items-start gap-3 rounded-lg px-3 py-2 text-left transition hover:bg-white/10"
+      style={{ touchAction: "manipulation", minHeight: "40px" }}
     >
       <span className="mt-0.5">{icon}</span>
       <span className="flex-1">

@@ -59,6 +59,10 @@ export default function Presenter({
   const [elapsed, setElapsed] = useState(0);
   const [timerRunning, setTimerRunning] = useState(true);
   const idleTimer = useRef<number | null>(null);
+  
+  // Track last keydown time for debouncing to prevent double-advance
+  const lastKeyTime = useRef<number>(0);
+  const DEBOUNCE_MS = 300;
 
   const enriched = useMemo(() => {
     return deck.slides.map((s) =>
@@ -139,70 +143,155 @@ export default function Presenter({
   const totalSecs = useMemo(() => slideSecs.reduce((a, b) => a + b, 0), [slideSecs]);
   const hasAnyNotes = useMemo(() => enriched.some((s) => plain(s.notes).length > 0), [enriched]);
 
-  // Keyboard.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setJumpBuffer("");
+  // Clean up all event listeners
+  const cleanup = () => {
+    // Remove all keyboard listeners
+    document.removeEventListener("keydown", onKey);
+    // Reset debounce state
+    lastKeyTime.current = 0;
+  };
+
+  // Keyboard handler with proper debouncing
+  const onKey = (e: KeyboardEvent) => {
+    // Don't handle if typing in an input
+    const target = e.target as HTMLElement;
+    if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return;
+
+    if (e.key === "Escape") {
+      setJumpBuffer("");
+      e.preventDefault();
+      e.stopPropagation();
+      const exit = (document as any).exitFullscreen
+        || (document as any).webkitExitFullscreen;
+      if (document.fullscreenElement || (document as any).webkitFullscreenElement) {
+        if (exit) exit.call(document);
+      } else {
+        onClose();
+      }
+      return;
+    }
+    bumpControls();
+
+    const now = Date.now();
+    // Debounce: ignore if within DEBOUNCE_MS of last event
+    const isNavigationKey = ["ArrowRight", "ArrowLeft", " ", "PageDown", "PageUp", "ArrowDown", "ArrowUp", "n", "N", "p", "P"].includes(e.key);
+    if (isNavigationKey && now - lastKeyTime.current < DEBOUNCE_MS) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+
+    // Numeric jump: digits buffer until Enter
+    if (/^[0-9]$/.test(e.key)) {
+      setJumpBuffer((b) => (b + e.key).slice(0, 3));
+      return;
+    }
+    if (e.key === "Enter" && jumpBuffer) {
+      const n = parseInt(jumpBuffer, 10);
+      if (n >= 1 && n <= total) goTo(n - 1);
+      setJumpBuffer("");
+      return;
+    }
+    if (e.key === "Backspace") {
+      if (jumpBuffer) { setJumpBuffer((b) => b.slice(0, -1)); return; }
+    }
+
+    if (jumpBuffer) setJumpBuffer("");
+
+    let handled = false;
+
+    switch (e.key) {
+      case "ArrowRight":
+      case "ArrowDown":
+      case "PageDown":
+      case " ":
+      case "n":
+      case "N":
         e.preventDefault();
-        const exit = (document as any).exitFullscreen
-          || (document as any).webkitExitFullscreen;
-        if (document.fullscreenElement || (document as any).webkitFullscreenElement) {
-          if (exit) exit.call(document);
-        } else {
-          onClose();
-        }
-        return;
-      }
-      bumpControls();
+        e.stopPropagation();
+        lastKeyTime.current = now;
+        goNext();
+        handled = true;
+        break;
 
-      // Numeric jump: digits buffer until Enter
-      if (/^[0-9]$/.test(e.key)) {
-        setJumpBuffer((b) => (b + e.key).slice(0, 3));
-        return;
-      }
-      if (e.key === "Enter" && jumpBuffer) {
-        const n = parseInt(jumpBuffer, 10);
-        if (n >= 1 && n <= total) goTo(n - 1);
-        setJumpBuffer("");
-        return;
-      }
-      if (e.key === "Backspace") {
-        if (jumpBuffer) { setJumpBuffer((b) => b.slice(0, -1)); return; }
-      }
+      case "ArrowLeft":
+      case "ArrowUp":
+      case "PageUp":
+      case "p":
+      case "P":
+        e.preventDefault();
+        e.stopPropagation();
+        lastKeyTime.current = now;
+        goPrev();
+        handled = true;
+        break;
 
-      if (jumpBuffer) setJumpBuffer("");
+      case "Home":
+        e.preventDefault();
+        e.stopPropagation();
+        lastKeyTime.current = now;
+        goTo(0);
+        handled = true;
+        break;
 
-      switch (e.key) {
-        case "ArrowRight":
-        case "PageDown":
-        case " ":
-        case "n":
-        case "N":
-          e.preventDefault(); goNext(); break;
-        case "ArrowLeft":
-        case "PageUp":
-        case "p":
-        case "P":
-          e.preventDefault(); goPrev(); break;
-        case "Home":
-          e.preventDefault(); goTo(0); break;
-        case "End":
-          e.preventDefault(); goTo(total - 1); break;
-        case "b": case "B":
-          setBlank((s) => (s === "black" ? "none" : "black")); break;
-        case "w": case "W":
-          setBlank((s) => (s === "white" ? "none" : "white")); break;
-        case "s": case "S":
-          e.preventDefault(); setShowNotes((v) => !v); break;
-        case "t": case "T":
-          e.preventDefault(); setTimerRunning((v) => !v); break;
-        case "r": case "R":
-          e.preventDefault(); setElapsed(0); break;
-      }
+      case "End":
+        e.preventDefault();
+        e.stopPropagation();
+        lastKeyTime.current = now;
+        goTo(total - 1);
+        handled = true;
+        break;
+
+      case "b": case "B":
+        setBlank((s) => (s === "black" ? "none" : "black"));
+        handled = true;
+        break;
+
+      case "w": case "W":
+        setBlank((s) => (s === "white" ? "none" : "white"));
+        handled = true;
+        break;
+
+      case "s": case "S":
+        e.preventDefault();
+        e.stopPropagation();
+        setShowNotes((v) => !v);
+        handled = true;
+        break;
+
+      case "t": case "T":
+        e.preventDefault();
+        e.stopPropagation();
+        setTimerRunning((v) => !v);
+        handled = true;
+        break;
+
+      case "r": case "R":
+        e.preventDefault();
+        e.stopPropagation();
+        setElapsed(0);
+        handled = true;
+        break;
+
+      default:
+        // Not a key we handle
+        break;
+    }
+
+    // If we handled the event, prevent any other listeners from firing
+    if (handled) {
+      e.stopImmediatePropagation();
+    }
+  };
+
+  // Set up keyboard listeners
+  useEffect(() => {
+    // Use capture phase to catch events before other listeners
+    document.addEventListener("keydown", onKey, true);
+
+    return () => {
+      cleanup();
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jumpBuffer, total, active]);
 
@@ -223,6 +312,7 @@ export default function Presenter({
         outline: "none",
         cursor: showControls ? "default" : "none",
         display: "flex", alignItems: "center", justifyContent: "center",
+        touchAction: "manipulation",
       }}
     >
       {/* Slide stage — letterboxed to a 16:9 area */}
@@ -255,8 +345,8 @@ export default function Presenter({
                     total={total}
                     deckTitle={deck.title}
                     graphicId={deck.graphic}
-              graphicAccent={deck.graphicAccent}
-              fontId={deck.fontId}
+                    graphicAccent={deck.graphicAccent}
+                    fontId={deck.fontId}
                   />
                 </div>
               ))}
@@ -287,7 +377,7 @@ export default function Presenter({
               onClose();
             }
           }}
-          style={chromeButton}
+          style={{ ...chromeButton, touchAction: "manipulation", minHeight: "36px", minWidth: "44px" }}
           title="Exit (Esc)"
         >
           <X size={16} /> Exit
@@ -314,23 +404,23 @@ export default function Presenter({
           borderRadius: 999,
           color: "#fff",
         }}>
-          <button onClick={(e) => { e.stopPropagation(); goPrev(); }} style={chromeButton} title="Prev (←)">
+          <button onClick={(e) => { e.stopPropagation(); goPrev(); }} style={{ ...chromeButton, touchAction: "manipulation", minHeight: "36px", minWidth: "44px" }} title="Prev (←)">
             <ChevronLeft size={16} />
           </button>
           <ProgressDots total={total} active={active} onJump={(i) => goTo(i)} />
           <span style={{ fontVariantNumeric: "tabular-nums", fontSize: 12, opacity: 0.8, minWidth: 60, textAlign: "center" }}>
             {active + 1} / {total}
           </span>
-          <button onClick={(e) => { e.stopPropagation(); goNext(); }} style={chromeButton} title="Next (→)">
+          <button onClick={(e) => { e.stopPropagation(); goNext(); }} style={{ ...chromeButton, touchAction: "manipulation", minHeight: "36px", minWidth: "44px" }} title="Next (→)">
             <ChevronRight size={16} />
           </button>
           <span style={{ width: 1, height: 20, background: "rgba(255,255,255,0.15)", margin: "0 4px" }} />
-          <button onClick={(e) => { e.stopPropagation(); setBlank((s) => s === "black" ? "none" : "black"); }} style={chromeButton} title="Black (B)">
+          <button onClick={(e) => { e.stopPropagation(); setBlank((s) => s === "black" ? "none" : "black"); }} style={{ ...chromeButton, touchAction: "manipulation", minHeight: "36px", minWidth: "44px" }} title="Black (B)">
             <Pause size={14} /> B
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); setShowNotes((v) => !v); }}
-            style={{ ...chromeButton, background: showNotes ? "rgba(255,255,255,0.22)" : chromeButton.background }}
+            style={{ ...chromeButton, background: showNotes ? "rgba(255,255,255,0.22)" : chromeButton.background, touchAction: "manipulation", minHeight: "36px", minWidth: "44px" }}
             title="Speaker notes (S)"
           >
             <NotebookText size={14} /> Notes
@@ -348,6 +438,7 @@ export default function Presenter({
           padding: "12px 24px", borderRadius: 12,
           fontSize: 32, fontVariantNumeric: "tabular-nums",
           border: "1px solid rgba(255,255,255,0.15)",
+          touchAction: "manipulation",
         }}>
           → {jumpBuffer} <span style={{ fontSize: 14, opacity: 0.6 }}>(Enter)</span>
         </div>
@@ -402,6 +493,9 @@ function ProgressDots({ total, active, onJump }: { total: number; active: number
               width: 6, height: 6, borderRadius: "50%",
               background: i === active ? "#fff" : "rgba(255,255,255,0.3)",
               border: "none", cursor: "pointer", padding: 0,
+              touchAction: "manipulation",
+              minHeight: "20px",
+              minWidth: "20px",
             }}
             title={`Slide ${i + 1}`}
           />
@@ -463,6 +557,7 @@ function FirstHint() {
       padding: "8px 14px", borderRadius: 999,
       fontSize: 11, opacity: 0.9,
       animation: "presenter-fade 200ms ease",
+      touchAction: "manipulation",
     }}>
       ← / → to navigate · S = notes · B = blank · Esc to exit
     </div>
@@ -503,6 +598,7 @@ function NotesPanel({
         fontFamily: "ui-sans-serif, system-ui, sans-serif",
         animation: "presenter-fade 200ms ease",
         zIndex: 5,
+        touchAction: "manipulation",
       }}
     >
       {/* Header: timer + controls */}
@@ -521,13 +617,13 @@ function NotesPanel({
           <span style={{ fontSize: 12, opacity: 0.5 }}>/ ~{fmtClock(totalEstimate)}</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <button onClick={onToggleTimer} style={miniBtn} title="Play/pause timer (T)">
+          <button onClick={onToggleTimer} style={{ ...miniBtn, touchAction: "manipulation", minHeight: "32px", minWidth: "44px" }} title="Play/pause timer (T)">
             {timerRunning ? "Pause" : "Resume"}
           </button>
-          <button onClick={onResetTimer} style={miniBtn} title="Reset timer (R)">
+          <button onClick={onResetTimer} style={{ ...miniBtn, touchAction: "manipulation", minHeight: "32px", minWidth: "44px" }} title="Reset timer (R)">
             <RotateCcw size={13} />
           </button>
-          <button onClick={onClose} style={miniBtn} title="Hide notes (S)">
+          <button onClick={onClose} style={{ ...miniBtn, touchAction: "manipulation", minHeight: "32px", minWidth: "44px" }} title="Hide notes (S)">
             <X size={14} />
           </button>
         </div>
