@@ -1,7 +1,8 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Sparkles, Check, Loader2, X, Crown } from "lucide-react";
 import { startTrial, razorpayConfigured } from "@/lib/razorpay";
+import { guessCurrencyFromLocale, fetchCurrencyFromIp } from "@/lib/geo";
 
 /**
  * Premium → 7-day free trial modal. Theme-aware (light/dark via --ezd tokens).
@@ -14,6 +15,17 @@ export default function TrialDialog({ onClose, reason, email }: { onClose: () =>
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  // Auto-pick currency by location (India -> INR, else USD); manual choice wins.
+  const pickedRef = useRef(false);
+  useEffect(() => {
+    const guess = guessCurrencyFromLocale();
+    if (guess && !pickedRef.current) setCurrency(guess);
+    let cancelled = false;
+    fetchCurrencyFromIp().then((c) => { if (c && !cancelled && !pickedRef.current) setCurrency(c); });
+    return () => { cancelled = true; };
+  }, []);
+  const pick = (c: "USD" | "INR") => { pickedRef.current = true; setCurrency(c); };
 
   const price = currency === "INR" ? "₹450" : "$5";
 
@@ -35,7 +47,7 @@ export default function TrialDialog({ onClose, reason, email }: { onClose: () =>
           <button onClick={onClose} aria-label="Close" className="absolute right-4 top-4" style={{ color: "var(--ezd-fg-quiet)" }}><X size={18} /></button>
           <div className="grid h-12 w-12 place-items-center rounded-2xl" style={{ background: "var(--ezd-fg-strong)", color: "var(--ezd-bg-page)" }}><Crown size={22} /></div>
           <div className="mt-4 inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ color: "var(--ezd-fg-quiet)" }}>
-            <Sparkles size={12} /> {reason || "Premium feature"}
+            <Sparkles size={12} /> {reason && reason.length <= 34 ? reason : "Premium feature"}
           </div>
           <h2 className="mt-1 text-[24px] font-bold tracking-tight" style={{ color: "var(--ezd-fg-strong)" }}>
             {done ? "You're on Pro 🎉" : "Start your 7-day free trial"}
@@ -63,7 +75,7 @@ export default function TrialDialog({ onClose, reason, email }: { onClose: () =>
 
               <div className="mt-5 grid grid-cols-2 gap-1.5 rounded-xl border p-1.5" style={{ borderColor: "var(--ezd-divider)" }}>
                 {(["USD", "INR"] as const).map((c) => (
-                  <button key={c} onClick={() => setCurrency(c)} className="rounded-lg px-3 py-2 text-[13px] font-semibold transition"
+                  <button key={c} onClick={() => pick(c)} className="rounded-lg px-3 py-2 text-[13px] font-semibold transition"
                     style={currency === c ? { background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)" } : { color: "var(--ezd-fg-muted)" }}>
                     {c === "INR" ? "₹ India" : "$ International"}
                   </button>

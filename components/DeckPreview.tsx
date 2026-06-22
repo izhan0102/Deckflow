@@ -33,7 +33,7 @@ import type { AppUser } from "@/lib/auth";
 import { getIdToken } from "@/lib/auth";
 import { watchUserPlan } from "@/lib/plan";
 import { type PlanId, planHasFeature, planShowsWatermark } from "@/lib/plans";
-import UpgradeDialog from "./UpgradeDialog";
+import TrialDialog from "./TrialDialog";
 import DeckTour from "./DeckTour";
 import GenerateOverlay from "./GenerateOverlay";
 import TemplateGallery from "./TemplateGallery";
@@ -1026,10 +1026,10 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
         <QAPrepModal deck={deck} onClose={() => setQaOpen(false)} />
       )}
       {upgradeOpen && (
-        <UpgradeDialog
-          currentPlan={plan}
+        <TrialDialog
           reason={upgradeReason}
           onClose={() => setUpgradeOpen(false)}
+          email={user?.email}
         />
       )}
       {renderForPdf && <HiddenSlidesRenderer ref={hiddenRef} deck={deck} theme={theme} watermark={planShowsWatermark(plan)} />}
