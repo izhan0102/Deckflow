@@ -123,7 +123,7 @@ export function evaluateSheet(sheet: Sheet): Record<string, string> {
     }
     visiting.add(ref);
     let v: Cell;
-    try { v = evalExpr(r.slice(1), evalRef); }
+    try { v = evalExpr(r.slice(1), evalRef, ref); }
     catch { v = "#ERR"; }
     visiting.delete(ref);
     memo.set(ref, v);
@@ -145,6 +145,22 @@ function formatNum(n: number): string {
   if (!Number.isFinite(n)) return "#NUM";
   if (Number.isInteger(n)) return String(n);
   return String(Math.round(n * 1e10) / 1e10);
+}
+
+/* Deterministic per-cell PRNG so RAND/RANDBETWEEN give stable, varied values
+ * (seeded by the cell ref) instead of flickering on every recompute. */
+function hashStr(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+function mulberry32(a: number) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }
 
 /* --------------------------- expression parser ------------------------- */
@@ -188,9 +204,10 @@ function tokenize(s: string): Tok[] {
   return toks;
 }
 
-function evalExpr(src: string, resolve: (ref: string) => Cell): Cell {
+function evalExpr(src: string, resolve: (ref: string) => Cell, seedRef?: string): Cell {
   const toks = tokenize(src);
   let p = 0;
+  const rng = mulberry32(hashStr(seedRef || src) || 1);
   const peek = () => toks[p];
   const next = () => toks[p++];
 
@@ -351,6 +368,10 @@ function evalExpr(src: string, resolve: (ref: string) => Cell): Cell {
       case "SQRT": return Math.sqrt(toNum(scalarArgs[0] ?? 0));
       case "ROUND": { const x = toNum(scalarArgs[0] ?? 0); const d = Math.floor(toNum(scalarArgs[1] ?? 0)); const f = Math.pow(10, d); return Math.round(x * f) / f; }
       case "POWER": return Math.pow(toNum(scalarArgs[0] ?? 0), toNum(scalarArgs[1] ?? 0));
+      case "FLOOR": return Math.floor(toNum(scalarArgs[0] ?? 0));
+      case "CEILING": case "CEIL": return Math.ceil(toNum(scalarArgs[0] ?? 0));
+      case "RAND": return rng();
+      case "RANDBETWEEN": { const lo = Math.ceil(toNum(scalarArgs[0] ?? 0)); const hi = Math.floor(toNum(scalarArgs[1] ?? 0)); return hi >= lo ? lo + Math.floor(rng() * (hi - lo + 1)) : lo; }
       case "IF": { const cond = toNum(scalarArgs[0] ?? 0); return cond !== 0 ? (scalarArgs[1] ?? "") : (scalarArgs[2] ?? ""); }
       case "CONCAT": case "CONCATENATE": return scalarArgs.map((s) => String(s)).join("");
       default: return "#NAME";
