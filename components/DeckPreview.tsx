@@ -136,8 +136,9 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
   };
   const [patternOpen, setPatternOpen] = useState(false);
   const [iconOpen, setIconOpen] = useState(false);
-  // Right "insert" sidebar: collapsed by default, opens to Add text / image.
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Right "insert" sidebar: auto-opens when the editor loads (and hides the
+  // slide rail while open); closing it via the arrow brings the rail back.
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [placingText, setPlacingText] = useState(false);
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
   const [canvasSelection, setCanvasSelection] = useState<CanvasSelection>(null);
@@ -1254,7 +1255,8 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
       {viewMode === "outline" ? (
         <OutlineEditor deck={deck} setDeck={setDeck} active={active} setActive={setActive} />
       ) : (
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[200px_minmax(0,1fr)_320px]">
+      <div className={`grid grid-cols-1 gap-4 transition-[grid-template-columns] duration-300 ease-in-out ${sidebarOpen ? "lg:grid-cols-[0px_minmax(0,1fr)_320px]" : "lg:grid-cols-[200px_minmax(0,1fr)_320px]"}`}>
+        <div className={`overflow-hidden transition-opacity duration-300 ease-in-out ${sidebarOpen ? "lg:pointer-events-none lg:opacity-0" : "opacity-100"}`}>
         <SlideRail
           deck={deck} theme={theme}
           active={active} setActive={setActive}
@@ -1262,6 +1264,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
           canReorder={planHasFeature(plan, "reorder")}
           onLockedReorder={() => requireFeatureOrUpgrade("reorder", "Reordering slides is a Pro feature. Upgrade to rearrange your deck.", () => {})}
         />
+        </div>
 
         <div className="min-w-0">
           <div
