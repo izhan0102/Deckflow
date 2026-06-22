@@ -8,7 +8,7 @@ import {
 } from "@/lib/auth";
 import { trackEvent } from "@/lib/stats";
 import {
-  ArrowRight, Check, ChevronDown, Eye, EyeOff, Loader2, Lock, Mail, Sparkles, User,
+  ArrowLeft, ArrowRight, Check, ChevronDown, Eye, EyeOff, Loader2, Lock, Mail, Sparkles, User,
 } from "lucide-react";
 import Logo from "@/components/Logo";
 
@@ -122,6 +122,12 @@ function AuthInner() {
           {/* Top: brand + (mobile) toggle to right pane */}
           <div className="flex items-center justify-between">
             <Logo size="md" />
+            <Link
+              href="/"
+              className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[12px] text-white/75 transition hover:bg-white/10"
+            >
+              <ArrowLeft size={11} /> Back to home
+            </Link>
           </div>
 
           {/* Center: auth panel */}
