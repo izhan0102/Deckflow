@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest, AuthError } from "@/lib/firebaseAdmin";
-import { requireDeckAllowance, incrementMonthlyGenerationsServer, getUserPlanServer, requireDailyAllowance, incrementDailyServer, PlanLimitError } from "@/lib/planServer";
+import { requireDeckAllowance, incrementMonthlyGenerationsServer, requireDailyAllowance, incrementDailyServer, PlanLimitError } from "@/lib/planServer";
 import { rateLimitResponse } from "@/lib/rateLimit";
 import { generateDoc } from "@/lib/groqDoc";
-import { FREE_FOR_ALL } from "@/lib/plans";
 import type { DocDensity } from "@/lib/docTypes";
 
 export const runtime = "nodejs";
@@ -15,13 +14,6 @@ export async function POST(req: NextRequest) {
   if (limited) return limited;
   try {
     const uid = await authenticateRequest(req);
-    // AI Documents are a premium feature — Pro / Pro Plus only.
-    if (!FREE_FOR_ALL) {
-      const plan = await getUserPlanServer(uid);
-      if (plan === "free") {
-        throw new PlanLimitError("AI Documents are a Pro feature. Upgrade to Pro.", "plan_feature_locked", 403);
-      }
-    }
     await requireDeckAllowance(uid); // documents count against the same monthly allowance
     await requireDailyAllowance(uid); // daily safety cap (all tiers)
     const body = await req.json().catch(() => ({}));

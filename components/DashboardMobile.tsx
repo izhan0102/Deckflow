@@ -95,13 +95,7 @@ export default function DashboardMobile({
     onStartFromScratch();
   };
 
-  const onNewDoc = () => {
-    if (!FREE_FOR_ALL && plan === "free") {
-      openUpgrade("AI Documents");
-      return;
-    }
-    window.location.assign("/docs");
-  };
+  const onNewDoc = () => { window.location.assign("/docs"); };
 
   const onNewResume = () => { window.location.assign("/resume"); };
 

@@ -107,7 +107,6 @@ export default function Dashboard({
 
   const deckLimit = planDeckLimit(plan);
   const limitReached = monthGenerations >= deckLimit;
-  const docLocked = !FREE_FOR_ALL && plan === "free"; // documents are Pro / Pro Plus only
 
   const openUpgrade = (reason?: string) => {
     setUpgradeReason(reason);
@@ -122,14 +121,8 @@ export default function Dashboard({
     onStartFromScratch();
   };
 
-  // AI Documents are a premium feature (Pro / Pro Plus only).
-  const onNewDoc = () => {
-    if (!FREE_FOR_ALL && plan === "free") {
-      openUpgrade("AI Documents");
-      return;
-    }
-    window.location.assign("/docs");
-  };
+  // Documents are free for everyone (count against the monthly generation limit).
+  const onNewDoc = () => { window.location.assign("/docs"); };
 
   // Resume maker is free for everyone.
   const onNewResume = () => { window.location.assign("/resume"); };
@@ -290,10 +283,8 @@ export default function Dashboard({
               icon={<FileText size={22} />}
               title="Make a document"
               desc="Write a structured, Word-style document with AI — headings, data tables, charts, watermarks, and a clean multi-page PDF export."
-              cta={docLocked ? "Pro required" : "New document"}
+              cta="New document"
               onClick={onNewDoc}
-              golden={docLocked}
-              locked={docLocked}
             />
             <CreateCard
               icon={<Contact size={22} />}

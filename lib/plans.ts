@@ -46,7 +46,7 @@ export const PLANS: Record<PlanId, Plan> = {
     id: "free",
     name: "Free",
     price: 0,
-    decksPerMonth: 1,
+    decksPerMonth: 2,
     tagline: "Try it out, no card needed.",
     features: {
       speakerNotes: false,
@@ -59,7 +59,7 @@ export const PLANS: Record<PlanId, Plan> = {
       template: false,
     },
     highlights: [
-      "1 AI generation per month",
+      "2 AI generations per month",
       "Full AI deck generation",
       "All themes, fonts, and layouts",
       "PDF and PPTX export",
