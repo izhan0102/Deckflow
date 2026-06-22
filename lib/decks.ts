@@ -181,14 +181,14 @@ export async function renameDeck(uid: string, deckId: string, title: string): Pr
   }));
 }
 
-/** Duplicate a deck into a brand-new row ("… (copy)"). Returns the new id,
+/** Duplicate a deck into a brand-new row ("… (Copy)"). Returns the new id,
  *  or null if the source couldn't be loaded. */
 export async function duplicateDeck(uid: string, deckId: string): Promise<string | null> {
   const stored = await loadDeck(uid, deckId);
   if (!stored) return null;
   const copy: Deck = {
     ...stored.deck,
-    title: `${stored.deck.title || "Untitled deck"} (copy)`,
+    title: `${stored.deck.title || "Untitled deck"} (Copy)`,
   };
   return createDeck(uid, copy, stored.theme);
 }

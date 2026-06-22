@@ -2,9 +2,9 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, FileText, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, FileText, Plus, Trash2, Copy, Loader2 } from "lucide-react";
 import { onAuthStateChange, type AppUser } from "@/lib/auth";
-import { watchDeckList, deleteDeck, type DeckListItem } from "@/lib/decks";
+import { watchDeckList, deleteDeck, duplicateDeck, type DeckListItem } from "@/lib/decks";
 import DeckThumbnail from "@/components/DeckThumbnail";
 import Logo from "@/components/Logo";
 
@@ -14,6 +14,19 @@ export default function MyDecksPage() {
   const [authReady, setAuthReady] = useState(false);
   const [decks, setDecks] = useState<DeckListItem[]>([]);
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [duplicating, setDuplicating] = useState(false);
+
+  const onDuplicate = async (id: string) => {
+    if (!user || duplicating) return;
+    setDuplicating(true);
+    try {
+      await duplicateDeck(user.uid, id);
+    } catch (err) {
+      alert("Failed to duplicate deck");
+    } finally {
+      setDuplicating(false);
+    }
+  };
 
   const triggerRef = useRef<HTMLButtonElement | null>(null);
 const modalRef = useRef<HTMLDivElement | null>(null);
@@ -157,6 +170,13 @@ if (!authReady) {
                   >
                     Open
                   </Link>
+                  <button
+                    onClick={() => onDuplicate(d.id)}
+                    className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-white/75 hover:bg-white/10"
+                    title="Duplicate this deck"
+                  >
+                    <Copy size={12} />
+                  </button>
                   {d.shareId && (
                     <Link
                       href={`/share/${d.shareId}`}
@@ -180,6 +200,13 @@ if (!authReady) {
           </div>
         )}
       </div>
+
+      {duplicating && (
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/50 backdrop-blur-sm">
+          <Loader2 size={32} className="animate-spin text-white" />
+          <p className="mt-2 text-sm font-medium text-white">Duplicating deck...</p>
+        </div>
+      )}
 
       {confirmId && (
         <div

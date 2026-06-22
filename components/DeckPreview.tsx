@@ -6,7 +6,7 @@ import { PRESET_THEMES, getTheme } from "@/lib/themes";
 import {
   BarChart3, ChevronDown, ChevronLeft, ChevronRight, Eye, Grid3x3, Image as ImageIcon, LayoutGrid, Link as LinkIcon, List, Loader2, NotebookText, Play, RotateCcw, Smile, Star, Undo2, X,
   Type, Bold, Italic, Underline as UnderlineIcon, Trash2, AlignLeft, AlignCenter, AlignRight, PanelRightOpen,
-  Users, Plus, Minus, Languages, MessageCircleQuestion, Send, Lock, Check, SlidersHorizontal, LayoutTemplate,
+  Users, Plus, Minus, Languages, MessageCircleQuestion, Send, Lock, Check, SlidersHorizontal, LayoutTemplate, Copy,
 } from "lucide-react";
 import SlideCanvas, { type CanvasSelection } from "./SlideCanvas";
 import DesignerPanel from "./DesignerPanel";
@@ -22,7 +22,7 @@ import { exportSlidesToPdf, exportHandoutToPdf } from "@/lib/pdfExport";
 import { trackEvent } from "@/lib/stats";
 import type { ExportFormat } from "./ExportFormatPicker";
 import { getDecoration } from "@/lib/decorations";
-import { saveDeck, publishDeck, unpublishDeck, syncSharedDeck, writeSharedDeck, watchSharedDeck, setShareMode, type ShareMode } from "@/lib/decks";
+import { saveDeck, publishDeck, unpublishDeck, syncSharedDeck, writeSharedDeck, watchSharedDeck, setShareMode, type ShareMode, duplicateDeck } from "@/lib/decks";
 import { submitReview, REVIEW_LIMITS } from "@/lib/reviews";
 import { loadShareAnalytics, formatDwell, type ShareAnalytics } from "@/lib/analytics";
 import { stripHtml, applyWholeStyle, readWholeStyle } from "@/lib/richText";
@@ -146,6 +146,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
   const [shareOpen, setShareOpen] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
   // Live share state. For an owner, seeded from the loaded deck row; for a
   // link collaborator, taken from the `collab` prop.
   const [shareId, setShareId] = useState<string | null>(initialShareId ?? collab?.shareId ?? null);
@@ -845,6 +846,21 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
     );
   };
 
+  const onDuplicate = async () => {
+    if (!user || !deckId || duplicating) return;
+    setDuplicating(true);
+    try {
+      const newId = await duplicateDeck(user.uid, deckId);
+      if (newId) {
+        // Redirect to the new duplicated deck immediately
+        window.location.assign(`/app?id=${newId}`);
+      }
+    } catch (err) {
+      alert("Failed to duplicate deck");
+      setDuplicating(false);
+    }
+  };
+
   return (
     <div className="fade-in mx-auto w-full max-w-[1400px]">
       <DeckTour userId={user?.uid ?? null} />
@@ -859,6 +875,12 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
             if (t) void runDensity(t);
           }}
         />
+      )}
+      {duplicating && (
+        <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-black/50 backdrop-blur-sm">
+          <Loader2 size={32} className="animate-spin text-white" />
+          <p className="mt-2 text-sm font-medium text-white">Duplicating deck...</p>
+        </div>
       )}
       {templateGalleryOpen && (
         <TemplateGallery
@@ -1082,6 +1104,14 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
               <ImageIcon size={14} /> Replace image
             </button>
           )}
+          <button
+            onClick={onDuplicate}
+            disabled={duplicating}
+            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 disabled:opacity-60"
+            title="Duplicate this deck"
+          >
+            <Copy size={14} /> Duplicate
+          </button>
           <button
             onClick={() => setPresenting(true)}
             data-tour="tour-present"
