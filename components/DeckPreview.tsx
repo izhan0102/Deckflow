@@ -1,4 +1,5 @@
 "use client";
+import DeckHealthAnalyzer from "@/components/DeckHealthAnalyzer";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Deck, Slide, UploadedImage, TextBox, ContentDensity } from "@/lib/types";
 import type { Theme } from "@/lib/themes";
@@ -108,6 +109,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
   const [imageQuery, setImageQuery] = useState("");
   const [relatedImages, setRelatedImages] = useState<PexelsPhoto[]>([]);
   const [relatedLoading, setRelatedLoading] = useState(false);
+  const [healthOpen, setHealthOpen] = useState(false);
 
   // Load the user's saved custom templates for the gallery.
   useEffect(() => {
@@ -1126,6 +1128,12 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
           >
             <RotateCcw size={14} /> Start over
           </button>
+          <button
+  onClick={() => setHealthOpen(true)}
+  className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
+>
+  Deck Health
+</button>
           <span data-tour="tour-export">
             <ExportButton onExport={onExport} busy={downloading} handoutLocked={!planHasFeature(plan, "handout")} />
           </span>
@@ -1261,6 +1269,16 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
         </div>
       </div>
       )}
+      {healthOpen && (
+  <DeckHealthAnalyzer
+    deck={deck}
+    onClose={() => setHealthOpen(false)}
+   onJumpToSlide={(slideIndex) => {
+  setActive(slideIndex);
+  setHealthOpen(false);
+}}
+  />
+)}
 
       {/* Share modal */}
       {shareOpen && shareUrl && (
