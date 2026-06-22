@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest, AuthError } from "@/lib/firebaseAdmin";
 import { rateLimitResponse } from "@/lib/rateLimit";
 import { normalizeCurrency } from "@/lib/billing";
-import { proPlanId, hasUsedTrial, TRIAL_DAYS, SUB_TOTAL_COUNT } from "@/lib/subscriptions";
+import { planIdFor, productHasTrial, hasUsedTrial, TRIAL_DAYS, SUB_TOTAL_COUNT, type SubProduct } from "@/lib/subscriptions";
+import { normalizeProduct } from "@/lib/plans";
 
 export const runtime = "nodejs";
 
@@ -10,9 +11,10 @@ const KEY_ID = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || process.env.RAZORPAY_K
 const KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || "";
 
 /**
- * Create a Razorpay subscription for Pro (autopay). First-time users get a
- * 7-day free trial: the mandate is authorized now, the first charge happens
- * after the trial (start_at). Repeat users are billed from the next cycle.
+ * Create a Razorpay subscription (autopay) for a product (pro/team/org).
+ * Individual Pro first-timers get a 7-day free trial (mandate authorized now,
+ * first charge after the trial). Team/Org are pay-now: the first charge happens
+ * on authorization, then autopay recurs monthly. Repeat Pro users also pay now.
  */
 export async function POST(req: NextRequest) {
   const limited = rateLimitResponse("generate");
@@ -22,12 +24,15 @@ export async function POST(req: NextRequest) {
     const uid = await authenticateRequest(req);
     const body = await req.json().catch(() => ({}));
     const currency = normalizeCurrency(body?.currency);
-    const planId = proPlanId(currency);
-    if (!planId) return NextResponse.json({ error: "No plan configured for this currency." }, { status: 400 });
+    const product = normalizeProduct(body?.product) as SubProduct;
+    const planId = planIdFor(product, currency);
+    if (!planId) return NextResponse.json({ error: `Autopay isn't set up for ${product} yet.` }, { status: 400 });
 
-    const usedTrial = await hasUsedTrial(uid);
+    // Only individual Pro first-timers get a trial; team/org charge immediately.
+    const usedTrial = productHasTrial(product) ? await hasUsedTrial(uid) : true;
+    const isTrial = productHasTrial(product) && !usedTrial;
     const now = Math.floor(Date.now() / 1000);
-    const startAt = usedTrial ? undefined : now + TRIAL_DAYS * 86400; // omit = bill from next cycle immediately
+    const startAt = isTrial ? now + TRIAL_DAYS * 86400 : undefined; // omit = bill from first cycle now
 
     const auth = Buffer.from(`${KEY_ID}:${KEY_SECRET}`).toString("base64");
     const res = await fetch("https://api.razorpay.com/v1/subscriptions", {
@@ -38,7 +43,7 @@ export async function POST(req: NextRequest) {
         total_count: SUB_TOTAL_COUNT,
         customer_notify: 1,
         ...(startAt ? { start_at: startAt } : {}),
-        notes: { uid, product: "pro", period: "monthly", currency },
+        notes: { uid, product, period: "monthly", currency },
       }),
     });
     const data = await res.json().catch(() => ({}));
@@ -52,7 +57,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       subscriptionId: data.id,
       keyId: KEY_ID,
-      trial: !usedTrial,
+      product,
+      trial: isTrial,
       trialEndsAt: startAt ? startAt * 1000 : null,
     });
   } catch (err: any) {

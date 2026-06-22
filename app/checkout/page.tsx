@@ -9,7 +9,7 @@ import {
 import Logo from "@/components/Logo";
 import { PRODUCTS, getProduct, normalizeProduct, type ProductId } from "@/lib/plans";
 import { onAuthStateChange, getIdToken, type AppUser } from "@/lib/auth";
-import { startCheckout, startTrial, razorpayConfigured, type BillingPeriod } from "@/lib/razorpay";
+import { startSubscription, startTrial, razorpayConfigured, type BillingPeriod } from "@/lib/razorpay";
 
 type Currency = "USD" | "INR";
 const ACCENT = "var(--ezd-fg-strong)";
@@ -66,11 +66,11 @@ function CheckoutInner() {
     if (!user) { router.push(`/auth?redirect=${encodeURIComponent(`/checkout?product=${product}`)}`); return; }
     if (!razorpayConfigured()) { setFailure("Payments aren't configured yet."); return; }
     setWorking(true);
-    // Pro = autopay subscription (server decides trial vs immediate via trialUsed).
-    // Team/Org = one-time monthly purchase (seat plans).
+    // Pro = autopay subscription with a 7-day trial for first-timers.
+    // Team/Org = autopay subscription, pay now then recurs monthly (no trial).
     const r = isPro
       ? await startTrial({ currency, email: user.email })
-      : await startCheckout({ product, period: "monthly", currency, email: user.email });
+      : await startSubscription({ product, currency, email: user.email });
     setWorking(false);
     if (r.ok) { setSuccess(true); return; }
     if (r.reason && r.reason !== "dismissed") setFailure(r.reason === "not_configured" ? "Payments aren't configured yet." : humanError(r.reason));
@@ -158,7 +158,9 @@ function CheckoutInner() {
                 : <>Billed {fmt(price, currency)}/month on <strong style={{ color: "var(--ezd-fg-strong)" }}>autopay</strong> until you cancel. Cancel anytime — here or from your UPI app.</>}
             </div>
           ) : (
-            <p className="mt-3 text-[12px]" style={{ color: "var(--ezd-fg-quiet)" }}>Monthly seat plan · up to {PRODUCTS[product].seats} members.</p>
+            <div className="mt-3 rounded-lg border px-3 py-2 text-[12.5px]" style={{ borderColor: "var(--ezd-divider)", background: "var(--ezd-bg-hover)", color: "var(--ezd-fg-muted)" }}>
+              Billed {fmt(price, currency)}/month on <strong style={{ color: "var(--ezd-fg-strong)" }}>autopay</strong> from today (no free trial), up to {PRODUCTS[product].seats} members. Cancel anytime.
+            </div>
           )}
 
           <div className="my-4 h-px" style={{ background: "var(--ezd-divider)" }} />
@@ -178,11 +180,11 @@ function CheckoutInner() {
               {working ? <><Loader2 size={16} className="animate-spin" /> Processing…</>
                 : loadingStatus ? <><Loader2 size={16} className="animate-spin" /> Loading…</>
                 : isPro ? (trialEligible ? <>Start 7-day free trial <ArrowRight size={16} /></> : <>Subscribe — {fmt(price, currency)}/mo <ArrowRight size={16} /></>)
-                : <>Get {planDef.name} — {fmt(price, currency)} <ArrowRight size={16} /></>}
+                : <>Get {planDef.name} — {fmt(price, currency)}/mo <ArrowRight size={16} /></>}
             </button>
           )}
 
-          {isPro && !alreadyPro && (
+          {!alreadyPro && (
             <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-[11px]" style={{ color: "var(--ezd-fg-quiet)" }}>
               <RefreshCw size={11} /> Auto-renews monthly · cancel anytime
             </p>

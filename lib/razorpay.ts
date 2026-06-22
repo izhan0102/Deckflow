@@ -43,15 +43,17 @@ async function authHeaders(): Promise<Record<string, string>> {
 
 export type CheckoutResult = { ok: boolean; free?: boolean; trial?: boolean; reason?: string };
 
-/** Start a Pro subscription (autopay). First-timers get a 7-day free trial:
- *  the mandate is authorized now, first charge after the trial. */
-export async function startTrial(args: { currency?: "USD" | "INR"; email?: string | null }): Promise<CheckoutResult> {
+/** Start an autopay subscription for a product (pro/team/org). Individual Pro
+ *  first-timers get a 7-day free trial; team/org are pay-now then autopay. */
+export async function startSubscription(args: { product?: ProductId; currency?: "USD" | "INR"; email?: string | null }): Promise<CheckoutResult> {
   if (!KEY_ID) return { ok: false, reason: "not_configured" };
   const currency = args.currency || "USD";
+  const product: ProductId = args.product || "pro";
+  const label = product === "team" ? "Team" : product === "org" ? "Organisation" : "Pro";
   try {
     const headers = await authHeaders();
     const res = await fetch("/api/razorpay-subscription", {
-      method: "POST", headers, body: JSON.stringify({ currency }),
+      method: "POST", headers, body: JSON.stringify({ currency, product }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data?.subscriptionId) return { ok: false, reason: data?.error || "sub_failed" };
@@ -62,7 +64,7 @@ export async function startTrial(args: { currency?: "USD" | "INR"; email?: strin
         key: data.keyId || KEY_ID,
         subscription_id: data.subscriptionId,
         name: "EXdeck",
-        description: data.trial ? "Pro · 7-day free trial" : "Pro · monthly",
+        description: data.trial ? `${label} · 7-day free trial` : `${label} · monthly autopay`,
         prefill: { email: args.email || "" },
         theme: { color: "#111111" },
         handler: async (resp: any) => {
@@ -70,7 +72,7 @@ export async function startTrial(args: { currency?: "USD" | "INR"; email?: strin
             const v = await fetch("/api/razorpay-subscription-verify", {
               method: "POST",
               headers: await authHeaders(),
-              body: JSON.stringify({ ...resp, currency }),
+              body: JSON.stringify({ ...resp, currency, product }),
             });
             const vd = await v.json().catch(() => ({}));
             resolve(v.ok && vd?.ok ? { ok: true, trial: !!vd.trial } : { ok: false, reason: vd?.error || "verify_failed" });
@@ -83,8 +85,13 @@ export async function startTrial(args: { currency?: "USD" | "INR"; email?: strin
       rzp.open();
     });
   } catch (e: any) {
-    return { ok: false, reason: e?.message || "trial_failed" };
+    return { ok: false, reason: e?.message || "sub_failed" };
   }
+}
+
+/** Start a Pro subscription (autopay) — 7-day free trial for first-timers. */
+export async function startTrial(args: { currency?: "USD" | "INR"; email?: string | null }): Promise<CheckoutResult> {
+  return startSubscription({ product: "pro", currency: args.currency, email: args.email });
 }
 
 /** Full checkout for a product (pro/team/org) + period + currency + optional coupon. */

@@ -12,15 +12,42 @@ export const TRIAL_DAYS = 7;
 export const SUB_TOTAL_COUNT = 60; // billing cycles (5 years monthly) — under Razorpay's per-period cap
 
 export type SubCurrency = "USD" | "INR";
+export type SubProduct = "pro" | "team" | "org";
 
-const PRO_PLAN_IDS: Record<SubCurrency, string> = {
-  USD: process.env.RAZORPAY_PLAN_PRO_USD || "plan_T35qg8vcpqMB4s",
-  INR: process.env.RAZORPAY_PLAN_PRO_INR || "plan_T35zanYP9ILobd",
+/**
+ * Razorpay subscription plan ids, per product + currency. Created in the
+ * Razorpay dashboard (monthly plans). Pro has live defaults; team/org must be
+ * set via env once their plans exist (RAZORPAY_PLAN_TEAM_USD, etc.).
+ */
+const PLAN_IDS: Record<SubProduct, Record<SubCurrency, string>> = {
+  pro: {
+    USD: process.env.RAZORPAY_PLAN_PRO_USD || "plan_T35qg8vcpqMB4s",
+    INR: process.env.RAZORPAY_PLAN_PRO_INR || "plan_T35zanYP9ILobd",
+  },
+  team: {
+    USD: process.env.RAZORPAY_PLAN_TEAM_USD || "",
+    INR: process.env.RAZORPAY_PLAN_TEAM_INR || "",
+  },
+  org: {
+    USD: process.env.RAZORPAY_PLAN_ORG_USD || "",
+    INR: process.env.RAZORPAY_PLAN_ORG_INR || "",
+  },
 };
 
-/** The Razorpay plan id for Pro in the given currency. */
+/** Razorpay plan id for a product + currency ("" if not configured yet). */
+export function planIdFor(product: SubProduct, currency: SubCurrency): string {
+  const byCur = PLAN_IDS[product] || PLAN_IDS.pro;
+  return byCur[currency] || byCur.USD || "";
+}
+
+/** Back-compat helper: the Pro plan id for a currency. */
 export function proPlanId(currency: SubCurrency): string {
-  return PRO_PLAN_IDS[currency] || PRO_PLAN_IDS.USD;
+  return planIdFor("pro", currency);
+}
+
+/** Only individual Pro gets a 7-day free trial. Team/Org are pay-now + autopay. */
+export function productHasTrial(product: SubProduct): boolean {
+  return product === "pro";
 }
 
 /** Has this user already consumed their free trial? */

@@ -3,7 +3,8 @@ import { authenticateRequest, AuthError } from "@/lib/firebaseAdmin";
 import { rateLimitResponse } from "@/lib/rateLimit";
 import { grantSubscription, hmacHex, safeEqual } from "@/lib/razorpayServer";
 import { normalizeCurrency } from "@/lib/billing";
-import { hasUsedTrial, TRIAL_DAYS } from "@/lib/subscriptions";
+import { hasUsedTrial, TRIAL_DAYS, productHasTrial, type SubProduct } from "@/lib/subscriptions";
+import { normalizeProduct } from "@/lib/plans";
 
 export const runtime = "nodejs";
 
@@ -23,6 +24,7 @@ export async function POST(req: NextRequest) {
     const subscriptionId = body?.razorpay_subscription_id;
     const signature = body?.razorpay_signature;
     const currency = normalizeCurrency(body?.currency);
+    const product = normalizeProduct(body?.product) as SubProduct;
     if (!paymentId || !subscriptionId || !signature) {
       return NextResponse.json({ error: "Missing payment fields." }, { status: 400 });
     }
@@ -33,15 +35,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Signature verification failed." }, { status: 400 });
     }
 
-    // Server-computed expiry — never trust the client for dates.
-    const wasTrial = !(await hasUsedTrial(uid));
+    // Server-computed expiry — never trust the client for dates. Only individual
+    // Pro first-timers get the trial window; team/org & repeat users start now.
+    const wasTrial = productHasTrial(product) && !(await hasUsedTrial(uid));
     const expiresAt = wasTrial
       ? Date.now() + TRIAL_DAYS * 86400000        // access through the trial
       : Date.now() + 31 * 86400000;               // first cycle (webhook will correct on charge)
 
     await grantSubscription(uid, {
       subscriptionId,
-      product: "pro",
+      product,
       status: wasTrial ? "trialing" : "active",
       expiresAt,
       period: "monthly",
