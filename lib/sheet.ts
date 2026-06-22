@@ -16,12 +16,39 @@ export type CellFormat = {
   align?: "left" | "center" | "right";
   color?: string;         // text color hex (#RRGGBB)
   bg?: string;            // fill color hex
+  numFmt?: "int" | "comma" | "currency" | "percent" | "2dp"; // number display
+  cur?: string;           // currency symbol for numFmt:"currency" (e.g. "$", "₹")
 };
 
-export type Sheet = { cols: number; rows: number; cells: Record<string, string>; formats?: Record<string, CellFormat> };
+export type ChartSpec = {
+  id: string;
+  type: "bar" | "line" | "pie";
+  title?: string;
+  labels: string;   // range like "A2:A6"
+  values: string;   // range like "B2:B6"
+};
+
+/** Dynamic conditional-formatting rule — re-applied live as values change. */
+export type CondRule = {
+  range: string;
+  cmp: "lt" | "lte" | "gt" | "gte" | "eq" | "ne";
+  value: number;
+  bg?: string;
+  color?: string;
+};
+
+export type Sheet = {
+  cols: number;
+  rows: number;
+  cells: Record<string, string>;
+  formats?: Record<string, CellFormat>;
+  charts?: ChartSpec[];
+  frozen?: { rows?: number; cols?: number };
+  condRules?: CondRule[];
+};
 
 export function emptySheet(cols = 8, rows = 20): Sheet {
-  return { cols, rows, cells: {}, formats: {} };
+  return { cols, rows, cells: {}, formats: {}, charts: [], frozen: {}, condRules: [] };
 }
 
 export function colName(i: number): string {
@@ -64,8 +91,15 @@ const isErr = (v: Cell): v is string => typeof v === "string" && v.startsWith("#
 function toNum(v: Cell): number {
   if (typeof v === "number") return v;
   if (v === "" || v == null) return 0;
-  const n = Number(String(v).replace(/,/g, ""));
-  return Number.isFinite(n) ? n : NaN;
+  // Tolerate currency symbols, thousands separators, %, and spaces so a value
+  // like "₹50,000" or "$1,200" still works inside formulas.
+  let s = String(v).trim();
+  let pct = false;
+  if (s.endsWith("%")) { pct = true; s = s.slice(0, -1); }
+  s = s.replace(/[₹$€£¥₩,\s]/g, "");
+  if (s === "" || s === "-" || s === "+") return NaN;
+  const n = Number(s);
+  return Number.isFinite(n) ? (pct ? n / 100 : n) : NaN;
 }
 
 /** Returns a map of ref -> displayed value for every non-empty cell. */
@@ -144,7 +178,7 @@ function tokenize(s: string): Tok[] {
     if (ch === "<" && s[i + 1] === "=") { toks.push({ t: "op", v: "<=" }); i += 2; continue; }
     if (ch === ">" && s[i + 1] === "=") { toks.push({ t: "op", v: ">=" }); i += 2; continue; }
     if (ch === "<" && s[i + 1] === ">") { toks.push({ t: "op", v: "<>" }); i += 2; continue; }
-    if ("+-*/^%=<>".includes(ch)) { toks.push({ t: "op", v: ch }); i++; continue; }
+    if ("+-*/^%=<>&".includes(ch)) { toks.push({ t: "op", v: ch }); i++; continue; }
     if (ch === "(") { toks.push({ t: "(" }); i++; continue; }
     if (ch === ")") { toks.push({ t: ")" }); i++; continue; }
     if (ch === ",") { toks.push({ t: "," }); i++; continue; }
@@ -164,11 +198,11 @@ function evalExpr(src: string, resolve: (ref: string) => Cell): Cell {
   function parseExpr(): Cell { return parseCompare(); }
 
   function parseCompare(): Cell {
-    let left = parseAdd();
+    let left = parseConcat();
     const t = peek();
     if (t && t.t === "op" && ["=", "<>", "<", ">", "<=", ">="].includes(t.v)) {
       next();
-      const right = parseAdd();
+      const right = parseConcat();
       const a = left, b = right;
       const cmp = (() => {
         if (typeof a === "number" && typeof b === "number") {
@@ -181,6 +215,19 @@ function evalExpr(src: string, resolve: (ref: string) => Cell): Cell {
       return cmp ? 1 : 0;
     }
     return left;
+  }
+
+  const toStr = (v: Cell): string => (typeof v === "number" ? formatNum(v) : String(v));
+
+  function parseConcat(): Cell {
+    let v = parseAdd();
+    while (peek() && peek().t === "op" && (peek() as any).v === "&") {
+      next();
+      const r = parseAdd();
+      if (isErr(v as Cell)) return v; if (isErr(r as Cell)) return r;
+      v = toStr(v) + toStr(r);
+    }
+    return v;
   }
 
   function parseAdd(): Cell {
@@ -326,4 +373,84 @@ function evalExpr(src: string, resolve: (ref: string) => Cell): Cell {
 
   const result = parseExpr();
   return result;
+}
+
+
+
+/* --------------------------- display formatting ------------------------ */
+
+/** Format an evaluated value string for display per a cell's number format. */
+export function formatDisplay(disp: string, fmt?: CellFormat): string {
+  if (!fmt?.numFmt || disp === "" || disp.startsWith("#")) return disp;
+  const n = Number(disp.replace(/,/g, ""));
+  if (!Number.isFinite(n)) return disp;
+  const cur = fmt.cur || "";
+  const locale = cur === "₹" ? "en-IN" : "en-US";
+  const grp = (x: number, dp: number) => x.toLocaleString(locale, { minimumFractionDigits: dp, maximumFractionDigits: dp });
+  switch (fmt.numFmt) {
+    case "int": return grp(Math.round(n), 0);
+    case "comma": return grp(n, Number.isInteger(n) ? 0 : 2);
+    case "currency": return cur + grp(n, Number.isInteger(n) ? 0 : 2);
+    case "percent": return `${(n * 100).toFixed(2)}%`;
+    case "2dp": return n.toFixed(2);
+    default: return disp;
+  }
+}
+
+/* ----------------------------- color names ----------------------------- */
+
+const COLOR_NAMES: Record<string, string> = {
+  red: "#ef4444", green: "#22c55e", blue: "#3b82f6", yellow: "#facc15", orange: "#f97316",
+  purple: "#a855f7", pink: "#ec4899", cyan: "#06b6d4", teal: "#14b8a6", gray: "#9ca3af",
+  grey: "#9ca3af", black: "#111111", white: "#ffffff", brown: "#92400e", lime: "#84cc16",
+  lightgreen: "#dcfce7", lightred: "#fee2e2", lightyellow: "#fef9c3", lightblue: "#dbeafe",
+  lightgray: "#f3f4f6", lightgrey: "#f3f4f6", darkgreen: "#166534", darkred: "#991b1b",
+};
+
+/** Normalize a hex or named color to "#RRGGBB" (undefined if unrecognized). */
+export function normColor(s?: string): string | undefined {
+  if (!s) return undefined;
+  const t = s.trim().toLowerCase();
+  if (/^#?[0-9a-f]{6}$/i.test(t)) return t.startsWith("#") ? t : "#" + t;
+  const key = t.replace(/\s+/g, "");
+  return COLOR_NAMES[key] || COLOR_NAMES[key.replace("light", "")] || undefined;
+}
+
+
+/** Expand "A2:A6" (or a single ref) into an ordered list of cell refs. */
+export function expandRange(range: string): string[] {
+  if (!range) return [];
+  const [a, b] = range.split(":");
+  const pa = parseRef(a), pb = parseRef(b || a);
+  if (!pa || !pb) return [];
+  const out: string[] = [];
+  for (let r = Math.min(pa.r, pb.r); r <= Math.max(pa.r, pb.r); r++)
+    for (let c = Math.min(pa.c, pb.c); c <= Math.max(pa.c, pb.c); c++)
+      out.push(cellRef(c, r));
+  return out;
+}
+
+
+/** Is a cell ref inside an "A1:C9" range? */
+export function cellInRange(ref: string, range: string): boolean {
+  const p = parseRef(ref); if (!p) return false;
+  const [a, b] = range.split(":");
+  const pa = parseRef(a), pb = parseRef(b || a);
+  if (!pa || !pb) return false;
+  return p.c >= Math.min(pa.c, pb.c) && p.c <= Math.max(pa.c, pb.c) && p.r >= Math.min(pa.r, pb.r) && p.r <= Math.max(pa.r, pb.r);
+}
+
+/** Resolve conditional-formatting bg/color for a cell given its computed value. */
+export function condStyleFor(ref: string, value: string, rules?: CondRule[]): { bg?: string; color?: string } {
+  const out: { bg?: string; color?: string } = {};
+  if (!rules?.length || value === "" || value.startsWith("#")) return out;
+  const n = Number(value.replace(/,/g, ""));
+  if (!Number.isFinite(n)) return out;
+  for (const rl of rules) {
+    if (!cellInRange(ref, rl.range)) continue;
+    const ok = rl.cmp === "lt" ? n < rl.value : rl.cmp === "lte" ? n <= rl.value : rl.cmp === "gt" ? n > rl.value
+      : rl.cmp === "gte" ? n >= rl.value : rl.cmp === "eq" ? n === rl.value : n !== rl.value;
+    if (ok) { if (rl.bg) out.bg = rl.bg; if (rl.color) out.color = rl.color; }
+  }
+  return out;
 }

@@ -3,14 +3,20 @@
  * client applies them. Setting a cell beyond the current bounds auto-grows the
  * sheet, so "make a table of this data" just works.
  */
-import { type Sheet, type CellFormat, parseRef, cellRef } from "./sheet";
+import { type Sheet, type CellFormat, type CondRule, parseRef, cellRef, colName, normColor, evaluateSheet } from "./sheet";
 
 export type SheetOp =
   | { op: "set"; ref: string; value: string | number }
   | { op: "setRange"; start: string; values: (string | number)[][] }
+  | { op: "fillFormula"; range: string; formula: string }
   | { op: "clear"; ref?: string; range?: string }
-  | { op: "format"; ref?: string; range?: string; bold?: boolean; italic?: boolean; underline?: boolean; align?: "left" | "center" | "right"; color?: string; bg?: string }
+  | { op: "format"; ref?: string; range?: string; bold?: boolean; italic?: boolean; underline?: boolean; align?: "left" | "center" | "right"; color?: string; bg?: string; numFmt?: CellFormat["numFmt"]; currency?: string }
   | { op: "clearFormat"; ref?: string; range?: string }
+  | { op: "chart"; type?: "bar" | "line" | "pie"; title?: string; labels: string; values: string }
+  | { op: "clearCharts" }
+  | { op: "condFormat"; range: string; cmp: "lt" | "lte" | "gt" | "gte" | "eq" | "ne"; value: number; bg?: string; color?: string }
+  | { op: "clearCond" }
+  | { op: "freeze"; rows?: number; cols?: number }
   | { op: "insertRow"; at: number }
   | { op: "insertCol"; at: number }
   | { op: "deleteRow"; at: number }
@@ -21,7 +27,7 @@ const MAX_COLS = 60;
 const MAX_ROWS = 2000;
 
 function clone(s: Sheet): Sheet {
-  return { cols: s.cols, rows: s.rows, cells: { ...s.cells }, formats: { ...(s.formats || {}) } };
+  return { cols: s.cols, rows: s.rows, cells: { ...s.cells }, formats: { ...(s.formats || {}) }, charts: [...(s.charts || [])], frozen: { ...(s.frozen || {}) }, condRules: [...(s.condRules || [])] };
 }
 
 /** Expand "A1:C3" or a single "C4" into a list of {c,r}. */
@@ -110,6 +116,16 @@ function applyOp(s: Sheet, op: SheetOp): void {
       }
       break;
     }
+    case "fillFormula": {
+      const cells = rangeCells(op.range, undefined);
+      for (const { c, r } of cells) {
+        const f = String(op.formula || "")
+          .replace(/\{r([+-]\d+)?\}/g, (_m, off) => String((r + 1) + (off ? parseInt(off, 10) : 0)))
+          .replace(/\{c([+-]\d+)?\}/g, (_m, off) => colName(Math.max(0, c + (off ? parseInt(off, 10) : 0))));
+        if (f) setCell(s, c, r, f);
+      }
+      break;
+    }
     case "format": {
       const cells = rangeCells(op.range, op.ref);
       applyFormat(s, cells, {
@@ -117,8 +133,10 @@ function applyOp(s: Sheet, op: SheetOp): void {
         ...(op.italic !== undefined ? { i: op.italic } : {}),
         ...(op.underline !== undefined ? { u: op.underline } : {}),
         ...(op.align ? { align: op.align } : {}),
-        ...(op.color ? { color: op.color } : {}),
-        ...(op.bg ? { bg: op.bg } : {}),
+        ...(normColor(op.color) ? { color: normColor(op.color) } : {}),
+        ...(normColor(op.bg) ? { bg: normColor(op.bg) } : {}),
+        ...(op.numFmt ? { numFmt: op.numFmt } : {}),
+        ...(op.currency ? { cur: op.currency } : {}),
       });
       break;
     }
@@ -126,6 +144,37 @@ function applyOp(s: Sheet, op: SheetOp): void {
       const cells = rangeCells(op.range, op.ref);
       s.formats = s.formats || {};
       for (const { c, r } of cells) delete s.formats[cellRef(c, r)];
+      break;
+    }
+    case "condFormat": {
+      if (!op.range) break;
+      const rule: CondRule = {
+        range: op.range,
+        cmp: ["lt", "lte", "gt", "gte", "eq", "ne"].includes(op.cmp) ? op.cmp : "lt",
+        value: Number(op.value) || 0,
+        ...(normColor(op.bg) ? { bg: normColor(op.bg) } : {}),
+        ...(normColor(op.color) ? { color: normColor(op.color) } : {}),
+      };
+      s.condRules = [...(s.condRules || []), rule];
+      break;
+    }
+    case "clearCond": { s.condRules = []; break; }
+    case "chart": {
+      if (!op.labels || !op.values) break;
+      s.charts = [...(s.charts || []), {
+        id: `c_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+        type: op.type === "line" || op.type === "pie" ? op.type : "bar",
+        title: op.title || "",
+        labels: op.labels, values: op.values,
+      }];
+      break;
+    }
+    case "clearCharts": { s.charts = []; break; }
+    case "freeze": {
+      s.frozen = {
+        rows: typeof op.rows === "number" ? Math.max(0, Math.min(s.rows, Math.floor(op.rows))) : (s.frozen?.rows || 0),
+        cols: typeof op.cols === "number" ? Math.max(0, Math.min(s.cols, Math.floor(op.cols))) : (s.frozen?.cols || 0),
+      };
       break;
     }
     case "insertRow": {
@@ -179,8 +228,9 @@ export function applyOps(sheet: Sheet, ops: SheetOp[]): Sheet {
   return s;
 }
 
-/** Compact representation of the sheet's filled cells for the AI prompt. */
+/** Compact representation of the sheet's filled cells (raw + computed) for the AI. */
 export function sheetToPrompt(sheet: Sheet): string {
+  const evald = evaluateSheet(sheet);
   const lines: string[] = [`dimensions: ${sheet.cols} columns x ${sheet.rows} rows`];
   const entries = Object.entries(sheet.cells).filter(([, v]) => v !== "");
   if (!entries.length) return lines.concat("cells: (empty sheet)").join("\n");
@@ -188,8 +238,11 @@ export function sheetToPrompt(sheet: Sheet): string {
     const pa = parseRef(a[0])!, pb = parseRef(b[0])!;
     return pa.r - pb.r || pa.c - pb.c;
   });
-  lines.push("cells:");
-  for (const [ref, val] of entries.slice(0, 400)) lines.push(`  ${ref} = ${val}`);
+  lines.push("cells (ref = raw value; formulas also show computed result):");
+  for (const [ref, val] of entries.slice(0, 400)) {
+    const computed = val.startsWith("=") && evald[ref] != null ? `  -> ${evald[ref]}` : "";
+    lines.push(`  ${ref} = ${val}${computed}`);
+  }
   if (entries.length > 400) lines.push(`  …and ${entries.length - 400} more`);
   return lines.join("\n");
 }

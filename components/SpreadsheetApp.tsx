@@ -5,8 +5,10 @@ import Link from "next/link";
 import {
   Plus, Download, FileSpreadsheet, FileText, Loader2, Send, Sparkles, Trash2, AlertTriangle, Check,
   Upload, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, Baseline, PaintBucket, Eraser, Maximize2, Minimize2,
+  DollarSign, Percent, Hash, Pin, X as XIcon,
 } from "lucide-react";
-import { type Sheet, type CellFormat, emptySheet, evaluateSheet, colName, cellRef, parseRef } from "@/lib/sheet";
+import { type Sheet, type CellFormat, type ChartSpec, emptySheet, evaluateSheet, colName, cellRef, parseRef, formatDisplay, normColor, condStyleFor } from "@/lib/sheet";
+import SheetChart from "@/components/SheetChart";
 import { applyOps, type SheetOp } from "@/lib/sheetOps";
 import { exportXlsx, exportSheetPdf } from "@/lib/sheetExport";
 import { importXlsx, parseCsv } from "@/lib/sheetImport";
@@ -19,11 +21,25 @@ const SLASH_HELP: { cmd: string; desc: string }[] = [
   { cmd: "/italic", desc: "Italicize the selection" },
   { cmd: "/underline", desc: "Underline the selection" },
   { cmd: "/left /center /right", desc: "Align the selection" },
-  { cmd: "/color #ff0000", desc: "Text color for the selection" },
-  { cmd: "/bg #fff3cd", desc: "Fill color for the selection" },
+  { cmd: "/color green", desc: "Text color (name or #hex)" },
+  { cmd: "/bg lightyellow", desc: "Fill color (name or #hex)" },
+  { cmd: "/currency $", desc: "Currency format" },
+  { cmd: "/percent", desc: "Percent format" },
+  { cmd: "/comma", desc: "Thousands separators" },
   { cmd: "/clearformat", desc: "Remove formatting" },
   { cmd: "/row  /col", desc: "Add a row / column" },
 ];
+
+/** Heuristic: warn if the user clearly asked for something the AI didn't emit. */
+function validateAgainst(text: string, types: Set<string>): string {
+  const t = text.toLowerCase();
+  const miss: string[] = [];
+  if (/(chart|graph|plot)/.test(t) && !types.has("chart")) miss.push("a chart");
+  if (/(conditional|highlight|negative|below|above|threshold)/.test(t) && !types.has("condFormat") && !types.has("format")) miss.push("conditional highlighting");
+  if (/(currency|inr|usd|rupee|dollar|₹|\$)/.test(t) && !types.has("format")) miss.push("currency formatting");
+  if (/\bfreeze\b/.test(t) && !types.has("freeze")) miss.push("freezing panes");
+  return miss.length ? `Done — but I may not have added: ${miss.join(", ")}. Try asking for just that part.` : "";
+}
 
 export default function SpreadsheetApp() {
   const [sheet, setSheet] = useState<Sheet>(() => emptySheet(8, 20));
@@ -33,7 +49,7 @@ export default function SpreadsheetApp() {
   const [lead, setLead] = useState<string>("A1");
   const [aiInput, setAiInput] = useState("");
   const [aiBusy, setAiBusy] = useState(false);
-  const [notice, setNotice] = useState<{ type: "ok" | "error"; text: string } | null>(null);
+  const [notice, setNotice] = useState<{ type: "ok" | "error" | "info"; text: string } | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const [authReady, setAuthReady] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
@@ -66,10 +82,10 @@ export default function SpreadsheetApp() {
     else { const req = (el as any).requestFullscreen || (el as any).webkitRequestFullscreen; if (req) { try { const p = req.call(el); if (p?.catch) p.catch(() => {}); } catch {} } }
   };
 
-  const showNotice = (type: "ok" | "error", text: string) => {
+  const showNotice = (type: "ok" | "error" | "info", text: string) => {
     setNotice({ type, text });
     if (noticeTimer.current) window.clearTimeout(noticeTimer.current);
-    noticeTimer.current = window.setTimeout(() => setNotice(null), type === "error" ? 4500 : 2600);
+    noticeTimer.current = window.setTimeout(() => setNotice(null), type === "ok" ? 2600 : 5000);
   };
 
   /* ----------------------------- selection ----------------------------- */
@@ -80,6 +96,9 @@ export default function SpreadsheetApp() {
   }, [anchor, lead]);
   const inSel = (c: number, r: number) => c >= selRect.c0 && c <= selRect.c1 && r >= selRect.r0 && r <= selRect.r1;
   const selRange = (): string => `${cellRef(selRect.c0, selRect.r0)}:${cellRef(selRect.c1, selRect.r1)}`;
+  const frozenRows = sheet.frozen?.rows ?? 0;
+  const frozenCols = sheet.frozen?.cols ?? 0;
+  const HEADER_H = 28, ROW_H = 28, GUTTER_W = 42, COL_W = 110;
 
   /* ------------------------------ editing ------------------------------ */
   const commit = (ref: string, value: string) => setSheet((s) => { const cells = { ...s.cells }; if (value === "") delete cells[ref]; else cells[ref] = value; return { ...s, cells }; });
@@ -95,6 +114,8 @@ export default function SpreadsheetApp() {
   const addCol = () => setSheet((s) => ({ ...s, cols: Math.min(60, s.cols + 1) }));
   const clearAll = () => { setSheet(emptySheet(8, 20)); setConfirmClear(false); showNotice("ok", "Cleared the sheet."); };
   const apply = (ops: SheetOp[]) => setSheet((s) => applyOps(s, ops));
+  const freeze = (rows?: number, cols?: number) => apply([{ op: "freeze", rows, cols }]);
+  const removeChart = (id: string) => setSheet((s) => ({ ...s, charts: (s.charts || []).filter((x) => x.id !== id) }));
 
   /* ---------------------------- formatting ----------------------------- */
   const allHave = (key: keyof CellFormat): boolean => {
@@ -110,6 +131,7 @@ export default function SpreadsheetApp() {
   const setAlign = (align: "left" | "center" | "right") => apply([{ op: "format", range: selRange(), align }]);
   const setColor = (color: string) => apply([{ op: "format", range: selRange(), color }]);
   const setBg = (bg: string) => apply([{ op: "format", range: selRange(), bg }]);
+  const setNum = (numFmt: CellFormat["numFmt"], currency?: string) => apply([{ op: "format", range: selRange(), numFmt, ...(currency ? { currency } : {}) }]);
   const clearFmt = () => apply([{ op: "clearFormat", range: selRange() }]);
 
   /* ------------------------------ upload ------------------------------- */
@@ -144,11 +166,16 @@ export default function SpreadsheetApp() {
       case "italic": toggle("italic"); showNotice("ok", "Toggled italic."); return true;
       case "underline": case "under": toggle("underline"); showNotice("ok", "Toggled underline."); return true;
       case "left": case "center": case "right": setAlign(cmd); showNotice("ok", `Aligned ${cmd}.`); return true;
-      case "color": if (/^#?[0-9a-f]{6}$/i.test(arg)) { setColor(arg.startsWith("#") ? arg : "#" + arg); showNotice("ok", "Set text color."); } else showNotice("error", "Use /color #rrggbb"); return true;
-      case "bg": case "fill": if (/^#?[0-9a-f]{6}$/i.test(arg)) { setBg(arg.startsWith("#") ? arg : "#" + arg); showNotice("ok", "Set fill color."); } else showNotice("error", "Use /bg #rrggbb"); return true;
+      case "color": { const hex = normColor(arg); if (hex) { setColor(hex); showNotice("ok", "Set text color."); } else showNotice("error", "Use /color <name or #rrggbb>"); return true; }
+      case "bg": case "fill": { const hex = normColor(arg); if (hex) { setBg(hex); showNotice("ok", "Set fill color."); } else showNotice("error", "Use /bg <name or #rrggbb>"); return true; }
+      case "currency": case "money": setNum("currency", arg || "$"); showNotice("ok", "Formatted as currency."); return true;
+      case "percent": setNum("percent"); showNotice("ok", "Formatted as percent."); return true;
+      case "comma": setNum("comma"); showNotice("ok", "Added thousands separators."); return true;
       case "clearformat": clearFmt(); showNotice("ok", "Cleared formatting."); return true;
       case "row": addRow(); showNotice("ok", "Added a row."); return true;
       case "col": case "column": addCol(); showNotice("ok", "Added a column."); return true;
+      case "freeze": { const rws = parts[1] ? parseInt(parts[1], 10) : 1; const cls = parts[2] ? parseInt(parts[2], 10) : 0; freeze(Number.isFinite(rws) ? rws : 1, Number.isFinite(cls) ? cls : 0); showNotice("ok", "Froze panes."); return true; }
+      case "unfreeze": freeze(0, 0); showNotice("ok", "Unfroze panes."); return true;
       default: showNotice("error", `Unknown command "/${cmd}".`); return true;
     }
   };
@@ -162,13 +189,31 @@ export default function SpreadsheetApp() {
       if (authReady && !signedIn) { showNotice("error", "Sign in to use the AI assistant."); setAiBusy(false); return; }
       const token = await getIdToken().catch(() => null);
       if (!token) { showNotice("error", authReady ? "Sign in to use the AI assistant." : "Finishing sign-in — try again in a second."); setAiBusy(false); return; }
-      const res = await fetch("/api/sheet-ai", {
-        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ cols: sheet.cols, rows: sheet.rows, cells: sheet.cells, instruction: text }),
-      });
-      const d = await res.json().catch(() => ({}));
-      if (!res.ok || d?.error) { showNotice("error", d?.error || "The assistant couldn't do that."); }
-      else { setSheet((s) => applyOps(s, d.ops)); setAiInput(""); showNotice("ok", d.message || "Done."); }
+
+      let working = sheet;
+      let instr = text;
+      let more = true, guard = 0, lastMsg = "";
+      const opTypes = new Set<string>();
+      while (more && guard < 8) {
+        guard++;
+        const res = await fetch("/api/sheet-ai", {
+          method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ cols: working.cols, rows: working.rows, cells: working.cells, instruction: instr }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (d?.clarify) { showNotice("info", d.clarify); setAiBusy(false); return; }
+        if (!res.ok || d?.error) { if (guard === 1) { showNotice("error", d?.error || "The assistant couldn't do that."); setAiBusy(false); return; } break; }
+        const ops = Array.isArray(d.ops) ? d.ops : [];
+        ops.forEach((o: any) => o?.op && opTypes.add(o.op));
+        working = applyOps(working, ops);
+        lastMsg = d.message || lastMsg;
+        more = !!d.continue;
+        if (more) { setSheet(working); showNotice("info", `Working… (part ${guard})`); instr = "Continue the SAME task from where you left off using the updated sheet. Do not repeat rows/ops already applied. Set continue:false when fully done."; }
+      }
+      setSheet(working);
+      setAiInput("");
+      const warn = validateAgainst(text, opTypes);
+      showNotice(warn ? "info" : "ok", warn || lastMsg || "Done.");
     } catch (e: any) { showNotice("error", e?.message || "Something went wrong."); }
     finally { setAiBusy(false); }
   };
@@ -206,9 +251,23 @@ export default function SpreadsheetApp() {
         <button onClick={addCol} className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12.5px] font-medium" style={{ borderColor: "var(--ezd-divider)", color: "var(--ezd-fg-muted)" }}><Plus size={13} /> Column</button>
         <button onClick={() => setConfirmClear(true)} className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12.5px] font-medium" style={{ borderColor: "var(--ezd-divider)", color: "var(--ezd-fg-muted)" }}><Trash2 size={13} /> Clear</button>
         <span className="flex-1" />
+        <button onClick={() => freeze(frozenRows > 0 ? 0 : 1, frozenRows > 0 ? 0 : frozenCols)} title={frozenRows > 0 ? "Unfreeze" : "Freeze top row"} className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12.5px] font-medium" style={{ borderColor: "var(--ezd-divider)", color: frozenRows > 0 ? "var(--ezd-fg-strong)" : "var(--ezd-fg-muted)" }}><Pin size={13} /> {frozenRows > 0 ? "Frozen" : "Freeze"}</button>
         <button onClick={toggleFull} title={isFull ? "Exit full screen" : "Full screen"} className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12.5px] font-medium" style={{ borderColor: "var(--ezd-divider)", color: "var(--ezd-fg-muted)" }}>{isFull ? <Minimize2 size={13} /> : <Maximize2 size={13} />} {isFull ? "Exit" : "Full screen"}</button>
         <button onClick={dlXlsx} className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[12.5px] font-semibold" style={{ background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)" }}><FileSpreadsheet size={14} /> Excel (.xlsx)</button>
         <button onClick={dlPdf} className="inline-flex items-center gap-1.5 rounded-lg border px-3.5 py-1.5 text-[12.5px] font-semibold" style={{ borderColor: "var(--ezd-divider)", color: "var(--ezd-fg-strong)" }}><FileText size={14} /> PDF</button>
+      </div>
+
+      {/* formula bar */}
+      <div className="mb-2 flex items-center gap-2">
+        <span className="grid h-7 min-w-[42px] place-items-center rounded-md border px-2 text-[12px] font-semibold" style={{ borderColor: "var(--ezd-divider)", color: "var(--ezd-fg-muted)" }}>{anchor}</span>
+        <input
+          value={sheet.cells[anchor] ?? ""}
+          onChange={(e) => commit(anchor, e.target.value)}
+          placeholder="Cell content or formula (e.g. =SUM(B2:B10))"
+          className="h-8 flex-1 rounded-md border bg-transparent px-2.5 text-[12.5px] outline-none"
+          style={{ borderColor: "var(--ezd-divider)", color: "var(--ezd-fg-strong)" }}
+          spellCheck={false}
+        />
       </div>
 
       <div className="flex gap-3">
@@ -217,16 +276,16 @@ export default function SpreadsheetApp() {
           <table className="border-collapse" style={{ tableLayout: "fixed" }}>
             <thead>
               <tr>
-                <th className="sticky left-0 top-0 z-20" style={{ width: 42, minWidth: 42, background: "var(--ezd-bg-hover)", borderRight: "1px solid var(--ezd-divider)", borderBottom: "1px solid var(--ezd-divider)" }} />
+                <th className="sticky left-0 top-0 z-30" style={{ width: 42, minWidth: 42, background: "var(--ezd-bg-elev)", borderRight: "1px solid var(--ezd-divider)", borderBottom: "1px solid var(--ezd-divider)" }} />
                 {Array.from({ length: sheet.cols }, (_, c) => (
-                  <th key={c} className="sticky top-0 z-10 px-2 py-1 text-[11px] font-semibold" style={{ width: 110, minWidth: 110, background: "var(--ezd-bg-hover)", color: "var(--ezd-fg-muted)", borderRight: "1px solid var(--ezd-divider)", borderBottom: "1px solid var(--ezd-divider)" }}>{colName(c)}</th>
+                  <th key={c} className="sticky top-0 px-2 py-1 text-[11px] font-semibold" style={{ width: 110, minWidth: 110, background: "var(--ezd-bg-elev)", color: "var(--ezd-fg-muted)", borderRight: c === frozenCols - 1 ? "2px solid var(--ezd-fg-muted)" : "1px solid var(--ezd-divider)", borderBottom: "1px solid var(--ezd-divider)", ...(c < frozenCols ? { position: "sticky" as const, left: GUTTER_W + c * COL_W, zIndex: 22 } : { zIndex: 10 }) }}>{colName(c)}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {Array.from({ length: sheet.rows }, (_, r) => (
                 <tr key={r}>
-                  <td className="sticky left-0 z-10 text-center text-[11px]" style={{ width: 42, minWidth: 42, background: "var(--ezd-bg-hover)", color: "var(--ezd-fg-quiet)", borderRight: "1px solid var(--ezd-divider)", borderBottom: "1px solid var(--ezd-divider)" }}>{r + 1}</td>
+                  <td className="sticky left-0 text-center text-[11px]" style={{ width: 42, minWidth: 42, background: "var(--ezd-bg-elev)", color: "var(--ezd-fg-quiet)", borderRight: "1px solid var(--ezd-divider)", borderBottom: r === frozenRows - 1 ? "2px solid var(--ezd-fg-muted)" : "1px solid var(--ezd-divider)", ...(r < frozenRows ? { position: "sticky" as const, top: HEADER_H + r * ROW_H, zIndex: 16 } : { zIndex: 12 }) }}>{r + 1}</td>
                   {Array.from({ length: sheet.cols }, (_, c) => {
                     const ref = cellRef(c, r);
                     const focused = focus === ref;
@@ -235,15 +294,27 @@ export default function SpreadsheetApp() {
                     const isErr = disp.startsWith("#");
                     const numeric = /^-?\d/.test(disp) && !isErr;
                     const selected = inSel(c, r);
+                    const cs = condStyleFor(ref, disp, sheet.condRules);
+                    const rowSticky = r < frozenRows, colSticky = c < frozenCols;
+                    const tdStyle: React.CSSProperties = {
+                      padding: 0,
+                      borderRight: c === frozenCols - 1 ? "2px solid var(--ezd-fg-muted)" : "1px solid var(--ezd-divider)",
+                      borderBottom: r === frozenRows - 1 ? "2px solid var(--ezd-fg-muted)" : "1px solid var(--ezd-divider)",
+                      background: cs.bg || fmt.bg || ((rowSticky || colSticky) ? "var(--ezd-bg-elev)" : (selected && !focused ? "var(--ezd-bg-hover)" : "transparent")),
+                      ...((rowSticky || colSticky) ? { position: "sticky" as const } : {}),
+                      ...(colSticky ? { left: GUTTER_W + c * COL_W } : {}),
+                      ...(rowSticky ? { top: HEADER_H + r * ROW_H } : {}),
+                      ...((rowSticky || colSticky) ? { zIndex: rowSticky && colSticky ? 8 : 4 } : {}),
+                    };
                     return (
                       <td
                         key={c}
                         onMouseDown={(e) => { if (e.shiftKey) { e.preventDefault(); setLead(ref); } }}
-                        style={{ padding: 0, borderRight: "1px solid var(--ezd-divider)", borderBottom: "1px solid var(--ezd-divider)", background: fmt.bg || (selected && !focused ? "var(--ezd-bg-hover)" : "transparent") }}
+                        style={tdStyle}
                       >
                         <input
                           data-cell={ref}
-                          value={focused ? draft : disp}
+                          value={focused ? draft : formatDisplay(disp, fmt)}
                           onChange={(e) => setDraft(e.target.value)}
                           onFocus={() => { setFocus(ref); setDraft(sheet.cells[ref] ?? ""); setAnchor(ref); setLead(ref); }}
                           onBlur={() => { commit(ref, draft); setFocus(null); }}
@@ -251,7 +322,7 @@ export default function SpreadsheetApp() {
                           className="h-7 w-full px-2 text-[12.5px] outline-none"
                           style={{
                             width: 110, background: "transparent",
-                            color: isErr ? "#ef4444" : (fmt.color || "var(--ezd-fg-strong)"),
+                            color: isErr ? "#ef4444" : (cs.color || fmt.color || "var(--ezd-fg-strong)"),
                             fontWeight: fmt.b ? 700 : 400, fontStyle: fmt.i ? "italic" : "normal",
                             textDecoration: fmt.u ? "underline" : "none",
                             textAlign: fmt.align || (!focused && numeric ? "right" : "left"),
@@ -279,6 +350,9 @@ export default function SpreadsheetApp() {
             <ToolBtn onClick={() => setAlign("right")} title="Align right"><AlignRight size={15} /></ToolBtn>
             <ToolBtn onClick={() => colorRef.current?.click()} title="Text color"><Baseline size={15} /></ToolBtn>
             <ToolBtn onClick={() => bgRef.current?.click()} title="Fill color"><PaintBucket size={15} /></ToolBtn>
+            <ToolBtn onClick={() => setNum("currency", "$")} title="Currency"><DollarSign size={15} /></ToolBtn>
+            <ToolBtn onClick={() => setNum("percent")} title="Percent"><Percent size={15} /></ToolBtn>
+            <ToolBtn onClick={() => setNum("comma")} title="Thousands separator"><Hash size={15} /></ToolBtn>
             <ToolBtn onClick={clearFmt} title="Clear formatting"><Eraser size={15} /></ToolBtn>
           </div>
           <input ref={colorRef} type="color" className="hidden" onChange={(e) => setColor(e.target.value)} />
@@ -298,11 +372,22 @@ export default function SpreadsheetApp() {
 
       <p className="mt-2 text-[11.5px]" style={{ color: "var(--ezd-fg-quiet)" }}>Type values or formulas (e.g. <code>=SUM(B2:B4)</code>). Shift-click to select a range, then format it. Everything stays on your device.</p>
 
+      {(sheet.charts || []).length > 0 && (
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          {(sheet.charts || []).map((ch) => (
+            <div key={ch.id} className="relative">
+              <button onClick={() => removeChart(ch.id)} title="Remove chart" className="absolute right-2 top-2 z-10 grid h-6 w-6 place-items-center rounded-md border" style={{ color: "var(--ezd-fg-quiet)", background: "var(--ezd-bg-page)", borderColor: "var(--ezd-divider)" }}><XIcon size={13} /></button>
+              <SheetChart spec={ch} evaluated={evaluated} />
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* AI + slash box */}
       <div className="sticky bottom-3 mt-5">
         {notice && (
-          <div className="mx-auto mb-2 flex max-w-2xl items-center gap-2 rounded-xl border px-3.5 py-2 text-[13px]" style={{ borderColor: notice.type === "error" ? "rgba(239,68,68,0.4)" : "var(--ezd-divider)", background: notice.type === "error" ? "rgba(239,68,68,0.1)" : "var(--ezd-bg-card)", color: notice.type === "error" ? "#ef4444" : "var(--ezd-fg-strong)" }}>
-            {notice.type === "error" ? <AlertTriangle size={14} /> : <Check size={14} />}<span>{notice.text}</span>
+          <div className="mx-auto mb-2 flex max-w-2xl items-center gap-2 rounded-xl border px-3.5 py-2 text-[13px]" style={{ borderColor: notice.type === "error" ? "rgba(239,68,68,0.4)" : notice.type === "info" ? "rgba(59,130,246,0.4)" : "var(--ezd-divider)", background: notice.type === "error" ? "rgba(239,68,68,0.1)" : notice.type === "info" ? "rgba(59,130,246,0.1)" : "var(--ezd-bg-card)", color: notice.type === "error" ? "#ef4444" : notice.type === "info" ? "#3b82f6" : "var(--ezd-fg-strong)" }}>
+            {notice.type === "error" ? <AlertTriangle size={14} /> : notice.type === "info" ? <Sparkles size={14} /> : <Check size={14} />}<span>{notice.text}</span>
           </div>
         )}
         <div className="mx-auto flex max-w-2xl items-center gap-2 rounded-2xl border p-2 shadow-lg" style={{ borderColor: "var(--ezd-divider)", background: "var(--ezd-bg-elev)" }}>

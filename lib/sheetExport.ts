@@ -3,7 +3,7 @@
  * Export a Sheet to a real .xlsx (formulas + formatting, via exceljs) or to a
  * clean PDF table (drawn with jspdf). Both run in the browser.
  */
-import { type Sheet, type CellFormat, parseRef, cellRef, colName } from "./sheet";
+import { type Sheet, type CellFormat, parseRef, cellRef, colName, formatDisplay, condStyleFor } from "./sheet";
 
 export type ExportResult = { blob: Blob; filename: string };
 
@@ -61,6 +61,27 @@ export async function exportXlsx(sheet: Sheet, evaluated: Record<string, string>
     if (f.align) cell.alignment = { horizontal: f.align };
     const bg = hexToArgb(f.bg);
     if (bg) cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bg } };
+    if (f.numFmt) {
+      const cur = (f.cur || "$").replace(/"/g, "");
+      cell.numFmt =
+        f.numFmt === "currency" ? `"${cur}"#,##0.00` :
+        f.numFmt === "percent" ? "0.00%" :
+        f.numFmt === "comma" ? "#,##0" :
+        f.numFmt === "int" ? "0" :
+        f.numFmt === "2dp" ? "0.00" : "General";
+    }
+  }
+
+  // Conditional formatting → applied as computed colors at export time.
+  if (sheet.condRules?.length) {
+    for (const [ref] of Object.entries(sheet.cells)) {
+      const cs = condStyleFor(ref, evaluated[ref] ?? "", sheet.condRules);
+      if (!cs.bg && !cs.color) continue;
+      const cell = ws.getCell(ref);
+      const bg = hexToArgb(cs.bg);
+      if (bg) cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bg } };
+      if (cs.color) cell.font = { ...(cell.font || {}), color: { argb: hexToArgb(cs.color)! } };
+    }
   }
 
   const buf = await wb.xlsx.writeBuffer();
@@ -128,17 +149,20 @@ export async function exportSheetPdf(sheet: Sheet, evaluated: Record<string, str
       const x = margin + gutter + c * colW;
       const ref = cellRef(c, r);
       const fmt: CellFormat = sheet.formats?.[ref] || {};
+      const cs = condStyleFor(ref, evaluated[ref] ?? "", sheet.condRules);
+      const cellBg = cs.bg || fmt.bg;
+      const cellColor = cs.color || fmt.color;
 
-      if (fmt.bg) { const [br, bgc, bb] = hexRgb(fmt.bg); doc.setFillColor(br, bgc, bb); doc.setDrawColor(220, 220, 220); doc.rect(x, y, colW, rowH, "FD"); }
+      if (cellBg) { const [br, bgc, bb] = hexRgb(cellBg); doc.setFillColor(br, bgc, bb); doc.setDrawColor(220, 220, 220); doc.rect(x, y, colW, rowH, "FD"); }
       else { doc.setDrawColor(225, 225, 225); doc.rect(x, y, colW, rowH); }
 
       const raw = sheet.cells[ref] ?? "";
-      const disp = raw === "" ? "" : (evaluated[ref] ?? raw);
+      const disp = raw === "" ? "" : formatDisplay(evaluated[ref] ?? raw, fmt);
       if (disp) {
         const numeric = /^-?\d/.test(disp) && !disp.startsWith("#");
         const style = fmt.b && fmt.i ? "bolditalic" : fmt.b ? "bold" : fmt.i ? "italic" : "normal";
         doc.setFont("helvetica", style);
-        if (fmt.color) { const [tr, tg, tb] = hexRgb(fmt.color); doc.setTextColor(tr, tg, tb); }
+        if (cellColor) { const [tr, tg, tb] = hexRgb(cellColor); doc.setTextColor(tr, tg, tb); }
         else doc.setTextColor(25, 25, 25);
         const align: "left" | "center" | "right" = fmt.align || (numeric ? "right" : "left");
         const tx = align === "right" ? x + colW - 4 : align === "center" ? x + colW / 2 : x + 4;
