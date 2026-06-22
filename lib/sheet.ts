@@ -73,7 +73,7 @@ export function cellRef(c: number, r: number): string {
 
 /** Parse "C4" → { c: 2, r: 3 } (0-based). Null if malformed. */
 export function parseRef(ref: string): { c: number; r: number } | null {
-  const m = /^([A-Za-z]+)(\d+)$/.exec(ref.trim());
+  const m = /^\$?([A-Za-z]+)\$?(\d+)$/.exec(ref.trim());
   if (!m) return null;
   const c = colIndex(m[1]);
   const r = parseInt(m[2], 10) - 1;
@@ -183,9 +183,9 @@ function tokenize(s: string): Tok[] {
       let j = i; while (j < s.length && /[0-9.]/.test(s[j])) j++;
       toks.push({ t: "num", v: parseFloat(s.slice(i, j)) }); i = j; continue;
     }
-    if (/[A-Za-z]/.test(ch)) {
-      let j = i; while (j < s.length && /[A-Za-z0-9]/.test(s[j])) j++;
-      const word = s.slice(i, j);
+    if (/[A-Za-z$]/.test(ch)) {
+      let j = i; while (j < s.length && /[A-Za-z0-9$]/.test(s[j])) j++;
+      const word = s.slice(i, j).replace(/\$/g, ""); // strip $ from absolute refs ($C$2 -> C2)
       if (/^[A-Za-z]+\d+$/.test(word)) toks.push({ t: "ref", v: word.toUpperCase() });
       else toks.push({ t: "name", v: word.toUpperCase() });
       i = j; continue;
@@ -364,6 +364,14 @@ function evalExpr(src: string, resolve: (ref: string) => Cell, seedRef?: string)
       case "COUNT": return nums.length;
       case "COUNTA": return nonEmpty;
       case "PRODUCT": return nums.reduce((a, b) => a * b, 1);
+      case "RANK": {
+        const val = toNum(scalarArgs[0] ?? 0);
+        const arr = argRanges[0]?.nums || nums;
+        const asc = toNum(scalarArgs[1] ?? 0) !== 0;
+        let rank = 1;
+        for (const x of arr) { if (asc ? x < val : x > val) rank++; }
+        return rank;
+      }
       case "ABS": return Math.abs(toNum(scalarArgs[0] ?? 0));
       case "SQRT": return Math.sqrt(toNum(scalarArgs[0] ?? 0));
       case "ROUND": { const x = toNum(scalarArgs[0] ?? 0); const d = Math.floor(toNum(scalarArgs[1] ?? 0)); const f = Math.pow(10, d); return Math.round(x * f) / f; }
