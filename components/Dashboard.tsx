@@ -160,20 +160,6 @@ export default function Dashboard({
   // When searching, show ALL matches; otherwise a recent preview of 9 (#3).
   const gridDecks = hasQuery ? gridSource : gridSource.slice(0, 9);
 
-  const [duplicating, setDuplicating] = useState(false);
-
-  const onDuplicate = async (id: string) => {
-    if (duplicating) return;
-    setDuplicating(true);
-    try {
-      await duplicateDeck(user.uid, id);
-    } catch (err) {
-      alert("Failed to duplicate deck");
-    } finally {
-      setDuplicating(false);
-    }
-  };
-
   return (
     <div className="min-h-screen lg:pl-[264px]">
       {/* ============== Sidebar ============== */}
@@ -327,53 +313,7 @@ export default function Dashboard({
           </div>
         </div>
 
-        {/* ---------- Recent presentations section ---------- */}
-        {loading ? (
-          <div className="mt-12 w-full max-w-4xl mx-auto">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>Recent presentations</h2>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
-              <SkeletonCard />
-              <SkeletonCard />
-              <SkeletonCard />
-            </div>
-          </div>
-        ) : decks.length > 0 ? (
-          <div className="mt-12 w-full max-w-4xl mx-auto pb-12">
-            {showContinue && <ContinueCard deck={recentDeck!} />}
-            
-            <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t pt-8" style={{ borderColor: "var(--ezd-divider)" }}>
-              <h2 className="text-lg font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>Recent presentations</h2>
-              <SearchInput value={query} onChange={setQuery} />
-            </div>
-
-            {visibleDecks.length === 0 ? (
-              <NoMatchState onClear={() => setQuery("")} />
-            ) : (
-              <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
-                {gridDecks.map((d) => (
-                  <DeckCard
-                    key={d.id}
-                    deck={d}
-                    onRename={() => setRenameTarget({ id: d.id, title: d.title })}
-                    onDuplicate={() => onDuplicate(d.id)}
-                    onAskDelete={() => setConfirmId(d.id)}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        ) : null}
-
       </main>
-
-      {duplicating && (
-        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black/50 backdrop-blur-sm">
-          <Loader2 size={32} className="animate-spin text-white" />
-          <p className="mt-2 text-sm font-medium text-white">Duplicating deck...</p>
-        </div>
-      )}
 
       {/* Delete confirm (#7: Esc + backdrop close) */}
       {confirmId && (
