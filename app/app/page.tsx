@@ -25,12 +25,7 @@ import { applyCustomTemplateToDeck } from "@/lib/applyCustomTemplate";
 import { createDeck, loadDeck, type ShareMode } from "@/lib/decks";
 import { logout, onAuthStateChange, getIdToken, reloadUser, type AppUser } from "@/lib/auth";
 import { trackEvent } from "@/lib/stats";
-import {
-  formatMonthlyResetIn,
-  getMonthlyGenerations,
-} from "@/lib/usage";
-import { getUserPlan } from "@/lib/plan";
-import { planDeckLimit } from "@/lib/plans";
+import { readCredits, formatResetIn } from "@/lib/creditsClient";
 import { ArrowLeft } from "lucide-react";
 
 type Step = "dashboard" | "prompt" | "theme" | "font" | "graphic" | "style" | "outline" | "deck";
@@ -115,6 +110,7 @@ function PageInner() {
   const [clarifyOpen, setClarifyOpen] = useState(false);
   // Quota-exceeded popup (genz "chill, come back later" message).
   const [quotaModal, setQuotaModal] = useState(false);
+  const [quotaResetIn, setQuotaResetIn] = useState("soon");
   // Synchronous lock so generate() can never run twice for one request
   // (would create two decks + double-charge quota).
   const generatingRef = useRef(false);
@@ -171,11 +167,9 @@ function PageInner() {
   const [lastDirectives, setLastDirectives] = useState("");
   const requestGenerate = async () => {
     if (user) {
-      const [plan, used] = await Promise.all([
-        getUserPlan(user.uid),
-        getMonthlyGenerations(user.uid),
-      ]);
-      if (used >= planDeckLimit(plan)) {
+      const c = await readCredits(user.uid);
+      if (c.exhausted) {
+        setQuotaResetIn(formatResetIn(c.resetAt));
         setQuotaModal(true);
         return;
       }
@@ -210,11 +204,9 @@ const retryGenerate = () => {
     // round-trip after success keep the count honest, but a determined
     // user could still bypass via direct curl. Catches casual abuse.
     if (user) {
-      const [plan, used] = await Promise.all([
-        getUserPlan(user.uid),
-        getMonthlyGenerations(user.uid),
-      ]);
-      if (used >= planDeckLimit(plan)) {
+      const c = await readCredits(user.uid);
+      if (c.exhausted) {
+        setQuotaResetIn(formatResetIn(c.resetAt));
         setQuotaModal(true);
         generatingRef.current = false;
         return;
@@ -699,7 +691,7 @@ const retryGenerate = () => {
             </h3>
             <p className="mx-auto mt-2 max-w-[19rem] text-[13.5px] leading-relaxed" style={{ color: "var(--ezd-fg-muted)" }}>
               you&rsquo;ve used all your decks for this month on the free plan.
-              it resets in <span className="font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>{formatMonthlyResetIn()}</span>,
+              it resets in <span className="font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>{quotaResetIn}</span>,
               or upgrade from the dashboard for more.
             </p>
             <button

@@ -12,6 +12,7 @@ import path from "node:path";
 import { LANDING_PAGES } from "../lib/content";
 import { BLOG_POSTS } from "../lib/blog";
 import { CONVERTERS } from "../lib/converters";
+import { HOWTO_GUIDES } from "../lib/howto";
 import { SITE_URL } from "../lib/seo";
 
 type Freq = "always" | "hourly" | "daily" | "weekly" | "monthly" | "yearly" | "never";
@@ -57,6 +58,12 @@ function build(): string {
   entries.push(urlEntry("/converter", 0.9, "weekly", now));
   for (const c of CONVERTERS) {
     entries.push(urlEntry(`/converter/${c.slug}`, 0.8, "monthly", now));
+  }
+
+  // How-to guides hub + pages (HowTo rich-result eligible).
+  entries.push(urlEntry("/how-to", 0.8, "weekly", now));
+  for (const g of HOWTO_GUIDES) {
+    entries.push(urlEntry(`/how-to/${g.slug}`, 0.8, "monthly", now));
   }
   entries.push(urlEntry("/about", 0.6, "monthly", now));
   entries.push(urlEntry("/changelog", 0.5, "weekly", now));

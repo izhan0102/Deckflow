@@ -11,9 +11,9 @@ import DeckThumbnail from "./DeckThumbnail";
 import Logo from "./Logo";
 import ThemeToggle from "./ThemeToggle";
 import TrialDialog from "./TrialDialog";
-import { watchMonthlyGenerations, formatMonthlyResetIn } from "@/lib/usage";
+import { watchCredits, formatResetIn, type CreditView } from "@/lib/creditsClient";
 import { watchUserPlan, getUserPlan } from "@/lib/plan";
-import { type PlanId, planDeckLimit, getPlan, FREE_FOR_ALL } from "@/lib/plans";
+import { type PlanId, getPlan, FREE_FOR_ALL } from "@/lib/plans";
 
 /**
  * Mobile-first dashboard. Same data + actions as the desktop Dashboard, but
@@ -37,7 +37,7 @@ export default function DashboardMobile({
   const [loading, setLoading] = useState(true);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [monthGenerations, setMonthGenerations] = useState(0);
+  const [credits, setCredits] = useState<CreditView | null>(null);
   const [plan, setPlan] = useState<PlanId>("free");
   const [menuOpen, setMenuOpen] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
@@ -63,7 +63,7 @@ export default function DashboardMobile({
   }, [user.uid]);
 
   useEffect(() => {
-    const unsub = watchMonthlyGenerations(user.uid, setMonthGenerations);
+    const unsub = watchCredits(user.uid, setCredits);
     return () => unsub();
   }, [user.uid]);
 
@@ -81,10 +81,10 @@ export default function DashboardMobile({
     );
   }, [decks, query]);
 
-  const deckLimit = planDeckLimit(plan);
-  const unlimited = deckLimit === Infinity;
-  const remaining = unlimited ? Infinity : Math.max(0, deckLimit - monthGenerations);
-  const quotaExhausted = !unlimited && remaining === 0;
+  const deckLimit = credits?.allowance ?? (plan === "pro" ? 1500 : 40);
+  const unlimited = false;
+  const remaining = credits?.balance ?? deckLimit;
+  const quotaExhausted = !!credits?.exhausted;
 
   const openUpgrade = (reason?: string) => { setUpgradeReason(reason); setUpgradeOpen(true); };
   const onNewDeck = () => {
@@ -182,8 +182,8 @@ export default function DashboardMobile({
           {unlimited
             ? `${getPlan(plan).name} · unlimited decks`
             : quotaExhausted
-              ? `Limit used · resets in ${formatMonthlyResetIn()}`
-              : `${remaining} of ${deckLimit} decks left this month`}
+              ? `Out of credits · resets in ${formatResetIn(credits?.resetAt ?? Date.now())}`
+              : `${remaining} of ${deckLimit} credits left ${plan === "pro" ? "today" : "this month"}`}
         </div>
 
         {/* ---------- Primary actions ---------- */}

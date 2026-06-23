@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest, AuthError } from "@/lib/firebaseAdmin";
 import { getUserPlanServer, PlanLimitError } from "@/lib/planServer";
+import { requireCredits, deductCredits } from "@/lib/credits";
 import { rateLimitResponse } from "@/lib/rateLimit";
 import { refineResume } from "@/lib/groqResume";
 import { FREE_FOR_ALL } from "@/lib/plans";
@@ -19,11 +20,13 @@ export async function POST(req: NextRequest) {
       const plan = await getUserPlanServer(uid);
       if (plan === "free") throw new PlanLimitError("Refine with AI is a Pro feature. Upgrade to Pro.", "plan_feature_locked", 403);
     }
+    await requireCredits(uid);
     const body = await req.json().catch(() => ({}));
     const resume = body?.resume as ResumeData;
     if (!resume || typeof resume !== "object") return NextResponse.json({ error: "Resume required." }, { status: 400 });
 
     const refined = await refineResume(resume);
+    deductCredits(uid, "refineResume").catch(() => {});
     return NextResponse.json({ resume: refined });
   } catch (err: any) {
     if (err instanceof PlanLimitError) return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });

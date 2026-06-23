@@ -4,6 +4,8 @@ import type { Deck } from "@/lib/types";
 import type { DeckOp } from "@/lib/deckOps";
 import { applyDeckOps, DeckOpValidationError } from "@/lib/deckOps";
 import { authenticateRequest, AuthError } from "@/lib/firebaseAdmin";
+import { requireCredits, deductCredits } from "@/lib/credits";
+import { PlanLimitError } from "@/lib/planServer";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -208,6 +210,7 @@ function extractJson(raw: string): string {
 export async function POST(req: NextRequest) {
   try {
     const uid = await authenticateRequest(req);
+    await requireCredits(uid);
     const { deck, instruction, history } = (await req.json()) as {
       deck: Deck;
       instruction: string;
@@ -286,6 +289,7 @@ export async function POST(req: NextRequest) {
 
     const { deck: nextDeck, summary } = applyDeckOps(deck, ops);
 
+    deductCredits(uid, "editDeck").catch(() => {});
     return NextResponse.json({
       deck: nextDeck,
       ops,
@@ -297,6 +301,9 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     // eslint-disable-next-line no-console
     console.error("[/api/edit-deck] error:", err);
+    if (err instanceof PlanLimitError) {
+      return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
+    }
     const status = (err instanceof AuthError || err instanceof DeckOpValidationError) ? err.status : 500;
     return NextResponse.json(
       { error: err?.message || "Deck edit failed." },

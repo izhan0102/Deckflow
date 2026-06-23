@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { generateChart } from "@/lib/groq";
 import type { ChartType } from "@/lib/charts";
 import { authenticateRequest, AuthError } from "@/lib/firebaseAdmin";
+import { requireCredits, deductCredits } from "@/lib/credits";
+import { PlanLimitError } from "@/lib/planServer";
 import { rateLimitResponse } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
@@ -20,7 +22,8 @@ export async function POST(req: NextRequest) {
   const limited = rateLimitResponse("visualize");
   if (limited) return limited;
   try {
-    await authenticateRequest(req);
+    const uid = await authenticateRequest(req);
+    await requireCredits(uid);
     const { description, type } = (await req.json()) as { description?: string; type?: ChartType };
     if (!description || description.trim().length < 2) {
       return NextResponse.json({ error: "Describe the data or topic first." }, { status: 400 });
@@ -30,8 +33,12 @@ export async function POST(req: NextRequest) {
     if (!spec) {
       return NextResponse.json({ error: "Couldn't build a chart from that. Try describing the data differently." }, { status: 422 });
     }
+    deductCredits(uid, "visualize").catch(() => {});
     return NextResponse.json({ spec });
   } catch (err: any) {
+    if (err instanceof PlanLimitError) {
+      return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
+    }
     if (err instanceof AuthError) {
       return NextResponse.json({ error: err.message }, { status: err.status });
     }

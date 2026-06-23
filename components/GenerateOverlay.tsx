@@ -57,6 +57,7 @@ const handleApiError = (data: any): { title: string; message: string; code: stri
     "NOT_FOUND": "The requested resource was not found.",
     "INTERNAL_ERROR": "Something went wrong. Please try again later.",
     "EXPORT_ERROR": "Could not export the presentation. Please try again.",
+    "no_credits": "You're out of AI credits. They'll reset automatically — upgrade to Pro for more.",
   };
 
   const code = data?.code || "INTERNAL_ERROR";
@@ -66,7 +67,7 @@ const handleApiError = (data: any): { title: string; message: string; code: stri
     title: code.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase()),
     message: data?.message || defaultMessage,
     code: code,
-    shouldUpgrade: code === "PLAN_LIMIT_REACHED" || code === "RATE_LIMIT_EXCEEDED",
+    shouldUpgrade: code === "PLAN_LIMIT_REACHED" || code === "RATE_LIMIT_EXCEEDED" || code === "no_credits",
   };
 };
 

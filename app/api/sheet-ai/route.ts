@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateRequest, AuthError } from "@/lib/firebaseAdmin";
+import { requireCredits, deductCredits } from "@/lib/credits";
+import { PlanLimitError } from "@/lib/planServer";
 import { rateLimitResponse } from "@/lib/rateLimit";
 import { withGroqClient } from "@/lib/groqClient";
 import { sheetToPrompt } from "@/lib/sheetOps";
@@ -37,8 +39,13 @@ OPERATIONS (use the minimum needed):
 - {"op":"resize","rows":30,"cols":10}   change the grid size
 
 CRITICAL RULES:
+- CONFIDENCE GATING: silently rate 1–10 how sure you are that you understand EXACTLY what to do, given the conversation history + current sheet. If your confidence is BELOW 7, DO NOT guess or do something different — return {"clarify": "<one specific question>"} to ask the user. Only emit ops when you are 7+ confident. When unsure which cell/column/value is meant, ASK rather than hallucinate. If the user has already answered your question in a prior turn, use that answer and proceed.
 - Cell VALUES are PLAIN NUMBERS ONLY. NEVER put a currency symbol, thousands comma, or % sign inside a value. Write 50000 (NOT "₹50,000"), 0.6 (NOT "60%"). Symbols in values break every formula that references them (#VALUE). Show money/percent by applying a numFmt format op instead.
 - ROW 1 IS ALWAYS HEADERS — text column names ("Month", "Income", …). Real data starts at row 2. Never place a data value in row 1.
+- CELL REFERENCES are COLUMN-LETTER + ROW-NUMBER. "A1" and "1A" both mean column A, row 1. "B1"/"1B" = column B, row 1. "The first field/column" = column A (header in A1). When the user names a cell ("put it in B1"), use EXACTLY that cell — never shift it to a different column/row. On an empty sheet, the first field goes in A1.
+- DO ONLY WHAT IS ASKED. Never invent extra columns, fields, rows, or data the user didn't request (e.g. do not add a "Teacher feedback" column unless they asked).
+- "X = Y" means: set that field. If Y is a number, use the number; if Y describes a calculation ("sum of marks", "marks1 + marks2"), emit a real FORMULA (=SUM(...), =B2+C2, …). NEVER write the literal word "value", "total", or a placeholder like {value}/<value> into a cell. If you truly cannot resolve Y, just set the header and leave the value cell empty.
+- Use the PRIOR conversation turns (provided) to resolve follow-ups like "put it in B1", "rename that column", "make it bold". The current sheet snapshot shows what already exists.
 - When asked to "generate"/"add" data for N rows/months, fill ALL N of them (one setRange with every value, or fillFormula). Never fill just the first row and stop.
 - "Highlight the highest/lowest X": read the computed values, find the max/min, and either format that exact cell, or add a condFormat with cmp "gte"/"lte" and that number (e.g. highest savings green → {"op":"condFormat","range":"D2:D13","cmp":"gte","value":<themax>,"bg":"green"}).
 - There is NO sort operation. If asked to "sort by X descending", GENERATE the rows already in that order (you create the data, so order it yourself). Rank can be literals 1,2,3… or =RANK(value,$range,0).
@@ -105,7 +112,8 @@ export async function POST(req: NextRequest) {
   const limited = rateLimitResponse("edit-slide");
   if (limited) return limited;
   try {
-    await authenticateRequest(req);
+    const uid = await authenticateRequest(req);
+    await requireCredits(uid);
     const body = await req.json().catch(() => ({}));
     const instruction = String(body?.instruction || "").trim();
     if (!instruction) return NextResponse.json({ error: "Tell me what to do with the sheet." }, { status: 400 });
@@ -116,6 +124,10 @@ export async function POST(req: NextRequest) {
       rows: Math.max(1, Math.min(2000, Number(body?.rows) || 20)),
       cells: body?.cells && typeof body.cells === "object" ? body.cells : {},
     };
+    const history = (Array.isArray(body?.messages) ? body.messages : []).slice(-10).map((m: any) => ({
+      role: m?.role === "assistant" ? ("assistant" as const) : ("user" as const),
+      content: String(m?.content || "").slice(0, 1200),
+    }));
 
     const completion = await withGroqClient((client) =>
       client.chat.completions.create({
@@ -125,7 +137,8 @@ export async function POST(req: NextRequest) {
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: SYS },
-          { role: "user", content: `Current sheet:\n${sheetToPrompt(sheet)}\n\nInstruction: "${instruction}"\n\nReturn the JSON.` },
+          ...history,
+          { role: "user", content: `Current sheet (this is the source of truth for what's already there):\n${sheetToPrompt(sheet)}\n\nInstruction: "${instruction}"\n\nReturn the JSON.` },
         ],
       }),
     );
@@ -135,8 +148,10 @@ export async function POST(req: NextRequest) {
     if (parsed?.error) return NextResponse.json({ error: String(parsed.error).slice(0, 240) });
     const ops = Array.isArray(parsed?.ops) ? parsed.ops : [];
     if (!ops.length && !parsed?.continue) return NextResponse.json({ error: "I couldn't turn that into a sheet change. Try rephrasing." });
+    deductCredits(uid, "sheetAi").catch(() => {});
     return NextResponse.json({ ops, message: typeof parsed?.message === "string" ? parsed.message.slice(0, 200) : "Done.", continue: !!parsed?.continue });
   } catch (err: any) {
+    if (err instanceof PlanLimitError) return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
     const status = err instanceof AuthError ? err.status : 500;
     return NextResponse.json({ error: err?.message || "The assistant failed. Please try again." }, { status });
   }

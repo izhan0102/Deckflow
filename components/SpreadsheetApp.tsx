@@ -3,69 +3,48 @@ import { useMemo, useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  Plus, Download, FileSpreadsheet, FileText, Loader2, Send, Sparkles, Trash2, AlertTriangle, Check,
-  Upload, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, Baseline, PaintBucket, Eraser, Maximize2, Minimize2,
-  DollarSign, Percent, Hash, Pin, X as XIcon,
+  Plus, Trash2, Loader2, Send, Sparkles, AlertTriangle, Check,
+  Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, Baseline, PaintBucket, Eraser,
+  DollarSign, Percent, Hash, Pin, Maximize2, Minimize2, FileSpreadsheet, FileText,
+  X as XIcon,
 } from "lucide-react";
-import { type Sheet, type CellFormat, type ChartSpec, emptySheet, evaluateSheet, colName, cellRef, parseRef, formatDisplay, normColor, condStyleFor } from "@/lib/sheet";
-import SheetChart from "@/components/SheetChart";
+import { type Sheet, type CellFormat, emptySheet, evaluateSheet, colName, cellRef, parseRef, formatDisplay, normColor, condStyleFor } from "@/lib/sheet";
 import { applyOps, type SheetOp } from "@/lib/sheetOps";
 import { exportXlsx, exportSheetPdf } from "@/lib/sheetExport";
-import { importXlsx, parseCsv } from "@/lib/sheetImport";
 import { downloadBlob } from "@/lib/convert";
 import { getIdToken, onAuthStateChange } from "@/lib/auth";
+import SheetChart from "@/components/SheetChart";
 
-const SLASH_HELP: { cmd: string; desc: string }[] = [
-  { cmd: "/clear", desc: "Empty the whole sheet" },
-  { cmd: "/bold", desc: "Bold the selection" },
-  { cmd: "/italic", desc: "Italicize the selection" },
-  { cmd: "/underline", desc: "Underline the selection" },
-  { cmd: "/left /center /right", desc: "Align the selection" },
-  { cmd: "/color green", desc: "Text color (name or #hex)" },
-  { cmd: "/bg lightyellow", desc: "Fill color (name or #hex)" },
-  { cmd: "/currency $", desc: "Currency format" },
-  { cmd: "/percent", desc: "Percent format" },
-  { cmd: "/comma", desc: "Thousands separators" },
-  { cmd: "/clearformat", desc: "Remove formatting" },
-  { cmd: "/row  /col", desc: "Add a row / column" },
-];
+type ChatMsg = { role: "user" | "assistant"; content: string };
 
-/** Heuristic: warn if the user clearly asked for something the AI didn't emit. */
-function validateAgainst(text: string, types: Set<string>): string {
-  const t = text.toLowerCase();
-  const miss: string[] = [];
-  if (/(chart|graph|plot)/.test(t) && !types.has("chart")) miss.push("a chart");
-  if (/(conditional|highlight|negative|below|above|threshold)/.test(t) && !types.has("condFormat") && !types.has("format")) miss.push("conditional highlighting");
-  if (/(currency|inr|usd|rupee|dollar|₹|\$)/.test(t) && !types.has("format")) miss.push("currency formatting");
-  if (/\bfreeze\b/.test(t) && !types.has("freeze")) miss.push("freezing panes");
-  return miss.length ? `Done — but I may not have added: ${miss.join(", ")}. Try asking for just that part.` : "";
-}
+const ROW_H = 28, HEADER_H = 28, GUTTER_W = 42, COL_W = 110;
 
 export default function SpreadsheetApp() {
   const [sheet, setSheet] = useState<Sheet>(() => emptySheet(8, 20));
   const [focus, setFocus] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
-  const [anchor, setAnchor] = useState<string>("A1");
-  const [lead, setLead] = useState<string>("A1");
+  const [anchor, setAnchor] = useState("A1");
+  const [lead, setLead] = useState("A1");
   const [aiInput, setAiInput] = useState("");
   const [aiBusy, setAiBusy] = useState(false);
+  const [history, setHistory] = useState<ChatMsg[]>([]);
   const [notice, setNotice] = useState<{ type: "ok" | "error" | "info"; text: string } | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const [authReady, setAuthReady] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [isFull, setIsFull] = useState(false);
+
+  const [panel, setPanel] = useState<"assistant" | null>(null);
+
   const noticeTimer = useRef<number | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
   const colorRef = useRef<HTMLInputElement>(null);
   const bgRef = useRef<HTMLInputElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
-
-  const evaluated = useMemo(() => evaluateSheet(sheet), [sheet]);
   const router = useRouter();
 
-  useEffect(() => { const unsub = onAuthStateChange((u) => { setSignedIn(!!u); setAuthReady(true); }); return () => unsub(); }, []);
-  // AI page — require login first.
+  const evaluated = useMemo(() => evaluateSheet(sheet), [sheet]);
+
+  useEffect(() => { const u = onAuthStateChange((x) => { setSignedIn(!!x); setAuthReady(true); }); return () => u(); }, []);
   useEffect(() => { if (authReady && !signedIn) router.replace(`/auth?redirect=${encodeURIComponent("/spreadsheet")}`); }, [authReady, signedIn, router]);
   useEffect(() => () => { if (noticeTimer.current) window.clearTimeout(noticeTimer.current); }, []);
   useEffect(() => {
@@ -75,32 +54,24 @@ export default function SpreadsheetApp() {
     return () => { document.removeEventListener("fullscreenchange", onFs); document.removeEventListener("webkitfullscreenchange", onFs); };
   }, []);
 
-  const toggleFull = () => {
-    const el = rootRef.current; if (!el) return;
-    const fs = document.fullscreenElement || (document as any).webkitFullscreenElement;
-    if (fs) { const ex = (document as any).exitFullscreen || (document as any).webkitExitFullscreen; try { ex?.call(document); } catch {} }
-    else { const req = (el as any).requestFullscreen || (el as any).webkitRequestFullscreen; if (req) { try { const p = req.call(el); if (p?.catch) p.catch(() => {}); } catch {} } }
-  };
-
   const showNotice = (type: "ok" | "error" | "info", text: string) => {
     setNotice({ type, text });
     if (noticeTimer.current) window.clearTimeout(noticeTimer.current);
     noticeTimer.current = window.setTimeout(() => setNotice(null), type === "ok" ? 2600 : 5000);
   };
 
-  /* ----------------------------- selection ----------------------------- */
+  /* selection */
   const selRect = useMemo(() => {
     const a = parseRef(anchor) || { c: 0, r: 0 };
     const l = parseRef(lead) || a;
     return { c0: Math.min(a.c, l.c), c1: Math.max(a.c, l.c), r0: Math.min(a.r, l.r), r1: Math.max(a.r, l.r) };
   }, [anchor, lead]);
   const inSel = (c: number, r: number) => c >= selRect.c0 && c <= selRect.c1 && r >= selRect.r0 && r <= selRect.r1;
-  const selRange = (): string => `${cellRef(selRect.c0, selRect.r0)}:${cellRef(selRect.c1, selRect.r1)}`;
+  const selRange = () => `${cellRef(selRect.c0, selRect.r0)}:${cellRef(selRect.c1, selRect.r1)}`;
   const frozenRows = sheet.frozen?.rows ?? 0;
   const frozenCols = sheet.frozen?.cols ?? 0;
-  const HEADER_H = 28, ROW_H = 28, GUTTER_W = 42, COL_W = 110;
 
-  /* ------------------------------ editing ------------------------------ */
+  /* editing */
   const commit = (ref: string, value: string) => setSheet((s) => { const cells = { ...s.cells }; if (value === "") delete cells[ref]; else cells[ref] = value; return { ...s, cells }; });
   const focusCell = (ref: string) => { const el = document.querySelector<HTMLInputElement>(`input[data-cell="${ref}"]`); el?.focus(); el?.select(); };
   const onCellKey = (e: React.KeyboardEvent<HTMLInputElement>, c: number, r: number) => {
@@ -109,183 +80,136 @@ export default function SpreadsheetApp() {
     else if (e.key === "Tab") { e.preventDefault(); commit(cellRef(c, r), draft); const nc = c + 1 < sheet.cols ? c + 1 : 0; const nr = c + 1 < sheet.cols ? r : r + 1; setTimeout(() => focusCell(cellRef(nc, nr)), 0); }
   };
 
-  /* ---------------------------- structural ----------------------------- */
+  /* structural + format helpers */
+  const apply = (ops: SheetOp[]) => setSheet((s) => applyOps(s, ops));
   const addRow = () => setSheet((s) => ({ ...s, rows: Math.min(2000, s.rows + 1) }));
   const addCol = () => setSheet((s) => ({ ...s, cols: Math.min(60, s.cols + 1) }));
   const clearAll = () => { setSheet(emptySheet(8, 20)); setConfirmClear(false); showNotice("ok", "Cleared the sheet."); };
-  const apply = (ops: SheetOp[]) => setSheet((s) => applyOps(s, ops));
   const freeze = (rows?: number, cols?: number) => apply([{ op: "freeze", rows, cols }]);
   const removeChart = (id: string) => setSheet((s) => ({ ...s, charts: (s.charts || []).filter((x) => x.id !== id) }));
-
-  /* ---------------------------- formatting ----------------------------- */
-  const allHave = (key: keyof CellFormat): boolean => {
-    for (let c = selRect.c0; c <= selRect.c1; c++) for (let r = selRect.r0; r <= selRect.r1; r++) {
-      if (!sheet.formats?.[cellRef(c, r)]?.[key]) return false;
-    }
+  const allHave = (key: keyof CellFormat) => {
+    for (let c = selRect.c0; c <= selRect.c1; c++) for (let r = selRect.r0; r <= selRect.r1; r++) if (!sheet.formats?.[cellRef(c, r)]?.[key]) return false;
     return true;
   };
-  const toggle = (which: "bold" | "italic" | "underline") => {
-    const key = which === "bold" ? "b" : which === "italic" ? "i" : "u";
-    apply([{ op: "format", range: selRange(), [which]: !allHave(key as keyof CellFormat) } as any]);
-  };
+  const toggle = (which: "bold" | "italic" | "underline") => apply([{ op: "format", range: selRange(), [which]: !allHave((which === "bold" ? "b" : which === "italic" ? "i" : "u") as keyof CellFormat) } as any]);
   const setAlign = (align: "left" | "center" | "right") => apply([{ op: "format", range: selRange(), align }]);
   const setColor = (color: string) => apply([{ op: "format", range: selRange(), color }]);
   const setBg = (bg: string) => apply([{ op: "format", range: selRange(), bg }]);
   const setNum = (numFmt: CellFormat["numFmt"], currency?: string) => apply([{ op: "format", range: selRange(), numFmt, ...(currency ? { currency } : {}) }]);
   const clearFmt = () => apply([{ op: "clearFormat", range: selRange() }]);
 
-  /* ------------------------------ upload ------------------------------- */
-  const onUpload = async (file: File) => {
-    if (!file) return;
-    setUploading(true);
-    try {
-      const lower = file.name.toLowerCase();
-      let next: Sheet;
-      if (lower.endsWith(".csv") || file.type === "text/csv") next = parseCsv(await file.text());
-      else if (lower.endsWith(".xlsx")) next = await importXlsx(file);
-      else { showNotice("error", "Upload a .xlsx or .csv file."); setUploading(false); return; }
-      setSheet(next); setAnchor("A1"); setLead("A1");
-      showNotice("ok", `Loaded ${file.name}.`);
-    } catch (e: any) {
-      showNotice("error", "Couldn't read that file.");
-    } finally { setUploading(false); }
-  };
-
-  /* ------------------------------ export ------------------------------- */
+  /* export */
   const dlXlsx = async () => { try { const r = await exportXlsx(sheet, evaluated, "spreadsheet.xlsx"); downloadBlob(r.blob, r.filename); } catch { showNotice("error", "Couldn't export the .xlsx."); } };
   const dlPdf = async () => { try { const r = await exportSheetPdf(sheet, evaluated, "spreadsheet.pdf"); downloadBlob(r.blob, r.filename); } catch { showNotice("error", "Couldn't export the PDF."); } };
 
-  /* --------------------------- slash + AI ------------------------------ */
-  const runSlash = (text: string): boolean => {
-    const parts = text.trim().slice(1).split(/\s+/);
-    const cmd = (parts[0] || "").toLowerCase();
-    const arg = parts[1] || "";
-    switch (cmd) {
-      case "clear": setSheet(emptySheet(8, 20)); showNotice("ok", "Cleared the sheet."); return true;
-      case "bold": toggle("bold"); showNotice("ok", "Toggled bold."); return true;
-      case "italic": toggle("italic"); showNotice("ok", "Toggled italic."); return true;
-      case "underline": case "under": toggle("underline"); showNotice("ok", "Toggled underline."); return true;
-      case "left": case "center": case "right": setAlign(cmd); showNotice("ok", `Aligned ${cmd}.`); return true;
-      case "color": { const hex = normColor(arg); if (hex) { setColor(hex); showNotice("ok", "Set text color."); } else showNotice("error", "Use /color <name or #rrggbb>"); return true; }
-      case "bg": case "fill": { const hex = normColor(arg); if (hex) { setBg(hex); showNotice("ok", "Set fill color."); } else showNotice("error", "Use /bg <name or #rrggbb>"); return true; }
-      case "currency": case "money": setNum("currency", arg || "$"); showNotice("ok", "Formatted as currency."); return true;
-      case "percent": setNum("percent"); showNotice("ok", "Formatted as percent."); return true;
-      case "comma": setNum("comma"); showNotice("ok", "Added thousands separators."); return true;
-      case "clearformat": clearFmt(); showNotice("ok", "Cleared formatting."); return true;
-      case "row": addRow(); showNotice("ok", "Added a row."); return true;
-      case "col": case "column": addCol(); showNotice("ok", "Added a column."); return true;
-      case "freeze": { const rws = parts[1] ? parseInt(parts[1], 10) : 1; const cls = parts[2] ? parseInt(parts[2], 10) : 0; freeze(Number.isFinite(rws) ? rws : 1, Number.isFinite(cls) ? cls : 0); showNotice("ok", "Froze panes."); return true; }
-      case "unfreeze": freeze(0, 0); showNotice("ok", "Unfroze panes."); return true;
-      default: showNotice("error", `Unknown command "/${cmd}".`); return true;
-    }
+  /* fullscreen */
+  const toggleFull = () => {
+    const el = rootRef.current; if (!el) return;
+    const fs = document.fullscreenElement || (document as any).webkitFullscreenElement;
+    if (fs) { const ex = (document as any).exitFullscreen || (document as any).webkitExitFullscreen; try { ex?.call(document); } catch {} }
+    else { const req = (el as any).requestFullscreen || (el as any).webkitRequestFullscreen; if (req) { try { const p = req.call(el); if (p?.catch) p.catch(() => {}); } catch {} } }
   };
 
+  /* AI builder (natural language → ops, with chunked continuation) */
   const send = async () => {
     const text = aiInput.trim();
     if (!text || aiBusy) return;
-    if (text.startsWith("/")) { runSlash(text); setAiInput(""); return; }
     setAiBusy(true);
     try {
-      if (authReady && !signedIn) { showNotice("error", "Sign in to use the AI assistant."); setAiBusy(false); return; }
+      if (authReady && !signedIn) { showNotice("error", "Sign in to use the AI."); setAiBusy(false); return; }
       const token = await getIdToken().catch(() => null);
-      if (!token) { showNotice("error", authReady ? "Sign in to use the AI assistant." : "Finishing sign-in — try again in a second."); setAiBusy(false); return; }
-
-      let working = sheet;
-      let instr = text;
-      let more = true, guard = 0, lastMsg = "";
-      const opTypes = new Set<string>();
+      if (!token) { showNotice("error", "Finishing sign-in — try again in a second."); setAiBusy(false); return; }
+      let working = sheet, instr = text, more = true, guard = 0, lastMsg = "";
       while (more && guard < 8) {
         guard++;
-        const res = await fetch("/api/sheet-ai", {
-          method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ cols: working.cols, rows: working.rows, cells: working.cells, instruction: instr }),
-        });
+        const res = await fetch("/api/sheet-ai", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ cols: working.cols, rows: working.rows, cells: working.cells, instruction: instr, messages: history }) });
         const d = await res.json().catch(() => ({}));
-        if (d?.clarify) { showNotice("info", d.clarify); setAiBusy(false); return; }
-        if (!res.ok || d?.error) { if (guard === 1) { showNotice("error", d?.error || "The assistant couldn't do that."); setAiBusy(false); return; } break; }
-        const ops = Array.isArray(d.ops) ? d.ops : [];
-        ops.forEach((o: any) => o?.op && opTypes.add(o.op));
-        working = applyOps(working, ops);
+        if (d?.clarify) { setHistory((h) => [...h, { role: "user" as const, content: text }, { role: "assistant" as const, content: d.clarify }].slice(-12)); setPanel("assistant"); setAiInput(""); setAiBusy(false); return; }
+        if (!res.ok || d?.error) { if (guard === 1) { showNotice("error", d?.error || "The AI couldn't do that."); setAiBusy(false); return; } break; }
+        working = applyOps(working, Array.isArray(d.ops) ? d.ops : []);
         lastMsg = d.message || lastMsg;
         more = !!d.continue;
-        if (more) { setSheet(working); showNotice("info", `Working… (part ${guard})`); instr = "Continue the SAME task from where you left off using the updated sheet. Do not repeat rows/ops already applied. Set continue:false when fully done."; }
+        if (more) { setSheet(working); showNotice("info", `Working… (part ${guard})`); instr = "Continue the SAME task from where you left off using the updated sheet. Don't repeat applied ops. Set continue:false when fully done."; }
       }
       setSheet(working);
       setAiInput("");
-      const warn = validateAgainst(text, opTypes);
-      showNotice(warn ? "info" : "ok", warn || lastMsg || "Done.");
+      setHistory((h) => [...h, { role: "user" as const, content: text }, { role: "assistant" as const, content: lastMsg || "Done." }].slice(-12));
+      showNotice("ok", lastMsg || "Done.");
     } catch (e: any) { showNotice("error", e?.message || "Something went wrong."); }
     finally { setAiBusy(false); }
   };
 
-  /* ------------------------------- render ------------------------------ */
+  /* ------------------------------- gate ------------------------------- */
   if (!authReady || !signedIn) {
     return (
       <div className="grid place-items-center py-16 text-center">
         <div>
-          <p className="text-[15px] font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>
-            {authReady ? "Sign in to use the AI Spreadsheet" : "Loading…"}
-          </p>
-          {authReady && (
-            <>
-              <p className="mt-1 text-[13px]" style={{ color: "var(--ezd-fg-muted)" }}>It&rsquo;s free — create an account or log in to start building sheets with AI.</p>
-              <Link href={`/auth?redirect=${encodeURIComponent("/spreadsheet")}`} className="mt-4 inline-flex items-center gap-1.5 rounded-xl px-5 py-2.5 text-[14px] font-semibold" style={{ background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)" }}>Sign in</Link>
-            </>
-          )}
+          <p className="text-[15px] font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>{authReady ? "Sign in to use the AI Spreadsheet" : "Loading…"}</p>
+          {authReady && <Link href={`/auth?redirect=${encodeURIComponent("/spreadsheet")}`} className="mt-4 inline-flex rounded-xl px-5 py-2.5 text-[14px] font-semibold" style={{ background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)" }}>Sign in</Link>}
         </div>
       </div>
     );
   }
 
-  const ToolBtn = ({ onClick, title, children }: { onClick: () => void; title: string; children: React.ReactNode }) => (
-    <button onClick={onClick} title={title} className="grid h-8 w-8 place-items-center rounded-lg border transition hover:opacity-80" style={{ borderColor: "var(--ezd-divider)", color: "var(--ezd-fg-muted)" }}>{children}</button>
+  const TBtn = ({ onClick, title, on, children }: { onClick: () => void; title: string; on?: boolean; children: React.ReactNode }) => (
+    <button onClick={onClick} title={title} className="grid h-8 w-8 place-items-center rounded-lg border transition hover:opacity-80" style={{ borderColor: "var(--ezd-divider)", color: on ? "var(--ezd-fg-strong)" : "var(--ezd-fg-muted)", background: on ? "var(--ezd-bg-hover)" : "transparent" }}>{children}</button>
+  );
+  const PillBtn = ({ onClick, title, children, primary }: { onClick: () => void; title?: string; children: React.ReactNode; primary?: boolean }) => (
+    <button onClick={onClick} title={title} className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12.5px] font-medium" style={primary ? { background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)", borderColor: "transparent" } : { borderColor: "var(--ezd-divider)", color: "var(--ezd-fg-muted)" }}>{children}</button>
   );
 
   return (
     <div ref={rootRef} className="relative" style={isFull ? { background: "var(--ezd-bg-page)", padding: 20, overflow: "auto", height: "100%" } : undefined}>
       {/* toolbar */}
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <input ref={fileRef} type="file" accept=".xlsx,.csv,text/csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(f); e.currentTarget.value = ""; }} />
-        <button onClick={() => fileRef.current?.click()} className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12.5px] font-medium" style={{ borderColor: "var(--ezd-divider)", color: "var(--ezd-fg-muted)" }}>{uploading ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />} Upload .xlsx/.csv</button>
-        <button onClick={addRow} className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12.5px] font-medium" style={{ borderColor: "var(--ezd-divider)", color: "var(--ezd-fg-muted)" }}><Plus size={13} /> Row</button>
-        <button onClick={addCol} className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12.5px] font-medium" style={{ borderColor: "var(--ezd-divider)", color: "var(--ezd-fg-muted)" }}><Plus size={13} /> Column</button>
-        <button onClick={() => setConfirmClear(true)} className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12.5px] font-medium" style={{ borderColor: "var(--ezd-divider)", color: "var(--ezd-fg-muted)" }}><Trash2 size={13} /> Clear</button>
+      <div className="mb-3 flex flex-wrap items-center gap-1.5">
+        <PillBtn onClick={addRow} title="Add row"><Plus size={13} /> Row</PillBtn>
+        <PillBtn onClick={addCol} title="Add column"><Plus size={13} /> Column</PillBtn>
+        <PillBtn onClick={() => setConfirmClear(true)} title="Clear sheet"><Trash2 size={13} /> Clear</PillBtn>
+        <span className="mx-1 h-5 w-px" style={{ background: "var(--ezd-divider)" }} />
+        <TBtn onClick={() => toggle("bold")} title="Bold"><Bold size={15} /></TBtn>
+        <TBtn onClick={() => toggle("italic")} title="Italic"><Italic size={15} /></TBtn>
+        <TBtn onClick={() => toggle("underline")} title="Underline"><Underline size={15} /></TBtn>
+        <TBtn onClick={() => setAlign("left")} title="Align left"><AlignLeft size={15} /></TBtn>
+        <TBtn onClick={() => setAlign("center")} title="Align center"><AlignCenter size={15} /></TBtn>
+        <TBtn onClick={() => setAlign("right")} title="Align right"><AlignRight size={15} /></TBtn>
+        <TBtn onClick={() => colorRef.current?.click()} title="Text color"><Baseline size={15} /></TBtn>
+        <TBtn onClick={() => bgRef.current?.click()} title="Fill color"><PaintBucket size={15} /></TBtn>
+        <TBtn onClick={() => setNum("currency", "$")} title="Currency"><DollarSign size={15} /></TBtn>
+        <TBtn onClick={() => setNum("percent")} title="Percent"><Percent size={15} /></TBtn>
+        <TBtn onClick={() => setNum("comma")} title="Thousands"><Hash size={15} /></TBtn>
+        <TBtn onClick={clearFmt} title="Clear formatting"><Eraser size={15} /></TBtn>
+        <input ref={colorRef} type="color" className="hidden" onChange={(e) => setColor(e.target.value)} />
+        <input ref={bgRef} type="color" className="hidden" onChange={(e) => setBg(e.target.value)} />
         <span className="flex-1" />
-        <button onClick={() => freeze(frozenRows > 0 ? 0 : 1, frozenRows > 0 ? 0 : frozenCols)} title={frozenRows > 0 ? "Unfreeze" : "Freeze top row"} className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12.5px] font-medium" style={{ borderColor: "var(--ezd-divider)", color: frozenRows > 0 ? "var(--ezd-fg-strong)" : "var(--ezd-fg-muted)" }}><Pin size={13} /> {frozenRows > 0 ? "Frozen" : "Freeze"}</button>
-        <button onClick={toggleFull} title={isFull ? "Exit full screen" : "Full screen"} className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12.5px] font-medium" style={{ borderColor: "var(--ezd-divider)", color: "var(--ezd-fg-muted)" }}>{isFull ? <Minimize2 size={13} /> : <Maximize2 size={13} />} {isFull ? "Exit" : "Full screen"}</button>
-        <button onClick={dlXlsx} className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[12.5px] font-semibold" style={{ background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)" }}><FileSpreadsheet size={14} /> Excel (.xlsx)</button>
-        <button onClick={dlPdf} className="inline-flex items-center gap-1.5 rounded-lg border px-3.5 py-1.5 text-[12.5px] font-semibold" style={{ borderColor: "var(--ezd-divider)", color: "var(--ezd-fg-strong)" }}><FileText size={14} /> PDF</button>
+        <PillBtn onClick={() => setPanel((p) => (p === "assistant" ? null : "assistant"))} title="AI assistant chat"><Sparkles size={13} /> Assistant</PillBtn>
+        <PillBtn onClick={() => freeze(frozenRows > 0 ? 0 : 1, 0)} title={frozenRows > 0 ? "Unfreeze" : "Freeze top row"}><Pin size={13} /> {frozenRows > 0 ? "Frozen" : "Freeze"}</PillBtn>
+        <PillBtn onClick={toggleFull} title="Full screen">{isFull ? <Minimize2 size={13} /> : <Maximize2 size={13} />} {isFull ? "Exit" : "Full screen"}</PillBtn>
+        <PillBtn onClick={dlXlsx} primary><FileSpreadsheet size={14} /> Excel</PillBtn>
+        <PillBtn onClick={dlPdf}><FileText size={14} /> PDF</PillBtn>
       </div>
 
       {/* formula bar */}
       <div className="mb-2 flex items-center gap-2">
-        <span className="grid h-7 min-w-[42px] place-items-center rounded-md border px-2 text-[12px] font-semibold" style={{ borderColor: "var(--ezd-divider)", color: "var(--ezd-fg-muted)" }}>{anchor}</span>
-        <input
-          value={sheet.cells[anchor] ?? ""}
-          onChange={(e) => commit(anchor, e.target.value)}
-          placeholder="Cell content or formula (e.g. =SUM(B2:B10))"
-          className="h-8 flex-1 rounded-md border bg-transparent px-2.5 text-[12.5px] outline-none"
-          style={{ borderColor: "var(--ezd-divider)", color: "var(--ezd-fg-strong)" }}
-          spellCheck={false}
-        />
+        <span className="grid h-8 min-w-[42px] place-items-center rounded-md border px-2 text-[12px] font-semibold" style={{ borderColor: "var(--ezd-divider)", color: "var(--ezd-fg-muted)" }}>{anchor}</span>
+        <input value={sheet.cells[anchor] ?? ""} onChange={(e) => commit(anchor, e.target.value)} placeholder="Cell content or formula (e.g. =SUM(B2:B10))" spellCheck={false} className="h-8 flex-1 rounded-md border bg-transparent px-2.5 text-[12.5px] outline-none" style={{ borderColor: "var(--ezd-divider)", color: "var(--ezd-fg-strong)" }} />
       </div>
 
       <div className="flex gap-3">
         {/* grid */}
-        <div className="min-w-0 flex-1 overflow-auto rounded-xl border" style={{ borderColor: "var(--ezd-divider)", maxHeight: isFull ? "82vh" : "60vh" }}>
+        <div className="min-w-0 flex-1 overflow-auto rounded-xl border" style={{ borderColor: "var(--ezd-divider)", maxHeight: isFull ? "82vh" : "58vh" }}>
           <table className="border-collapse" style={{ tableLayout: "fixed" }}>
             <thead>
               <tr>
-                <th className="sticky left-0 top-0 z-30" style={{ width: 42, minWidth: 42, background: "var(--ezd-bg-elev)", borderRight: "1px solid var(--ezd-divider)", borderBottom: "1px solid var(--ezd-divider)" }} />
+                <th className="sticky left-0 top-0 z-30" style={{ width: GUTTER_W, minWidth: GUTTER_W, background: "var(--ezd-bg-elev)", borderRight: "1px solid var(--ezd-divider)", borderBottom: "1px solid var(--ezd-divider)" }} />
                 {Array.from({ length: sheet.cols }, (_, c) => (
-                  <th key={c} className="sticky top-0 px-2 py-1 text-[11px] font-semibold" style={{ width: 110, minWidth: 110, background: "var(--ezd-bg-elev)", color: "var(--ezd-fg-muted)", borderRight: c === frozenCols - 1 ? "2px solid var(--ezd-fg-muted)" : "1px solid var(--ezd-divider)", borderBottom: "1px solid var(--ezd-divider)", ...(c < frozenCols ? { position: "sticky" as const, left: GUTTER_W + c * COL_W, zIndex: 22 } : { zIndex: 10 }) }}>{colName(c)}</th>
+                  <th key={c} className="sticky top-0 px-2 py-1 text-[11px] font-semibold" style={{ width: COL_W, minWidth: COL_W, background: "var(--ezd-bg-elev)", color: "var(--ezd-fg-muted)", borderRight: c === frozenCols - 1 ? "2px solid var(--ezd-fg-muted)" : "1px solid var(--ezd-divider)", borderBottom: "1px solid var(--ezd-divider)", ...(c < frozenCols ? { position: "sticky" as const, left: GUTTER_W + c * COL_W, zIndex: 22 } : { zIndex: 10 }) }}>{colName(c)}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {Array.from({ length: sheet.rows }, (_, r) => (
                 <tr key={r}>
-                  <td className="sticky left-0 text-center text-[11px]" style={{ width: 42, minWidth: 42, background: "var(--ezd-bg-elev)", color: "var(--ezd-fg-quiet)", borderRight: "1px solid var(--ezd-divider)", borderBottom: r === frozenRows - 1 ? "2px solid var(--ezd-fg-muted)" : "1px solid var(--ezd-divider)", ...(r < frozenRows ? { position: "sticky" as const, top: HEADER_H + r * ROW_H, zIndex: 16 } : { zIndex: 12 }) }}>{r + 1}</td>
+                  <td className="sticky left-0 text-center text-[11px]" style={{ width: GUTTER_W, minWidth: GUTTER_W, background: "var(--ezd-bg-elev)", color: "var(--ezd-fg-quiet)", borderRight: "1px solid var(--ezd-divider)", borderBottom: r === frozenRows - 1 ? "2px solid var(--ezd-fg-muted)" : "1px solid var(--ezd-divider)", ...(r < frozenRows ? { position: "sticky" as const, top: HEADER_H + r * ROW_H, zIndex: 16 } : { zIndex: 12 }) }}>{r + 1}</td>
                   {Array.from({ length: sheet.cols }, (_, c) => {
                     const ref = cellRef(c, r);
                     const focused = focus === ref;
@@ -307,11 +231,7 @@ export default function SpreadsheetApp() {
                       ...((rowSticky || colSticky) ? { zIndex: rowSticky && colSticky ? 8 : 4 } : {}),
                     };
                     return (
-                      <td
-                        key={c}
-                        onMouseDown={(e) => { if (e.shiftKey) { e.preventDefault(); setLead(ref); } }}
-                        style={tdStyle}
-                      >
+                      <td key={c} onMouseDown={(e) => { if (e.shiftKey) { e.preventDefault(); setLead(ref); } }} style={tdStyle}>
                         <input
                           data-cell={ref}
                           value={focused ? draft : formatDisplay(disp, fmt)}
@@ -320,14 +240,7 @@ export default function SpreadsheetApp() {
                           onBlur={() => { commit(ref, draft); setFocus(null); }}
                           onKeyDown={(e) => onCellKey(e, c, r)}
                           className="h-7 w-full px-2 text-[12.5px] outline-none"
-                          style={{
-                            width: 110, background: "transparent",
-                            color: isErr ? "#ef4444" : (cs.color || fmt.color || "var(--ezd-fg-strong)"),
-                            fontWeight: fmt.b ? 700 : 400, fontStyle: fmt.i ? "italic" : "normal",
-                            textDecoration: fmt.u ? "underline" : "none",
-                            textAlign: fmt.align || (!focused && numeric ? "right" : "left"),
-                            boxShadow: focused ? "inset 0 0 0 2px var(--ezd-fg-strong)" : (selected ? "inset 0 0 0 1px var(--ezd-fg-muted)" : "none"),
-                          }}
+                          style={{ width: COL_W, background: "transparent", color: isErr ? "#ef4444" : (cs.color || fmt.color || "var(--ezd-fg-strong)"), fontWeight: fmt.b ? 700 : 400, fontStyle: fmt.i ? "italic" : "normal", textDecoration: fmt.u ? "underline" : "none", textAlign: fmt.align || (!focused && numeric ? "right" : "left"), boxShadow: focused ? "inset 0 0 0 2px var(--ezd-fg-strong)" : (selected ? "inset 0 0 0 1px var(--ezd-fg-muted)" : "none") }}
                         />
                       </td>
                     );
@@ -338,39 +251,36 @@ export default function SpreadsheetApp() {
           </table>
         </div>
 
-        {/* command bar */}
-        <div className="hidden w-52 shrink-0 rounded-xl border p-3 lg:block" style={{ borderColor: "var(--ezd-divider)", background: "var(--ezd-bg-card)" }}>
-          <div className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--ezd-fg-quiet)" }}>Format selection</div>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            <ToolBtn onClick={() => toggle("bold")} title="Bold"><Bold size={15} /></ToolBtn>
-            <ToolBtn onClick={() => toggle("italic")} title="Italic"><Italic size={15} /></ToolBtn>
-            <ToolBtn onClick={() => toggle("underline")} title="Underline"><Underline size={15} /></ToolBtn>
-            <ToolBtn onClick={() => setAlign("left")} title="Align left"><AlignLeft size={15} /></ToolBtn>
-            <ToolBtn onClick={() => setAlign("center")} title="Align center"><AlignCenter size={15} /></ToolBtn>
-            <ToolBtn onClick={() => setAlign("right")} title="Align right"><AlignRight size={15} /></ToolBtn>
-            <ToolBtn onClick={() => colorRef.current?.click()} title="Text color"><Baseline size={15} /></ToolBtn>
-            <ToolBtn onClick={() => bgRef.current?.click()} title="Fill color"><PaintBucket size={15} /></ToolBtn>
-            <ToolBtn onClick={() => setNum("currency", "$")} title="Currency"><DollarSign size={15} /></ToolBtn>
-            <ToolBtn onClick={() => setNum("percent")} title="Percent"><Percent size={15} /></ToolBtn>
-            <ToolBtn onClick={() => setNum("comma")} title="Thousands separator"><Hash size={15} /></ToolBtn>
-            <ToolBtn onClick={clearFmt} title="Clear formatting"><Eraser size={15} /></ToolBtn>
-          </div>
-          <input ref={colorRef} type="color" className="hidden" onChange={(e) => setColor(e.target.value)} />
-          <input ref={bgRef} type="color" className="hidden" onChange={(e) => setBg(e.target.value)} />
-
-          <div className="mt-4 text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--ezd-fg-quiet)" }}>Slash commands</div>
-          <div className="mt-2 space-y-1.5">
-            {SLASH_HELP.map((s) => (
-              <div key={s.cmd} className="text-[11.5px] leading-tight">
-                <code style={{ color: "var(--ezd-fg-strong)" }}>{s.cmd}</code>
-                <span className="block" style={{ color: "var(--ezd-fg-quiet)" }}>{s.desc}</span>
+        {/* Analyse chat sidebar */}
+        {panel === "assistant" && (
+          <div className="flex w-[340px] shrink-0 flex-col rounded-xl border" style={{ borderColor: "var(--ezd-divider)", background: "var(--ezd-bg-card)", maxHeight: isFull ? "82vh" : "58vh" }}>
+            <div className="flex items-center justify-between border-b px-3 py-2.5" style={{ borderColor: "var(--ezd-divider)" }}>
+              <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold" style={{ color: "var(--ezd-fg-strong)" }}><Sparkles size={14} /> Assistant</span>
+              <span className="flex items-center gap-2">
+                {history.length > 0 && <button onClick={() => setHistory([])} title="Clear chat" className="text-[11px]" style={{ color: "var(--ezd-fg-quiet)" }}>Clear</button>}
+                <button onClick={() => setPanel(null)} style={{ color: "var(--ezd-fg-quiet)" }}><XIcon size={16} /></button>
+              </span>
+            </div>
+            <div className="flex-1 space-y-3 overflow-y-auto p-3">
+              {history.length === 0 && <p className="px-1 text-[12px]" style={{ color: "var(--ezd-fg-quiet)" }}>Tell me what to build or change. If I&rsquo;m unsure, I&rsquo;ll ask before touching your sheet.</p>}
+              {history.map((m, i) => (
+                <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div className="max-w-[88%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-[12.5px] leading-relaxed" style={m.role === "user" ? { background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)" } : { background: "var(--ezd-bg-hover)", color: "var(--ezd-fg-strong)" }}>{m.content}</div>
+                </div>
+              ))}
+              {aiBusy && <div className="flex justify-start"><div className="rounded-2xl px-3 py-2" style={{ background: "var(--ezd-bg-hover)" }}><Loader2 size={14} className="animate-spin" style={{ color: "var(--ezd-fg-muted)" }} /></div></div>}
+            </div>
+            <div className="border-t p-2" style={{ borderColor: "var(--ezd-divider)" }}>
+              <div className="flex items-center gap-2">
+                <input value={aiInput} onChange={(e) => setAiInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); send(); } }} placeholder="Reply, or tell me what to do…" className="h-9 flex-1 rounded-xl border bg-transparent px-3 text-[12.5px] outline-none" style={{ borderColor: "var(--ezd-divider)", color: "var(--ezd-fg-strong)" }} />
+                <button onClick={send} disabled={aiBusy || !aiInput.trim()} className="grid h-9 w-9 place-items-center rounded-xl disabled:opacity-50" style={{ background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)" }}><Send size={15} /></button>
               </div>
-            ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
-      <p className="mt-2 text-[11.5px]" style={{ color: "var(--ezd-fg-quiet)" }}>Type values or formulas (e.g. <code>=SUM(B2:B4)</code>). Shift-click to select a range, then format it. Everything stays on your device.</p>
+      <p className="mt-2 text-[11.5px]" style={{ color: "var(--ezd-fg-quiet)" }}>Type values or formulas (e.g. <code>=SUM(B2:B4)</code>). Shift-click to select a range, then use the format buttons. Everything stays on your device.</p>
 
       {(sheet.charts || []).length > 0 && (
         <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -383,7 +293,7 @@ export default function SpreadsheetApp() {
         </div>
       )}
 
-      {/* AI + slash box */}
+      {/* AI builder box */}
       <div className="sticky bottom-3 mt-5">
         {notice && (
           <div className="mx-auto mb-2 flex max-w-2xl items-center gap-2 rounded-xl border px-3.5 py-2 text-[13px]" style={{ borderColor: notice.type === "error" ? "rgba(239,68,68,0.4)" : notice.type === "info" ? "rgba(59,130,246,0.4)" : "var(--ezd-divider)", background: notice.type === "error" ? "rgba(239,68,68,0.1)" : notice.type === "info" ? "rgba(59,130,246,0.1)" : "var(--ezd-bg-card)", color: notice.type === "error" ? "#ef4444" : notice.type === "info" ? "#3b82f6" : "var(--ezd-fg-strong)" }}>
@@ -392,7 +302,7 @@ export default function SpreadsheetApp() {
         )}
         <div className="mx-auto flex max-w-2xl items-center gap-2 rounded-2xl border p-2 shadow-lg" style={{ borderColor: "var(--ezd-divider)", background: "var(--ezd-bg-elev)" }}>
           <Sparkles size={16} className="ml-1.5 shrink-0" style={{ color: "var(--ezd-fg-strong)" }} />
-          <input value={aiInput} onChange={(e) => setAiInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); send(); } }} placeholder='Ask AI or type a /command — e.g. "add a total row" or /bold' className="h-9 flex-1 bg-transparent px-1 text-[13.5px] outline-none" style={{ color: "var(--ezd-fg-strong)" }} />
+          <input value={aiInput} onChange={(e) => setAiInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); send(); } }} placeholder='Ask AI to build or edit — e.g. "make a 12-month budget with a total row"' className="h-9 flex-1 bg-transparent px-1 text-[13.5px] outline-none" style={{ color: "var(--ezd-fg-strong)" }} />
           <button onClick={send} disabled={aiBusy || !aiInput.trim()} className="inline-flex h-9 items-center gap-1.5 rounded-xl px-4 text-[13.5px] font-semibold transition hover:opacity-90 disabled:opacity-50" style={{ background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)" }}>{aiBusy ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}</button>
         </div>
       </div>

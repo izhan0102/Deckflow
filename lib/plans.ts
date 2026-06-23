@@ -100,6 +100,65 @@ export const DEFAULT_PLAN: PlanId = "free";
  *  safety net so no single user can run up the bill. Shared client+server. */
 export const DAILY_GEN_CAP = 10;
 
+/* ------------------------------- CREDITS -------------------------------- */
+
+/**
+ * AI credits — the single balance every AI action draws from. Replaces the
+ * old "decks/month" + "daily cap" model.
+ *
+ *   • Free  → 40 credits, resets every calendar MONTH (UTC).
+ *   • Pro   → 1500 credits, resets every DAY (UTC).
+ *
+ * When the balance hits 0 the account is blocked from all AI routes
+ * server-side until the next reset (a global overlay tells the user).
+ */
+export const CREDITS: Record<PlanId, number> = {
+  free: 40,
+  pro: 1500,
+};
+
+/** Reset cadence per plan. Free is monthly; Pro is daily. */
+export type CreditPeriod = "month" | "day";
+export function creditPeriod(id: PlanId): CreditPeriod {
+  return normalizePlan(id) === "pro" ? "day" : "month";
+}
+
+/** Total credit allowance granted each period for a plan. */
+export function creditAllowance(id: PlanId): number {
+  return CREDITS[normalizePlan(id)];
+}
+
+/**
+ * Fixed credit cost per AI action, derived from typical Groq token usage
+ * (≈ 1 credit per 1,000 tokens, rounded to a stable per-action price so
+ * users see predictable costs). Keep keys stable — routes reference them.
+ */
+export type CreditAction =
+  | "generateDeck" | "generateDoc" | "editSlide" | "editDeck" | "redensify"
+  | "speakerNotes" | "qaPrep" | "translate" | "sheetAi" | "sheetAnalyse"
+  | "refineResume" | "clarify" | "visualize" | "iconSearch";
+
+export const CREDIT_COSTS: Record<CreditAction, number> = {
+  generateDeck: 8,
+  generateDoc: 15,
+  editSlide: 3,
+  editDeck: 4,
+  redensify: 5,
+  speakerNotes: 4,
+  qaPrep: 3,
+  translate: 6,
+  sheetAi: 3,
+  sheetAnalyse: 3,
+  refineResume: 3,
+  clarify: 1,
+  visualize: 3,
+  iconSearch: 1,
+};
+
+export function creditCost(action: CreditAction): number {
+  return CREDIT_COSTS[action] ?? 1;
+}
+
 /**
  * Purchasable products. "pro" is the individual plan; "team" and "org" are
  * multi-seat plans that grant Pro to the owner plus a number of member seats

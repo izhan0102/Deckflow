@@ -4,6 +4,8 @@ import { withGroqClient } from "@/lib/groqClient";
 import { getDecoration, DECORATIONS } from "@/lib/decorations";
 import { searchIconify } from "@/lib/iconify";
 import { authenticateRequest, AuthError } from "@/lib/firebaseAdmin";
+import { requireCredits, deductCredits } from "@/lib/credits";
+import { PlanLimitError } from "@/lib/planServer";
 import { rateLimitResponse } from "@/lib/rateLimit";
 import { cleanChartSpec } from "@/lib/charts";
 
@@ -795,6 +797,7 @@ export async function POST(req: NextRequest) {
   if (limited) return limited;
   try {
     const uid = await authenticateRequest(req);
+    await requireCredits(uid);
     const { deck, theme, slideIndex, instruction, history } = (await req.json()) as {
       deck: Deck;
       theme?: { bg?: string; fg?: string; accent?: string };
@@ -899,11 +902,15 @@ Return ONLY the JSON patch.`,
     const patch = JSON.parse(extractJson(raw));
     const updated = await applyPatch(slide, patch);
 
+    deductCredits(uid, "editSlide").catch(() => {});
     return NextResponse.json({
       slide: updated,
       explanation: typeof patch.explanation === "string" ? patch.explanation : "Slide updated.",
     });
   } catch (err: any) {
+    if (err instanceof PlanLimitError) {
+      return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
+    }
     console.error("[/api/edit-slide] error:", err);
     const status = err instanceof AuthError ? err.status : 500;
     return NextResponse.json({ error: err?.message || "Edit failed." }, { status });

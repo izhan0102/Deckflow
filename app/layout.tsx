@@ -2,6 +2,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import MobileGate from "@/components/MobileGate";
+import CreditsGate from "@/components/CreditsGate";
 import { THEME_BOOT_SCRIPT } from "@/lib/theme";
 import {
   SITE_URL, BRAND, KEYWORDS, DEFAULT_TITLE, TITLE_TEMPLATE, DEFAULT_DESCRIPTION,
@@ -127,6 +128,7 @@ export default function RootLayout({
       <body>
         {children}
         <MobileGate />
+        <CreditsGate />
         <Analytics />
       </body>
     </html>

@@ -3,6 +3,7 @@ import type { Deck } from "@/lib/types";
 import { generateSpeakerNotes } from "@/lib/groq";
 import { authenticateRequest, AuthError } from "@/lib/firebaseAdmin";
 import { requireFeature, PlanLimitError } from "@/lib/planServer";
+import { requireCredits, deductCredits } from "@/lib/credits";
 import { rateLimitResponse } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
@@ -22,6 +23,7 @@ export async function POST(req: NextRequest) {
   try {
     const uid = await authenticateRequest(req);
     await requireFeature(uid, "speakerNotes");
+    await requireCredits(uid);
     const { deck, audience, tone, speakers, setting } = (await req.json()) as {
       deck: Deck;
       audience?: string;
@@ -35,6 +37,7 @@ export async function POST(req: NextRequest) {
     }
 
     const notes = await generateSpeakerNotes({ deck, audience, tone, speakers, setting });
+    deductCredits(uid, "speakerNotes").catch(() => {});
     return NextResponse.json({ notes });
   } catch (err: any) {
     if (err instanceof PlanLimitError) {

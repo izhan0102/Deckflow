@@ -1,5 +1,4 @@
 "use client";
-import DeckHealthAnalyzer from "@/components/DeckHealthAnalyzer";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Deck, Slide, UploadedImage, TextBox, ContentDensity } from "@/lib/types";
 import type { Theme } from "@/lib/themes";
@@ -23,7 +22,7 @@ import { exportSlidesToPdf, exportHandoutToPdf, exportSlidesToPptx } from "@/lib
 import { trackEvent } from "@/lib/stats";
 import type { ExportFormat } from "./ExportFormatPicker";
 import { getDecoration } from "@/lib/decorations";
-import { saveDeck, publishDeck, unpublishDeck, syncSharedDeck, writeSharedDeck, watchSharedDeck, setShareMode, type ShareMode, duplicateDeck } from "@/lib/decks";
+import { saveDeck, publishDeck, unpublishDeck, syncSharedDeck, writeSharedDeck, watchSharedDeck, setShareMode, type ShareMode } from "@/lib/decks";
 import { submitReview, REVIEW_LIMITS } from "@/lib/reviews";
 import { loadShareAnalytics, formatDwell, type ShareAnalytics } from "@/lib/analytics";
 import { stripHtml, applyWholeStyle, readWholeStyle } from "@/lib/richText";
@@ -34,7 +33,7 @@ import { getIdToken } from "@/lib/auth";
 import { watchUserPlan } from "@/lib/plan";
 import { type PlanId, planHasFeature, planShowsWatermark } from "@/lib/plans";
 import TrialDialog from "./TrialDialog";
-import DeckTour from "./DeckTour";
+import BottomBar from "./BottomBar";
 import GenerateOverlay from "./GenerateOverlay";
 import TemplateGallery from "./TemplateGallery";
 import { type DeckTemplate } from "@/lib/templates";
@@ -109,7 +108,6 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
   const [imageQuery, setImageQuery] = useState("");
   const [relatedImages, setRelatedImages] = useState<PexelsPhoto[]>([]);
   const [relatedLoading, setRelatedLoading] = useState(false);
-  const [healthOpen, setHealthOpen] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   // Load the user's saved custom templates for the gallery.
   useEffect(() => {
@@ -138,7 +136,8 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
   const [iconOpen, setIconOpen] = useState(false);
   // Right "insert" sidebar: auto-opens when the editor loads (and hides the
   // slide rail while open); closing it via the arrow brings the rail back.
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
   const [placingText, setPlacingText] = useState(false);
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
   const [canvasSelection, setCanvasSelection] = useState<CanvasSelection>(null);
@@ -149,7 +148,6 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
   const [shareOpen, setShareOpen] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
-  const [duplicating, setDuplicating] = useState(false);
   // Live share state. For an owner, seeded from the loaded deck row; for a
   // link collaborator, taken from the `collab` prop.
   const [shareId, setShareId] = useState<string | null>(initialShareId ?? collab?.shareId ?? null);
@@ -943,24 +941,8 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
     );
   };
 
-  const onDuplicate = async () => {
-    if (!user || !deckId || duplicating) return;
-    setDuplicating(true);
-    try {
-      const newId = await duplicateDeck(user.uid, deckId);
-      if (newId) {
-        // Redirect to the new duplicated deck immediately
-        window.location.assign(`/app?id=${newId}`);
-      }
-    } catch (err) {
-      alert("Failed to duplicate deck");
-      setDuplicating(false);
-    }
-  };
-
   return (
-    <div className="fade-in mx-auto w-full max-w-[1400px]" style={{ touchAction: "manipulation" }}>
-      <DeckTour userId={user?.uid ?? null} />
+    <div className="fade-in mx-auto w-full max-w-[1400px] pb-28" style={{ touchAction: "manipulation" }}>
       {(densifying || !!densityError) && (
         <GenerateOverlay
           open
@@ -972,12 +954,6 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
             if (t) void runDensity(t);
           }}
         />
-      )}
-      {duplicating && (
-        <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-black/50 backdrop-blur-sm">
-          <Loader2 size={32} className="animate-spin text-white" />
-          <p className="mt-2 text-sm font-medium text-white">Duplicating deck...</p>
-        </div>
       )}
       {templateGalleryOpen && (
         <TemplateGallery
@@ -1072,7 +1048,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
               className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 font-medium transition ${
                 viewMode === "slides" ? "bg-white text-black shadow-sm" : "text-white/70 hover:text-white"
               }`}
-              style={{ touchAction: "manipulation", minHeight: "36px" }}
+              style={{ touchAction: "manipulation", minHeight: "30px" }}
               title="Edit slide by slide"
             >
               <LayoutGrid size={13} /> Slides
@@ -1084,7 +1060,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
               className={`inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 font-medium transition ${
                 viewMode === "outline" ? "bg-white text-black shadow-sm" : "text-white/70 hover:text-white"
               }`}
-              style={{ touchAction: "manipulation", minHeight: "36px" }}
+              style={{ touchAction: "manipulation", minHeight: "30px" }}
               title="Edit the whole deck as an outline"
             >
               <List size={13} /> Outline
@@ -1097,7 +1073,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
                 onClick={() => setDensityMenuOpen((o) => !o)}
                 disabled={densifying}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/[0.04] px-2.5 py-1.5 text-[12px] text-white/80 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
-                style={{ touchAction: "manipulation", minHeight: "36px" }}
+                style={{ touchAction: "manipulation", minHeight: "30px" }}
                 title="Change the whole deck's content density"
               >
                 <SlidersHorizontal size={13} className="opacity-70" />
@@ -1129,7 +1105,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
                           className={`flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-[12.5px] transition disabled:opacity-60 ${
                             activeD ? "bg-white/10 text-white" : "text-white/75 hover:bg-white/10"
                           }`}
-                          style={{ touchAction: "manipulation", minHeight: "40px" }}
+                          style={{ touchAction: "manipulation", minHeight: "30px" }}
                         >
                           <span>
                             <span className="font-medium">{d.label}</span>
@@ -1164,8 +1140,8 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
               <button
                 onClick={undo}
                 disabled={!canUndo}
-                className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
-                style={{ touchAction: "manipulation", minHeight: "44px" }}
+                className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-[13px] hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+                style={{ touchAction: "manipulation", minHeight: "30px" }}
                 title="Undo last change (Ctrl/Cmd+Z)"
               >
                 <Undo2 size={14} /> Undo
@@ -1173,8 +1149,8 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
               <button
                 onClick={() => requireFeatureOrUpgrade("icons", "Adding icons is a Pro feature. Upgrade to use the icon library.", () => setIconOpen(true))}
                 data-tour="tour-icon"
-                className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
-                style={{ touchAction: "manipulation", minHeight: "44px" }}
+                className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-[13px] hover:bg-white/10"
+                style={{ touchAction: "manipulation", minHeight: "30px" }}
                 title="Search 200,000+ icons from Iconify"
               >
                 <Smile size={14} /> Add icon
@@ -1183,8 +1159,8 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
               <button
                 onClick={openTemplateGallery}
                 data-tour="tour-template"
-                className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
-                style={{ touchAction: "manipulation", minHeight: "44px" }}
+                className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-[13px] hover:bg-white/10"
+                style={{ touchAction: "manipulation", minHeight: "30px" }}
                 title="Switch the whole deck to a different template (theme, font, graphic, layout)"
               >
                 <LayoutTemplate size={14} /> Template
@@ -1197,8 +1173,8 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
               onClick={() => onShare()}
               disabled={sharing}
               data-tour="tour-share"
-              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 disabled:opacity-60"
-              style={{ touchAction: "manipulation", minHeight: "44px" }}
+              className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-[13px] hover:bg-white/10 disabled:opacity-60"
+              style={{ touchAction: "manipulation", minHeight: "30px" }}
               title="Get a public link to share this deck"
             >
               <LinkIcon size={14} /> {sharing ? "Sharing…" : "Share"}
@@ -1208,43 +1184,29 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
           {coverMode && (            
             <button
               onClick={openAddImages}
-              className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition hover:opacity-90"
-              style={{ background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)", touchAction: "manipulation", minHeight: "44px" }}
+              className="inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-[13px] font-semibold transition hover:opacity-90"
+              style={{ background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)", touchAction: "manipulation", minHeight: "30px" }}
               title="Replace this slide's photo with a relevant one"
             >
               <ImageIcon size={14} /> Replace image
             </button>
           )}
           <button
-            onClick={onDuplicate}
-            disabled={duplicating}
-            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10 disabled:opacity-60"
-            title="Duplicate this deck"
-          >
-            <Copy size={14} /> Duplicate
-          </button>
-          <button
             onClick={() => setPresenting(true)}
             data-tour="tour-present"
-            className="inline-flex items-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm text-emerald-200 hover:bg-emerald-400/20"
-            style={{ touchAction: "manipulation", minHeight: "44px" }}
+            className="inline-flex items-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-[13px] text-emerald-200 hover:bg-emerald-400/20"
+            style={{ touchAction: "manipulation", minHeight: "30px" }}
             title="Start full-screen presentation (Esc to exit)"
           >
             <Play size={14} /> Present
           </button>
           <button
             onClick={onRestart}
-            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
-            style={{ touchAction: "manipulation", minHeight: "44px" }}
+            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-[13px] hover:bg-white/10"
+            style={{ touchAction: "manipulation", minHeight: "30px" }}
           >
             <RotateCcw size={14} /> Start over
           </button>
-          <button
-  onClick={() => setHealthOpen(true)}
-  className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm hover:bg-white/10"
->
-  Deck Health
-</button>
           <span data-tour="tour-export">
             <ExportButton onExport={onExport} busy={downloading} handoutLocked={!planHasFeature(plan, "handout")} />
           </span>
@@ -1328,7 +1290,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
               onClick={goPrev}
               disabled={active === 0}
               className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm disabled:opacity-40"
-              style={{ touchAction: "manipulation", minHeight: "36px" }}
+              style={{ touchAction: "manipulation", minHeight: "44px" }}
             >
               <ChevronLeft size={14} /> Prev
             </button>
@@ -1337,20 +1299,10 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
               onClick={goNext}
               disabled={active === deck.slides.length - 1}
               className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm disabled:opacity-40"
-              style={{ touchAction: "manipulation", minHeight: "36px" }}
+              style={{ touchAction: "manipulation", minHeight: "44px" }}
             >
               Next <ChevronRight size={14} />
             </button>
-          </div>
-
-          <div className="mt-4" data-tour="tour-ask-ai">
-            <DeckChat
-              deck={deck}
-              theme={theme}
-              slideIndex={active}
-              onApplySlide={replaceActive}
-              onApplyDeck={setDeck}
-            />
           </div>
 
           {deck.slides[active]?.notes && (
@@ -1368,7 +1320,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
             deck={deck}
             onUpdate={updateActive}
             onReplace={replaceActive}
-            hideStyleVariants={sidebarOpen}
+            hideStyleVariants={false}
             selectedImageId={selectedImageId}
             onDeselectImage={() => setSelectedImageId(null)}
             relatedImages={relatedImages}
@@ -1384,16 +1336,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
         </div>
       </div>
       )}
-      {healthOpen && (
-  <DeckHealthAnalyzer
-    deck={deck}
-    onClose={() => setHealthOpen(false)}
-   onJumpToSlide={(slideIndex) => {
-  setActive(slideIndex);
-  setHealthOpen(false);
-}}
-  />
-)}
+
 
       {/* Share modal */}
       {shareOpen && shareUrl && (
@@ -1497,6 +1440,44 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
         onOpenPattern={() => setPatternOpen(true)}
         themeAvailable={!!setTheme}
       />
+
+      <BottomBar
+        placingText={placingText}
+        aiActive={aiPanelOpen}
+        onToggleAi={() => setAiPanelOpen((v) => !v)}
+        notesLabel={notesState === "loading" ? "Writing notes…" : notesState === "error" ? "Try again" : hasNotes ? "Show notes" : "Generate notes"}
+        notesLoading={notesState === "loading"}
+        translating={translating}
+        translateLocked={!planHasFeature(plan, "translate")}
+        qaLocked={!planHasFeature(plan, "qaPrep")}
+        onStartPlaceText={() => { setPlacingText(true); setSelectedTextId(null); setCanvasSelection(null); }}
+        onAddImage={() => fileInputRef.current?.click()}
+        onAddPhoto={openAddImages}
+        onAddVisuals={() => { setEditingChart(null); setVisualsOpen(true); }}
+        onGenerateNotes={() => { if (hasNotes) { setNotesViewOpen(true); return; } requireFeatureOrUpgrade("speakerNotes", "Speaker notes are a Pro feature. Upgrade to generate them.", () => setNotesMenuOpen(true)); }}
+        onQAPrep={() => requireFeatureOrUpgrade("qaPrep", "Q&A prep is a Pro feature. Upgrade to use it.", () => setQaOpen(true))}
+        onTranslate={() => requireFeatureOrUpgrade("translate", "Translation is a Pro feature. Upgrade to translate decks.", () => setTranslateOpen(true))}
+        onOpenTheme={() => setThemeTransferOpen(true)}
+        onOpenPattern={() => setPatternOpen(true)}
+      />
+
+      {aiPanelOpen && (
+        <div className="fixed inset-x-0 bottom-24 z-[95] flex justify-center px-3">
+          <div className="w-full max-w-2xl rounded-2xl border p-3 shadow-2xl backdrop-blur-md" style={{ borderColor: "var(--ezd-divider)", background: "var(--ezd-nav-bg)" }}>
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: "var(--ezd-fg-quiet)" }}>Ask AI</span>
+              <button onClick={() => setAiPanelOpen(false)} aria-label="Close" style={{ color: "var(--ezd-fg-quiet)" }}><X size={16} /></button>
+            </div>
+            <DeckChat
+              deck={deck}
+              theme={theme}
+              slideIndex={active}
+              onApplySlide={replaceActive}
+              onApplyDeck={setDeck}
+            />
+          </div>
+        </div>
+      )}
 
       <VisualsDrawer
         open={visualsOpen}
@@ -1655,7 +1636,7 @@ function ShareModal({
                 <button
                   onClick={() => onUnpublish()}
                   className="text-xs text-white/55 underline-offset-2 hover:text-white/85 hover:underline"
-                  style={{ touchAction: "manipulation", minHeight: "36px" }}
+                  style={{ touchAction: "manipulation", minHeight: "44px" }}
                 >
                   Stop sharing
                 </button>
@@ -1912,7 +1893,7 @@ function ReviewGate({
           <span className="inline-flex items-center gap-2 text-[13px] font-medium" style={{ color: "var(--ezd-fg-strong)" }}>
             <Star size={13} /> One quick review, then download
           </span>
-          <button onClick={onClose} disabled={busy} className="grid h-7 w-7 place-items-center rounded-full transition hover:bg-white/10" style={{ color: "var(--ezd-fg-muted)", touchAction: "manipulation", minHeight: "36px" }}>
+          <button onClick={onClose} disabled={busy} className="grid h-7 w-7 place-items-center rounded-full transition hover:bg-white/10" style={{ color: "var(--ezd-fg-muted)", touchAction: "manipulation", minHeight: "44px" }}>
             <X size={14} />
           </button>
         </div>
@@ -2033,7 +2014,7 @@ function PatternPicker({
           <span className="inline-flex items-center gap-2 text-[13px] font-medium" style={{ color: "var(--ezd-fg-strong)" }}>
             <Grid3x3 size={14} /> Background pattern
           </span>
-          <button onClick={onClose} className="grid h-7 w-7 place-items-center rounded-full transition hover:bg-white/10" style={{ color: "var(--ezd-fg-muted)", touchAction: "manipulation", minHeight: "36px" }}>
+          <button onClick={onClose} className="grid h-7 w-7 place-items-center rounded-full transition hover:bg-white/10" style={{ color: "var(--ezd-fg-muted)", touchAction: "manipulation", minHeight: "44px" }}>
             <X size={14} />
           </button>
         </div>
@@ -2136,14 +2117,14 @@ function PatternPicker({
             onClick={() => { onApply(undefined); }}
             disabled={!activeId}
             className="rounded-xl border px-4 py-2 text-[12.5px] transition disabled:cursor-not-allowed disabled:opacity-40"
-            style={{ borderColor: "var(--ezd-divider)", color: "var(--ezd-fg-muted)", touchAction: "manipulation", minHeight: "36px" }}
+            style={{ borderColor: "var(--ezd-divider)", color: "var(--ezd-fg-muted)", touchAction: "manipulation", minHeight: "44px" }}
           >
             Remove pattern
           </button>
           <button
             onClick={onClose}
             className="rounded-xl px-5 py-2 text-[12.5px] font-semibold transition hover:brightness-110"
-            style={{ background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)", touchAction: "manipulation", minHeight: "36px" }}
+            style={{ background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)", touchAction: "manipulation", minHeight: "44px" }}
           >
             Done
           </button>
@@ -2239,7 +2220,7 @@ function InsertSidebar({
           <span className="inline-flex items-center gap-2 text-[13px] font-semibold text-white">
             <PanelRightOpen size={14} /> {panelTitle}
           </span>
-          <button onClick={onToggle} className="grid h-7 w-7 place-items-center rounded-full text-white/55 transition hover:bg-white/10 hover:text-white" style={{ touchAction: "manipulation", minHeight: "36px" }}>
+          <button onClick={onToggle} className="grid h-7 w-7 place-items-center rounded-full text-white/55 transition hover:bg-white/10 hover:text-white" style={{ touchAction: "manipulation", minHeight: "44px" }}>
             <X size={14} />
           </button>
         </div>
@@ -2471,14 +2452,14 @@ function InsertSidebar({
                 <button
                   onClick={onClearSelection}
                   className="rounded-lg border border-white/12 bg-white/5 px-3 py-1.5 text-[12px] text-white/80 transition hover:bg-white/10"
-                  style={{ touchAction: "manipulation", minHeight: "36px" }}
+                  style={{ touchAction: "manipulation", minHeight: "44px" }}
                 >
                   Done
                 </button>
                 <button
                   onClick={onDeleteText}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-[12px] text-red-200 transition hover:bg-red-500/20"
-                  style={{ touchAction: "manipulation", minHeight: "36px" }}
+                  style={{ touchAction: "manipulation", minHeight: "44px" }}
                 >
                   <Trash2 size={12} /> Delete
                 </button>
@@ -2543,7 +2524,7 @@ function FontDropdown({
           <button
             onClick={() => { onChange(undefined); setOpen(false); }}
             className={`block w-full rounded-md px-2.5 py-1.5 text-left text-[13px] transition hover:bg-white/10 ${!value ? "text-white" : "text-white/70"}`}
-            style={{ touchAction: "manipulation", minHeight: "36px" }}
+            style={{ touchAction: "manipulation", minHeight: "44px" }}
           >
             Theme default
           </button>
@@ -2552,7 +2533,7 @@ function FontDropdown({
               key={f.id}
               onClick={() => { onChange(f.id); setOpen(false); }}
               className={`block w-full rounded-md px-2.5 py-1.5 text-left text-[15px] transition hover:bg-white/10 ${value === f.id ? "bg-white/10 text-white" : "text-white/80"}`}
-              style={{ fontFamily: resolveFontFamily(f.id), touchAction: "manipulation", minHeight: "36px" }}
+              style={{ fontFamily: resolveFontFamily(f.id), touchAction: "manipulation", minHeight: "44px" }}
             >
               {f.name}
             </button>
@@ -2623,7 +2604,7 @@ function DecoSettings({
         <button
           onClick={() => onUpdate({ dx: 0, dy: 0, scale: 1 })}
           className="rounded-lg border border-white/12 bg-white/5 px-3 py-1.5 text-[12px] text-white/80 transition hover:bg-white/10"
-          style={{ touchAction: "manipulation", minHeight: "36px" }}
+          style={{ touchAction: "manipulation", minHeight: "44px" }}
         >
           Reset
         </button>
@@ -2631,14 +2612,14 @@ function DecoSettings({
           <button
             onClick={onDone}
             className="rounded-lg border border-white/12 bg-white/5 px-3 py-1.5 text-[12px] text-white/80 transition hover:bg-white/10"
-            style={{ touchAction: "manipulation", minHeight: "36px" }}
+            style={{ touchAction: "manipulation", minHeight: "44px" }}
           >
             Done
           </button>
           <button
             onClick={onDelete}
             className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-[12px] text-red-200 transition hover:bg-red-500/20"
-            style={{ touchAction: "manipulation", minHeight: "36px" }}
+            style={{ touchAction: "manipulation", minHeight: "44px" }}
           >
             <Trash2 size={12} /> Delete
           </button>
@@ -2761,7 +2742,7 @@ function ElementSettings({
         <button
           onClick={onReset}
           className="rounded-lg border border-white/12 bg-white/5 px-3 py-1.5 text-[12px] text-white/80 transition hover:bg-white/10"
-          style={{ touchAction: "manipulation", minHeight: "36px" }}
+          style={{ touchAction: "manipulation", minHeight: "44px" }}
         >
           Reset position
         </button>
@@ -2769,14 +2750,14 @@ function ElementSettings({
           <button
             onClick={onDone}
             className="rounded-lg border border-white/12 bg-white/5 px-3 py-1.5 text-[12px] text-white/80 transition hover:bg-white/10"
-            style={{ touchAction: "manipulation", minHeight: "36px" }}
+            style={{ touchAction: "manipulation", minHeight: "44px" }}
           >
             Done
           </button>
           <button
             onClick={onDelete}
             className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-[12px] text-red-200 transition hover:bg-red-500/20"
-            style={{ touchAction: "manipulation", minHeight: "36px" }}
+            style={{ touchAction: "manipulation", minHeight: "44px" }}
           >
             <Trash2 size={12} /> Delete
           </button>
@@ -2966,7 +2947,7 @@ function CustomNotesDialog({
           onClick={addName}
           disabled={names.length >= 8}
           className="mt-2 inline-flex items-center gap-1.5 rounded-lg px-1 text-[13px] text-emerald-300 hover:text-emerald-200 disabled:opacity-40"
-          style={{ touchAction: "manipulation", minHeight: "36px" }}
+          style={{ touchAction: "manipulation", minHeight: "44px" }}
         >
           <Plus size={14} /> Add speaker
         </button>
@@ -3029,7 +3010,7 @@ function NotesViewModal({
             <button
               onClick={onRegenerate}
               className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-[13px] hover:bg-white/10"
-              style={{ touchAction: "manipulation", minHeight: "36px" }}
+              style={{ touchAction: "manipulation", minHeight: "44px" }}
             >
               Regenerate
             </button>
@@ -3343,7 +3324,7 @@ function QAPrepModal({ deck, onClose }: { deck: Deck; onClose: () => void }) {
                 onClick={generate}
                 disabled={loading}
                 className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-[13px] hover:bg-white/10 disabled:opacity-60"
-                style={{ touchAction: "manipulation", minHeight: "36px" }}
+                style={{ touchAction: "manipulation", minHeight: "44px" }}
               >
                 Regenerate questions
               </button>

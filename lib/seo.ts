@@ -49,6 +49,50 @@ export const KEYWORDS = [
   "text to presentation",
   "ppt creator",
   "free pptx maker",
+  // brand terms + common misspellings/variants (so brand searches always land here)
+  "exdeck",
+  "exdeck ai",
+  "exdeck ppt",
+  "exdeck ppt maker",
+  "exdeck ai ppt maker",
+  "exdeck presentation maker",
+  "xdeck",
+  "xdeck ai",
+  "xdeck ppt",
+  "xdeck ppt maker",
+  "ex deck",
+  "ex deck ai",
+  "exdec",
+  "exdeck spreadsheet",
+  "exdeck app",
+  // other AI tools on the platform (whole-site coverage)
+  "ai spreadsheet",
+  "ai excel generator",
+  "ai document generator",
+  "ai resume builder",
+  "ai resume maker",
+  "pdf to ppt",
+  "pdf to powerpoint",
+  "file converter online",
+  "gamma alternative",
+  "free gamma alternative",
+];
+
+/** Brand name variants — fed to JSON-LD `alternateName` so search engines
+ *  associate misspellings and shorthand (xdeck, exdeck ai, ex deck) with the
+ *  brand and surface this site for those queries. */
+export const BRAND_ALIASES = [
+  "EXdeck",
+  "EXdeck AI",
+  "EXdeck AI PPT Maker",
+  "EXdeck Presentation Maker",
+  "EXdeck Spreadsheet",
+  "Exdeck",
+  "Ex deck",
+  "Xdeck",
+  "Xdeck AI",
+  "Xdeck PPT",
+  "exdeck.xyz",
 ];
 
 export const DEFAULT_TITLE =
@@ -67,7 +111,7 @@ export const SHORT_DESCRIPTION =
 export const FAQ: { q: string; a: string }[] = [
   {
     q: "Is EXdeck free to use?",
-    a: "Yes, there's a free plan. You can generate, edit, preview, present, and export decks to PowerPoint (.pptx) and PDF on the free plan within a monthly deck limit (free exports carry a small watermark). The Pro plan removes the limits and unlocks every feature, with Team and Organisation plans available for shared seats.",
+    a: "Yes, there's a free plan. You get 40 AI credits every month to generate and edit decks, documents, spreadsheets, and resumes, and you can preview, present, and export to PowerPoint (.pptx) and PDF (free exports carry a small watermark). Pro gives you 1,500 credits per day and unlocks every feature, with Team and Organisation plans for shared seats.",
   },
   {
     q: "How do I make a PowerPoint presentation from text?",
@@ -97,7 +141,7 @@ export function softwareJsonLd() {
     "@context": "https://schema.org",
     "@type": "WebApplication",
     name: "EXdeck",
-    alternateName: ["EXdeck AI PPT Maker", "EXdeck Presentation Maker"],
+    alternateName: BRAND_ALIASES,
     url: SITE_URL,
     applicationCategory: "BusinessApplication",
     operatingSystem: "Web",
@@ -113,6 +157,9 @@ export function softwareJsonLd() {
       "Editable slides with drag-and-drop",
       "Real PPTX and PDF export",
       "AI-generated charts and diagrams",
+      "AI spreadsheets with live formulas (Excel export)",
+      "AI documents and resume builder",
+      "Free file converters (PDF, images, and more)",
       "200,000+ icons",
       "32 themes and 18 fonts",
     ],
@@ -125,6 +172,7 @@ export function organizationJsonLd() {
     "@context": "https://schema.org",
     "@type": "Organization",
     name: BRAND,
+    alternateName: BRAND_ALIASES,
     url: SITE_URL,
     logo: `${SITE_URL}/icon`,
     sameAs: ["https://github.com/izhan0102/Deckflow"],
@@ -136,7 +184,16 @@ export function websiteJsonLd() {
     "@context": "https://schema.org",
     "@type": "WebSite",
     name: BRAND,
+    alternateName: BRAND_ALIASES,
     url: SITE_URL,
+    potentialAction: {
+      "@type": "SearchAction",
+      target: {
+        "@type": "EntryPoint",
+        urlTemplate: `${SITE_URL}/blog?q={search_term_string}`,
+      },
+      "query-input": "required name=search_term_string",
+    },
   };
 }
 

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withGroqClient } from "@/lib/groqClient";
 import { authenticateRequest, AuthError } from "@/lib/firebaseAdmin";
+import { requireCredits, deductCredits } from "@/lib/credits";
+import { PlanLimitError } from "@/lib/planServer";
 import { rateLimitResponse } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
@@ -158,7 +160,8 @@ export async function POST(req: NextRequest) {
   if (limited) return limited;
 
   try {
-    await authenticateRequest(req);
+    const uid = await authenticateRequest(req);
+    await requireCredits(uid);
     const { prompt, audience, tone, slideCount, sourceText } = (await req.json()) as {
       prompt: string;
       audience?: string;
@@ -213,8 +216,12 @@ Generate the clarifying questions. Return ONLY the JSON.`,
     }
     if (questions.length < 2) questions = fallbackQuestions();
 
+    deductCredits(uid, "clarify").catch(() => {});
     return NextResponse.json({ questions });
   } catch (err: any) {
+    if (err instanceof PlanLimitError) {
+      return NextResponse.json({ error: err.message, code: err.code }, { status: err.status });
+    }
     if (err instanceof AuthError) {
       return NextResponse.json({ error: err.message }, { status: err.status });
     }

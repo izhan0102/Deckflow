@@ -6,6 +6,7 @@ import {
   ArrowRight, BarChart3, Check, Download, Contact, MonitorPlay,
   GitCommit, Github, Languages, LayoutTemplate, LogOut, MessageSquare,
   Play, Presentation, Shapes, Sparkles, Star, Wand2, FileText, X,
+  Table, ArrowLeftRight,
 } from "lucide-react";
 import Logo from "@/components/Logo";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -187,7 +188,7 @@ export default function LandingPage() {
                 style={{ color: "var(--ezd-fg-muted)" }}
               >
                 Type a brief, pick a template, and get a fully designed deck with real charts and speaker notes. 
-                Also does documents, resumes, and PDF presenting.
+                Also makes AI documents, spreadsheets, and resumes — plus free file converters.
               </p>
             </Reveal>
 
@@ -296,7 +297,7 @@ export default function LandingPage() {
 
       {/* ================== Explore by Feature ================== */}
       <section className="relative z-10 mx-auto max-w-5xl px-5 pt-16 sm:px-6">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           <Link href="/presentations" className="group flex flex-col items-center gap-3 rounded-2xl border p-6 transition hover:border-white/25" style={{ borderColor: "var(--ezd-hairline)", background: "var(--ezd-bg-card)" }}>
             <div className="grid h-12 w-12 place-items-center rounded-xl border transition group-hover:scale-105" style={{ borderColor: "var(--ezd-hairline)", background: "var(--ezd-bg-hover)", color: "var(--ezd-fg-strong)" }}>
               <Presentation size={20} />
@@ -331,6 +332,24 @@ export default function LandingPage() {
             <div className="text-center">
               <div className="text-[13px] font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>PDF Presenter</div>
               <div className="mt-0.5 text-[11px]" style={{ color: "var(--ezd-fg-quiet)" }}>Present PDFs</div>
+            </div>
+          </Link>
+          <Link href="/spreadsheet" className="group flex flex-col items-center gap-3 rounded-2xl border p-6 transition hover:border-white/25" style={{ borderColor: "var(--ezd-hairline)", background: "var(--ezd-bg-card)" }}>
+            <div className="grid h-12 w-12 place-items-center rounded-xl border transition group-hover:scale-105" style={{ borderColor: "var(--ezd-hairline)", background: "var(--ezd-bg-hover)", color: "var(--ezd-fg-strong)" }}>
+              <Table size={20} />
+            </div>
+            <div className="text-center">
+              <div className="text-[13px] font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>Spreadsheet</div>
+              <div className="mt-0.5 text-[11px]" style={{ color: "var(--ezd-fg-quiet)" }}>AI Excel maker</div>
+            </div>
+          </Link>
+          <Link href="/converter" className="group flex flex-col items-center gap-3 rounded-2xl border p-6 transition hover:border-white/25" style={{ borderColor: "var(--ezd-hairline)", background: "var(--ezd-bg-card)" }}>
+            <div className="grid h-12 w-12 place-items-center rounded-xl border transition group-hover:scale-105" style={{ borderColor: "var(--ezd-hairline)", background: "var(--ezd-bg-hover)", color: "var(--ezd-fg-strong)" }}>
+              <ArrowLeftRight size={20} />
+            </div>
+            <div className="text-center">
+              <div className="text-[13px] font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>Converters</div>
+              <div className="mt-0.5 text-[11px]" style={{ color: "var(--ezd-fg-quiet)" }}>Free file tools</div>
             </div>
           </Link>
         </div>
@@ -1414,6 +1433,7 @@ function Footer() {
               { label: "How it works", href: "#how" },
               { label: "Examples", href: "#examples" },
               { label: "Pricing", href: "#pricing" },
+              { label: "How-to guides", href: "/how-to" },
               { label: "AI document maker", href: "/docs" },
               { label: "Open the editor", href: "/app" },
             ]}

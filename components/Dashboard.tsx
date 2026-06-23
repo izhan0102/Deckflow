@@ -16,10 +16,10 @@ import Logo from "./Logo";
 import ThemeToggle from "./ThemeToggle";
 import TrialDialog from "./TrialDialog";
 import ReportDialog from "./ReportDialog";
-import { watchMonthlyGenerations, formatMonthlyResetIn, watchDailyGenerations, formatDailyResetIn } from "@/lib/usage";
+import { watchCredits, formatResetIn, type CreditView } from "@/lib/creditsClient";
 import { watchUserPlan, getUserPlan } from "@/lib/plan";
 import { watchMembership, type MemberPlan } from "@/lib/seats";
-import { type PlanId, planDeckLimit, getPlan, FREE_FOR_ALL, DAILY_GEN_CAP } from "@/lib/plans";
+import { type PlanId, getPlan, FREE_FOR_ALL } from "@/lib/plans";
 
 /**
  * Dashboard shown on /app (desktop).
@@ -75,8 +75,7 @@ export default function Dashboard({
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [renameTarget, setRenameTarget] = useState<{ id: string; title: string } | null>(null);
   const [query, setQuery] = useState("");
-  const [monthGenerations, setMonthGenerations] = useState(0);
-  const [dailyUsed, setDailyUsed] = useState(0);
+  const [credits, setCredits] = useState<CreditView | null>(null);
   const [plan, setPlan] = useState<PlanId>("free");
   const [membership, setMembership] = useState<MemberPlan | null>(null);
 
@@ -125,20 +124,13 @@ export default function Dashboard({
   }, [user.uid]);
 
   useEffect(() => {
-    const unsub = watchMonthlyGenerations(user.uid, setMonthGenerations);
+    const unsub = watchCredits(user.uid, setCredits);
     return () => unsub();
   }, [user.uid]);
 
-  useEffect(() => {
-    if (plan !== "pro") { setDailyUsed(0); return; }
-    const unsub = watchDailyGenerations(user.uid, setDailyUsed);
-    return () => unsub();
-  }, [user.uid, plan]);
-
   /* ----------------------------- derived ----------------------------- */
 
-  const deckLimit = planDeckLimit(plan);
-  const limitReached = monthGenerations >= deckLimit;
+  const limitReached = !!credits?.exhausted;
 
   const openUpgrade = (reason?: string) => {
     setUpgradeReason(reason);
@@ -228,7 +220,7 @@ export default function Dashboard({
 
         {/* Combined plan + usage (#2) */}
         <div className="mt-6">
-          <PlanUsageCard used={monthGenerations} plan={plan} onUpgrade={() => openUpgrade()} membership={membership} dailyUsed={dailyUsed} />
+          <PlanUsageCard credits={credits} plan={plan} onUpgrade={() => openUpgrade()} membership={membership} />
         </div>
         </div>
 
@@ -332,7 +324,7 @@ export default function Dashboard({
               icon={<Wand2 size={22} />}
               title="Make a presentation"
               desc="Turn a one-line brief into a fully designed, editable slide deck — real charts, themed layouts, speaker notes, and one-click export to PPTX & PDF."
-              cta={limitReached ? "Monthly limit reached" : "New presentation"}
+              cta={limitReached ? "Out of credits" : "New presentation"}
               onClick={onNewDeck}
               disabled={limitReached}
             />
@@ -530,22 +522,23 @@ function CreateCard({ icon, title, desc, cta, onClick, disabled, badge, golden, 
 
 /* ----------------------- Combined plan + usage card ----------------------- */
 
-function PlanUsageCard({ used, plan, onUpgrade, membership, dailyUsed = 0 }: { used: number; plan: PlanId; onUpgrade: () => void; membership?: MemberPlan | null; dailyUsed?: number }) {
-  const limit = planDeckLimit(plan);
-  const unlimited = limit === Infinity;
-  const remaining = unlimited ? Infinity : Math.max(0, limit - used);
-  const exhausted = !unlimited && remaining === 0;
-  const pct = unlimited ? 0 : Math.min(100, (used / limit) * 100);
+function PlanUsageCard({ credits, plan, onUpgrade, membership }: { credits: CreditView | null; plan: PlanId; onUpgrade: () => void; membership?: MemberPlan | null }) {
+  const allowance = credits?.allowance ?? (plan === "pro" ? 1500 : 40);
+  const balance = credits?.balance ?? allowance;
+  const used = Math.max(0, allowance - balance);
+  const limit = allowance;
+  const unlimited = false;
+  const remaining = balance;
+  const exhausted = balance <= 0;
+  const pct = Math.min(100, (used / Math.max(1, allowance)) * 100);
+  const periodWord = plan === "pro" ? "today" : "this month";
 
-  const [resetIn, setResetIn] = useState(formatMonthlyResetIn());
-  const [dailyResetIn, setDailyResetIn] = useState(formatDailyResetIn());
+  const resetAt = credits?.resetAt ?? Date.now();
+  const [resetIn, setResetIn] = useState(formatResetIn(resetAt));
   useEffect(() => {
-    const id = window.setInterval(() => { setResetIn(formatMonthlyResetIn()); setDailyResetIn(formatDailyResetIn()); }, 60_000);
+    const id = window.setInterval(() => setResetIn(formatResetIn(resetAt)), 30_000);
     return () => window.clearInterval(id);
-  }, []);
-
-  const dailyLeft = Math.max(0, DAILY_GEN_CAP - dailyUsed);
-  const dailyPct = Math.min(100, (dailyUsed / DAILY_GEN_CAP) * 100);
+  }, [resetAt]);
 
   const planName = getPlan(plan).name;
   const ctaLabel = plan === "free" ? "Upgrade" : "Manage plan";
@@ -561,7 +554,7 @@ function PlanUsageCard({ used, plan, onUpgrade, membership, dailyUsed = 0 }: { u
           {planName} plan
         </span>
         <span className="text-[12.5px] font-semibold tabular-nums" style={{ color: exhausted ? RED : "var(--ezd-fg-strong)" }}>
-          {unlimited ? `${used} / ∞` : `${used} / ${limit}`}
+          {remaining} / {limit}
         </span>
       </div>
 
@@ -572,11 +565,9 @@ function PlanUsageCard({ used, plan, onUpgrade, membership, dailyUsed = 0 }: { u
       )}
 
       <div className="mt-2 text-[11px] leading-snug" style={{ color: "var(--ezd-fg-muted)" }}>
-        {unlimited
-          ? "Unlimited decks — everything unlocked."
-          : exhausted
-            ? "All decks used this month."
-            : `${remaining} deck${remaining === 1 ? "" : "s"} left this month.`}
+        {exhausted
+          ? "You're out of AI credits."
+          : `${remaining} credit${remaining === 1 ? "" : "s"} left ${periodWord}.`}
       </div>
 
       {!unlimited ? (
@@ -600,15 +591,12 @@ function PlanUsageCard({ used, plan, onUpgrade, membership, dailyUsed = 0 }: { u
       <div className="mt-3 border-t pt-3" style={{ borderColor: "var(--ezd-divider)" }}>
         <div className="flex items-center justify-between">
           <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.2em]" style={{ color: "var(--ezd-fg-quiet)" }}>
-            <Zap size={11} style={{ color: dailyLeft === 0 ? RED : "var(--ezd-fg-muted)" }} /> AI generations today
+            <Zap size={11} style={{ color: exhausted ? RED : "var(--ezd-fg-muted)" }} /> Daily credits
           </span>
-          <span className="text-[12.5px] font-semibold tabular-nums" style={{ color: dailyLeft === 0 ? RED : "var(--ezd-fg-strong)" }}>{dailyUsed}/{DAILY_GEN_CAP}</span>
-        </div>
-        <div className="mt-2 h-[4px] w-full overflow-hidden rounded-full" style={{ background: "var(--ezd-bg-hover)" }}>
-          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${dailyPct}%`, background: dailyLeft === 0 ? RED : "var(--ezd-fg-strong)" }} />
+          <span className="text-[12.5px] font-semibold tabular-nums" style={{ color: exhausted ? RED : "var(--ezd-fg-strong)" }}>{remaining}/{limit}</span>
         </div>
         <div className="mt-1 text-[10px]" style={{ color: "var(--ezd-fg-quiet)" }}>
-          {dailyLeft === 0 ? `Daily limit reached · resets in ${dailyResetIn}` : `${dailyLeft} of ${DAILY_GEN_CAP} left today · resets in ${dailyResetIn}`}
+          Pro gives you {limit} credits a day · resets in {resetIn}
         </div>
       </div>
       )}

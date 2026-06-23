@@ -3,6 +3,7 @@ import type { Deck, ContentDensity } from "@/lib/types";
 import { redensifyDeck } from "@/lib/groq";
 import { authenticateRequest, AuthError } from "@/lib/firebaseAdmin";
 import { requireFeature, PlanLimitError } from "@/lib/planServer";
+import { requireCredits, deductCredits } from "@/lib/credits";
 import { rateLimitResponse } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
@@ -23,6 +24,7 @@ export async function POST(req: NextRequest) {
   try {
     const uid = await authenticateRequest(req);
     await requireFeature(uid, "density");
+    await requireCredits(uid);
 
     const { deck, density } = (await req.json()) as { deck: Deck; density: ContentDensity };
     if (!deck || !Array.isArray(deck.slides) || deck.slides.length === 0) {
@@ -33,6 +35,7 @@ export async function POST(req: NextRequest) {
     }
 
     const updated = await redensifyDeck({ deck, density });
+    deductCredits(uid, "redensify").catch(() => {});
     return NextResponse.json({ deck: updated });
   } catch (err: any) {
     if (err instanceof PlanLimitError) {
