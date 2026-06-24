@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle, ArrowRight, Clock, Copy, FileText, Home, Info, LayoutGrid,
-  LogOut, MoreVertical, Pencil, Plus, Search, Share2, Sparkles, Trash2, Wand2, X, Zap, Lock, Contact, Settings, MonitorPlay, Loader2, ArrowLeftRight, Table,
+  LogOut, MoreVertical, Pencil, Plus, Search, Share2, Sparkles, Trash2, Wand2, X, Zap, Lock, Contact, Settings, MonitorPlay, Loader2, ArrowLeftRight, Table, Brain,
 } from "lucide-react";
 import { type AppUser, getIdToken } from "@/lib/auth";
 import {
@@ -363,6 +363,15 @@ export default function Dashboard({
               cta="Open converters"
               onClick={() => window.location.assign("/converter")}
             />
+            <div className="lg:col-start-2 sm:col-span-2 lg:col-span-1">
+              <CreateCard
+                icon={<Brain size={22} />}
+                title="Analyse documents"
+                desc="Upload any files — Word, Excel, PPT, PDF, code, images — pick how deep to go, and get a clear analysis per document plus a cross-document synthesis. Ask follow-up questions too."
+                cta="Open analyser"
+                onClick={() => window.location.assign("/analyse")}
+              />
+            </div>
           </div>
         </div>
 

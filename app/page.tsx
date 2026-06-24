@@ -6,7 +6,7 @@ import {
   ArrowRight, BarChart3, Check, Download, Contact, MonitorPlay,
   GitCommit, Github, Languages, LayoutTemplate, LogOut, MessageSquare,
   Play, Presentation, Shapes, Sparkles, Star, Wand2, FileText, X,
-  Table, ArrowLeftRight,
+  Table, ArrowLeftRight, Brain,
 } from "lucide-react";
 import Logo from "@/components/Logo";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -297,7 +297,7 @@ export default function LandingPage() {
 
       {/* ================== Explore by Feature ================== */}
       <section className="relative z-10 mx-auto max-w-5xl px-5 pt-16 sm:px-6">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-7">
           <Link href="/presentations" className="group flex flex-col items-center gap-3 rounded-2xl border p-6 transition hover:border-white/25" style={{ borderColor: "var(--ezd-hairline)", background: "var(--ezd-bg-card)" }}>
             <div className="grid h-12 w-12 place-items-center rounded-xl border transition group-hover:scale-105" style={{ borderColor: "var(--ezd-hairline)", background: "var(--ezd-bg-hover)", color: "var(--ezd-fg-strong)" }}>
               <Presentation size={20} />
@@ -341,6 +341,15 @@ export default function LandingPage() {
             <div className="text-center">
               <div className="text-[13px] font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>Spreadsheet</div>
               <div className="mt-0.5 text-[11px]" style={{ color: "var(--ezd-fg-quiet)" }}>AI Excel maker</div>
+            </div>
+          </Link>
+          <Link href="/analyse" className="group flex flex-col items-center gap-3 rounded-2xl border p-6 transition hover:border-white/25" style={{ borderColor: "var(--ezd-hairline)", background: "var(--ezd-bg-card)" }}>
+            <div className="grid h-12 w-12 place-items-center rounded-xl border transition group-hover:scale-105" style={{ borderColor: "var(--ezd-hairline)", background: "var(--ezd-bg-hover)", color: "var(--ezd-fg-strong)" }}>
+              <Brain size={20} />
+            </div>
+            <div className="text-center">
+              <div className="text-[13px] font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>Analyser</div>
+              <div className="mt-0.5 text-[11px]" style={{ color: "var(--ezd-fg-quiet)" }}>Analyse any file</div>
             </div>
           </Link>
           <Link href="/converter" className="group flex flex-col items-center gap-3 rounded-2xl border p-6 transition hover:border-white/25" style={{ borderColor: "var(--ezd-hairline)", background: "var(--ezd-bg-card)" }}>
@@ -1465,6 +1474,7 @@ function Footer() {
             items={[
               { label: "All converters", href: "/converter" },
               { label: "AI spreadsheet", href: "/spreadsheet" },
+              { label: "Document analyser", href: "/analyse" },
               { label: "PDF to PPT presenter", href: "/pdf-to-ppt" },
               { label: "Image to PDF", href: "/converter/image-to-pdf" },
               { label: "PDF to JPG", href: "/converter/pdf-to-jpg" },

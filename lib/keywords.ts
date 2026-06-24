@@ -14,6 +14,7 @@ const TOOLS = [
   "pitch deck maker", "deck maker", "text to PPT", "PPTX generator", "AI spreadsheet", "Excel generator",
   "AI document generator", "report maker", "essay writer", "AI resume builder", "CV maker",
   "PDF to PPT converter", "PDF to PowerPoint", "file converter", "chart maker",
+  "AI document analyser", "document analyzer", "PDF analyzer", "AI file analyzer",
 ];
 
 const MODS = ["free", "online", "AI", "fast", "instant", "no sign up", "best", "2026", "easy", "for free"];
@@ -64,6 +65,7 @@ export function buildKeywords(): string[] {
 /** Best internal link target for a keyword (deep links beat homepage). */
 export function targetFor(kw: string): string {
   const k = kw.toLowerCase();
+  if (/analy[sz]e|analy[sz]er/.test(k)) return "/analyse";
   if (/spreadsheet|excel/.test(k)) return "/spreadsheet";
   if (/resume|cv/.test(k)) return "/resumes";
   if (/document|essay|report\b|research paper/.test(k)) return "/documents";

@@ -55,6 +55,7 @@ function build(): string {
   // Evergreen / legal.
   entries.push(urlEntry("/pdf-to-ppt", 0.9, "monthly", now));
   entries.push(urlEntry("/spreadsheet", 0.9, "weekly", now));
+  entries.push(urlEntry("/analyse", 1.0, "weekly", now));
   entries.push(urlEntry("/converter", 0.9, "weekly", now));
   for (const c of CONVERTERS) {
     entries.push(urlEntry(`/converter/${c.slug}`, 0.8, "monthly", now));

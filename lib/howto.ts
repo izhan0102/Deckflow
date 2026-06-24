@@ -202,6 +202,34 @@ export const HOWTO_GUIDES: HowToGuide[] = [
     ctaLabel: "Open the converters",
     related: ["convert-pdf-to-ppt", "make-a-spreadsheet-with-ai", "make-a-presentation-with-ai"],
   },
+  {
+    slug: "analyse-documents-with-ai",
+    kicker: "Document Analyser",
+    title: "How to Analyse Documents with AI (Word, Excel, PDF, Code) — EXdeck",
+    description:
+      "Step-by-step: upload Word, Excel, PowerPoint, PDF, code or images, choose how deep to analyse, and get a clear breakdown per file plus a cross-document synthesis — free, private, with follow-up questions.",
+    h1: "How to analyse documents with AI",
+    lede:
+      "Drop in one file or many — reports, spreadsheets, slides, PDFs, code — pick your depth, and EXdeck returns a sharp analysis of each, connects them, and answers your follow-up questions. Here's how.",
+    keywords: [
+      "how to analyse documents with ai", "ai document analyzer", "analyse pdf with ai",
+      "ai excel analyzer", "compare documents with ai", "summarize documents ai", "ai code analyzer",
+    ],
+    steps: [
+      { name: "Upload your files", text: "Drop one or more documents — Word, Excel, PowerPoint, PDF, txt, CSV, JSON, source code, or images. They're read privately on your device, never uploaded as files." },
+      { name: "Choose depth & focus", text: "Pick the analysis strength — Overview, Moderate, or Deep — and a focus like key insights, risks, action items, data, or code review." },
+      { name: "Read the analysis", text: "Get a clear breakdown per document, plus a cross-document synthesis that finds overlaps, connections, and contradictions when you upload several." },
+      { name: "Ask follow-ups", text: "Use the built-in chat to ask questions about your documents — it remembers the conversation, so you can dig deeper." },
+    ],
+    faq: [
+      { q: "What files can it analyse?", a: "Word, Excel, PowerPoint, PDF, plain text, Markdown, CSV, JSON, source code in any language, and images via OCR." },
+      { q: "Can it analyse several at once?", a: "Yes — up to 8 files. You get a per-document analysis plus a cross-document synthesis that connects them and flags contradictions." },
+      { q: "Can I ask questions afterwards?", a: "Yes. A chat with conversation memory lets you ask follow-up questions grounded in your uploaded documents." },
+    ],
+    ctaHref: "/analyse",
+    ctaLabel: "Open the analyser",
+    related: ["write-a-document-with-ai", "make-a-spreadsheet-with-ai", "make-a-presentation-with-ai"],
+  },
 ];
 
 export function getHowToGuide(slug: string): HowToGuide | undefined {

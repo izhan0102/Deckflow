@@ -136,7 +136,7 @@ export function creditAllowance(id: PlanId): number {
 export type CreditAction =
   | "generateDeck" | "generateDoc" | "editSlide" | "editDeck" | "redensify"
   | "speakerNotes" | "qaPrep" | "translate" | "sheetAi" | "sheetAnalyse"
-  | "refineResume" | "clarify" | "visualize" | "iconSearch";
+  | "refineResume" | "clarify" | "visualize" | "iconSearch" | "analyse";
 
 export const CREDIT_COSTS: Record<CreditAction, number> = {
   generateDeck: 8,
@@ -153,6 +153,7 @@ export const CREDIT_COSTS: Record<CreditAction, number> = {
   clarify: 1,
   visualize: 3,
   iconSearch: 1,
+  analyse: 6,
 };
 
 export function creditCost(action: CreditAction): number {
