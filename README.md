@@ -2,11 +2,13 @@
 
 AI presentation builder. Type a short brief, pick a template, and get a fully editable deck in seconds — real charts, themed layouts, speaker notes, and one-click export to PowerPoint and PDF.
 
-Drag and edit everything inline, ask the AI chat to rewrite a slide, switch the whole deck's template or content density on the fly, present full-screen, and share a live link. A 200,000-icon library, AI speaker notes, Q&A prep, and one-click translation are all built in.
+🚀 **Try it now:** [exdeck.com](https://exdeck.com)
+
+Drag and edit everything inline, ask the AI chat to rewrite a slide, switch the whole deck's template or content density on the fly, present full-screen, and share a live link. A 200,000-icon library, premium Canva/Gamma-grade designs, and real data charts built from your numbers.
 
 ## How it works
 
-Describe the deck, choose a template, answer a couple of quick questions, and EXdeck writes and designs the whole thing. The template sets the look; the AI fills in the content. Everything after that happens live in the editor.
+Describe the deck, choose a template, answer a couple of quick questions, and EXdeck writes and designs the whole thing. The template sets the look; the AI fills in the content. Everything after that is live editing — drag, recolor, ask the AI for a rewrite, switch themes, and export to PowerPoint or PDF in seconds.
 
 ```mermaid
 flowchart LR
@@ -25,7 +27,7 @@ flowchart LR
     class D action
 ```
 
-Under the hood the browser stays thin. Long-running and key-sensitive work happens on Next.js API routes; everything else — drag, edit, recolor, template re-skin, PDF render — runs entirely client-side.
+Under the hood the browser stays thin. Long-running and key-sensitive work happens on Next.js API routes; everything else — drag, edit, recolor, template re-skin, PDF render — runs entirely client-side for speed and privacy.
 
 ```mermaid
 flowchart TB
@@ -103,7 +105,7 @@ Three patterns hold the system together:
 
 1. **Single deck object** — the entire presentation lives in one typed `Deck` shape (`lib/types.ts`). Every page and every API route reads and writes it. No hidden state.
 2. **Pure-function rendering** — `SlideCanvas` is the same component used in the editor, the thumbnail rail, present mode, and the off-screen PDF capture. One source of visual truth.
-3. **Server is a thin proxy** — the API routes only do what the browser cannot: hold the Groq key, enforce plan limits, hit Iconify, and run pptxgenjs for the binary `.pptx`. Everything else is client-side.
+3. **Server is a thin proxy** — the API routes only do what the browser cannot: hold the Groq key, enforce plan limits, hit Iconify, and run pptxgenjs for the binary `.pptx`. Everything else is frontend.
 
 ## Showcase
 
@@ -119,13 +121,13 @@ Three patterns hold the system together:
   <img src="previews/11.png" alt="The template gallery" width="100%" />
 </p>
 
-**Edit everything live.** The full editor: inline text editing, drag-and-drop, AI chat, real data charts, speaker notes, present mode, and one-click export — plus premium switchers to change the deck's density or template instantly.
+**Edit everything live.** The full editor: inline text editing, drag-and-drop, AI chat, real data charts, speaker notes, present mode, and one-click export — plus premium switchers to change the density or template on the fly.
 
 <p align="center">
   <img src="previews/13.png" alt="The deck editor" width="100%" />
 </p>
 
-The AI decides on its own whether a chart belongs and which type fits the data — a time trend becomes a line chart, a budget split becomes a pie, category comparisons become bars. If a topic has no real numbers, it stays with text rather than inventing data.
+The AI decides on its own whether a chart belongs and which type fits the data — a time trend becomes a line chart, a budget split becomes a pie, category comparisons become bars. If a topic has no numbers, no chart appears.
 
 ## Features
 
