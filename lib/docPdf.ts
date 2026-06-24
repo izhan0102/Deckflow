@@ -22,3 +22,34 @@ export async function renderPagesToPdf(nodes: HTMLElement[], filename = "documen
   await yield_();
   pdf.save(filename);
 }
+
+/**
+ * Minimal export for a single tall DocCanvas node — slices the capture across
+ * A4 pages. Used by the shared-doc viewer (the editor uses the block-aware
+ * renderPagesToPdf above).
+ */
+export async function exportDocNodeToPdf(node: HTMLElement, filename = "document.pdf") {
+  const [{ jsPDF }, h2c] = await Promise.all([import("jspdf"), import("html2canvas")]);
+  const html2canvas = (h2c as any).default;
+  try { await (document as any).fonts?.ready; } catch { /* ignore */ }
+  await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+
+  const canvas = await html2canvas(node, { scale: 2, backgroundColor: "#ffffff", useCORS: true, logging: false, windowWidth: A4.wPx });
+  const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+  const pageW = pdf.internal.pageSize.getWidth();
+  const pageH = pdf.internal.pageSize.getHeight();
+  const imgH = (canvas.height * pageW) / canvas.width;
+  const img = canvas.toDataURL("image/jpeg", 0.94);
+
+  let heightLeft = imgH;
+  let position = 0;
+  pdf.addImage(img, "JPEG", 0, position, pageW, imgH, undefined, "FAST");
+  heightLeft -= pageH;
+  while (heightLeft > 0) {
+    position -= pageH;
+    pdf.addPage();
+    pdf.addImage(img, "JPEG", 0, position, pageW, imgH, undefined, "FAST");
+    heightLeft -= pageH;
+  }
+  pdf.save(filename);
+}

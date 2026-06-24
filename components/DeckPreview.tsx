@@ -6,7 +6,7 @@ import { PRESET_THEMES, getTheme } from "@/lib/themes";
 import {
   BarChart3, ChevronDown, ChevronLeft, ChevronRight, Eye, Grid3x3, Image as ImageIcon, LayoutGrid, Link as LinkIcon, List, Loader2, NotebookText, Play, RotateCcw, Smile, Star, Undo2, X,
   Type, Bold, Italic, Underline as UnderlineIcon, Trash2, AlignLeft, AlignCenter, AlignRight, PanelRightOpen,
-  Users, Plus, Minus, Languages, MessageCircleQuestion, Send, Lock, Check, SlidersHorizontal, LayoutTemplate, Copy,
+  Users, Plus, Minus, Languages, MessageCircleQuestion, Send, Lock, Check, SlidersHorizontal, LayoutTemplate, Copy, AudioLines,
 } from "lucide-react";
 import SlideCanvas, { type CanvasSelection } from "./SlideCanvas";
 import DesignerPanel from "./DesignerPanel";
@@ -35,6 +35,7 @@ import { type PlanId, planHasFeature, planShowsWatermark } from "@/lib/plans";
 import TrialDialog from "./TrialDialog";
 import BottomBar from "./BottomBar";
 import GenerateOverlay from "./GenerateOverlay";
+import AutoPresent from "./AutoPresent";
 import TemplateGallery from "./TemplateGallery";
 import { type DeckTemplate } from "@/lib/templates";
 import { applyCustomTemplateToDeck } from "@/lib/applyCustomTemplate";
@@ -80,6 +81,8 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
   const [viewMode, setViewMode] = useState<"slides" | "outline">("slides");
   const [downloading, setDownloading] = useState(false);
   const [presenting, setPresenting] = useState(false);
+  const [autoOpen, setAutoOpen] = useState(false);
+  const [autoPreparing, setAutoPreparing] = useState(false);
   const [notesState, setNotesState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [notesMenuOpen, setNotesMenuOpen] = useState(false);
   const [customNotesOpen, setCustomNotesOpen] = useState(false);
@@ -691,6 +694,50 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
     }
   };
 
+  // Autopilot Present (Pro): narrate the deck hands-free. Uses existing
+  // speaker notes if present, otherwise generates them first, then opens the
+  // narrated player.
+  const ensureNotesForAuto = async (): Promise<boolean> => {
+    if (deck.speakerNotesGenerated) return true;
+    setAutoPreparing(true);
+    try {
+      const token = await getIdToken();
+      const res = await fetch("/api/speaker-notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ deck, audience: deck.audience, tone: deck.tone }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const data = (await res.json()) as { notes?: { index: number; script: string; segments?: { speaker: string; text: string }[] }[] };
+      const byIndex = new Map<number, { script: string; segments?: { speaker: string; text: string }[] }>();
+      for (const n of data.notes || []) {
+        if (typeof n?.index === "number" && typeof n?.script === "string") byIndex.set(n.index, { script: n.script, segments: n.segments });
+      }
+      setDeck({
+        ...deck,
+        speakerNotesGenerated: true,
+        slides: deck.slides.map((s, i) => {
+          const got = byIndex.get(i);
+          return got?.script ? { ...s, notes: got.script, noteSegments: got.segments } : s;
+        }),
+      });
+      return true;
+    } catch (e) {
+      console.error("[autopilot] notes failed:", e);
+      return false;
+    } finally {
+      setAutoPreparing(false);
+    }
+  };
+
+  const startAutopilot = () => {
+    requireFeatureOrUpgrade(
+      "speakerNotes",
+      "Autopilot Present is a Pro feature. Upgrade to let your deck present itself, narrated.",
+      async () => { const ok = await ensureNotesForAuto(); if (ok) setAutoOpen(true); },
+    );
+  };
+
   // Translate the whole deck in place into a target language. Only text
   // changes; layout/theme/charts stay put. Returns true on success.
   const translateDeckTo = async (language: string): Promise<boolean> => {
@@ -968,6 +1015,9 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
       {presenting && (
         <Presenter deck={deck} theme={theme} startIndex={active} onClose={() => setPresenting(false)} />
       )}
+      {autoOpen && (
+        <AutoPresent deck={deck} theme={theme} startIndex={active} onClose={() => setAutoOpen(false)} />
+      )}
       {notesMenuOpen && (
         <NotesModeDialog
           onClose={() => setNotesMenuOpen(false)}
@@ -1191,6 +1241,16 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
               <ImageIcon size={14} /> Replace image
             </button>
           )}
+          <button
+            onClick={startAutopilot}
+            disabled={autoPreparing}
+            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-[13px] hover:bg-white/10 disabled:opacity-60"
+            style={{ touchAction: "manipulation", minHeight: "30px" }}
+            title="Autopilot — let the deck present itself, narrated (Pro)"
+          >
+            {autoPreparing ? <Loader2 size={14} className="animate-spin" /> : <AudioLines size={14} />} Autopilot
+            {!planHasFeature(plan, "speakerNotes") && <Lock size={12} className="opacity-60" />}
+          </button>
           <button
             onClick={() => setPresenting(true)}
             data-tour="tour-present"

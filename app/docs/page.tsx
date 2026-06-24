@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Wand2, Loader2, FileDown, Bold, Underline, Italic, AlignLeft, AlignCenter, AlignRight, AlignJustify,
-  Plus, Image as ImageIcon, SlidersHorizontal, Type, X, UploadCloud, Search, Sparkles, Send,
+  Plus, Image as ImageIcon, SlidersHorizontal, Type, X, UploadCloud, Search, Sparkles, Send, Share2, Copy, Check, Eye, Pencil, Table as TableIcon, Loader2 as Spin, FileText,
 } from "lucide-react";
 import Logo from "@/components/Logo";
 import DocCanvas from "@/components/DocCanvas";
@@ -15,6 +15,7 @@ import { DOC_TEMPLATES, applyDocTemplate } from "@/lib/docTemplates";
 import { searchPexels, type PexelsPhoto } from "@/lib/pexels";
 import { renderPagesToPdf } from "@/lib/docPdf";
 import { createDoc, saveDoc, loadDoc } from "@/lib/docStore";
+import { publishDoc, setDocShareMode, type DocShareMode } from "@/lib/docShare";
 import DocGenOverlay from "@/components/DocGenOverlay";
 
 const DENSITIES: DocDensity[] = ["concise", "balanced", "detailed", "comprehensive"];
@@ -41,6 +42,7 @@ export default function DocsStudio() {
 
   const [showOptPanel, setShowOptPanel] = useState(false);
   const [imgOpen, setImgOpen] = useState(false);
+  const [tableOpen, setTableOpen] = useState(false);
   const [aiInput, setAiInput] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -75,6 +77,37 @@ export default function DocsStudio() {
   }, [user]);
 
   const doc: ExDoc = useMemo(() => ({ title: docTitle, subtitle: docSubtitle, theme, blocks }), [docTitle, docSubtitle, theme, blocks]);
+
+  // ---- Share ----
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareId, setShareId] = useState<string | null>(null);
+  const [shareMode, setShareMode] = useState<DocShareMode>("view");
+  const [sharing, setSharing] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
+  const shareUrl = shareId ? `${typeof window !== "undefined" ? window.location.origin : ""}/share-doc/${shareId}` : "";
+
+  const openShare = async () => {
+    setShareOpen(true);
+    if (shareId || !user) return;
+    setSharing(true);
+    try { const id = await publishDoc(user.uid, doc, shareMode); if (id) setShareId(id); }
+    catch { /* ignore */ }
+    setSharing(false);
+  };
+  const changeShareMode = async (m: DocShareMode) => {
+    setShareMode(m);
+    if (!shareId) return;
+    try { await setDocShareMode(shareId, m); } catch { /* ignore */ }
+  };
+  // Keep the shared copy fresh while the share dialog is open (so viewers see latest).
+  useEffect(() => {
+    if (!shareOpen || !shareId || !user) return;
+    const t = setTimeout(() => { publishDoc(user.uid, doc, shareMode, shareId).catch(() => {}); }, 800);
+    return () => clearTimeout(t);
+  }, [shareOpen, shareId, user, doc, shareMode]);
+  const copyShare = async () => {
+    try { await navigator.clipboard.writeText(shareUrl); setShareCopied(true); setTimeout(() => setShareCopied(false), 1500); } catch { /* ignore */ }
+  };
 
   // Debounced autosave once a document has been created and we're editing.
   useEffect(() => {
@@ -133,7 +166,33 @@ export default function DocsStudio() {
     }
   };
   const addBlock = (type: DocBlockType) => setBlocks((bs) => [...bs, makeBlock(type)]);
-  const addImage = (url: string) => setBlocks((bs) => [...bs, { id: blockId(), type: "image", url, width: 80, align: "center" }]);
+  const insertBlock = (block: DocBlock) => setBlocks((bs) => {
+    // Prefer the block containing the live text selection/cursor; fall back to
+    // the last-focused block; else append.
+    let targetId: string | null = activeId;
+    try {
+      const sel = typeof window !== "undefined" ? window.getSelection() : null;
+      const node = sel?.anchorNode as HTMLElement | null;
+      const el = (node && (node.nodeType === 1 ? node : node.parentElement))?.closest?.("[data-block-id]") as HTMLElement | null;
+      const id = el?.getAttribute("data-block-id");
+      if (id && bs.some((b) => b.id === id)) targetId = id;
+    } catch { /* ignore */ }
+    const i = targetId ? bs.findIndex((b) => b.id === targetId) : -1;
+    if (i < 0) return [...bs, block];
+    const n = [...bs]; n.splice(i + 1, 0, block); return n;
+  });
+  const addImage = (url: string) => insertBlock({ id: blockId(), type: "image", url, width: 60 });
+  const addTableBlock = (headers: string[], rows: string[][]) =>
+    insertBlock({ id: blockId(), type: "table", headers, rows });
+
+  // Start a blank document — same editor, no AI content.
+  const startBlank = async () => {
+    const title = topic.trim() || "Untitled document";
+    setDocTitle(title); setDocSubtitle(undefined); setBlocks([]); setErr(null); setStep("edit");
+    if (user) {
+      try { const id = await createDoc(user.uid, { title, theme, blocks: [] }); setDocId(id); } catch { /* ignore */ }
+    }
+  };
 
   const exec = (cmd: string) => { try { document.execCommand(cmd, false); } catch { /* ignore */ } };
 
@@ -274,6 +333,10 @@ export default function DocsStudio() {
             style={{ marginTop: 20, display: "inline-flex", alignItems: "center", gap: 8, borderRadius: 999, border: "none", background: INK, color: "var(--ezd-bg-page)", padding: "12px 24px", fontSize: 15, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.55 : 1 }}>
             {loading ? <><Loader2 size={17} className="animate-spin" /> Writing your document…</> : <><Wand2 size={17} /> Generate document</>}
           </button>
+          <button onClick={startBlank} disabled={loading}
+            style={{ marginTop: 20, marginLeft: 12, display: "inline-flex", alignItems: "center", gap: 8, borderRadius: 999, border: "1px solid var(--ezd-divider)", background: "transparent", color: "var(--ezd-fg-strong)", padding: "12px 22px", fontSize: 14.5, fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.55 : 1 }}>
+            <FileText size={16} /> Start with a blank page
+          </button>
 
           <div style={{ marginTop: 24, paddingTop: 18, borderTop: "1px solid var(--ezd-divider)" }}>
             <button onClick={() => setShowOpt((s) => !s)} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: "none", fontSize: 13, color: INK, textDecoration: "underline", textUnderlineOffset: 3, cursor: "pointer" }}>
@@ -346,10 +409,12 @@ export default function DocsStudio() {
           <TBtn onClick={() => exec("justifyFull")} title="Justify"><AlignJustify size={15} /></TBtn>
           <span style={{ width: 1, height: 22, background: "var(--ezd-divider)" }} />
           <AddBlockMenu onAdd={addBlock} />
+          <TBtn onClick={() => setTableOpen(true)} title="Add table"><TableIcon size={15} /></TBtn>
           <TBtn onClick={() => setImgOpen(true)} title="Add image"><ImageIcon size={15} /></TBtn>
           <TBtn onClick={() => setShowOptPanel((s) => !s)} title="Design"><SlidersHorizontal size={15} /></TBtn>
           <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
             <button onClick={() => setStep("prompt")} style={{ ...btn(false), background: "transparent", color: "var(--ezd-fg-muted)", border: "1px solid var(--ezd-divider)" }}>New</button>
+            <button onClick={openShare} style={{ ...btn(false), background: "transparent", color: "var(--ezd-fg-muted)", border: "1px solid var(--ezd-divider)" }}><Share2 size={15} /> Share</button>
             <button onClick={exportPdf} disabled={exporting} style={btn(exporting)}>{exporting ? <><Loader2 size={15} className="animate-spin" /> PDF…</> : <><FileDown size={15} /> Export PDF</>}</button>
           </div>
         </div>
@@ -371,6 +436,41 @@ export default function DocsStudio() {
       {err && <div style={{ position: "fixed", bottom: 16, left: "50%", transform: "translateX(-50%)", background: "#ef4444", color: "#fff", padding: "8px 14px", borderRadius: 8, fontSize: 13, zIndex: 50 }}>{err}</div>}
 
       {imgOpen && <ImageDialog onClose={() => setImgOpen(false)} onPick={(url) => { addImage(url); setImgOpen(false); }} />}
+
+      {tableOpen && <TableDialog onClose={() => setTableOpen(false)} getToken={getIdToken} onInsert={(h, r) => { addTableBlock(h, r); setTableOpen(false); }} />}
+
+      {shareOpen && (
+        <div onClick={() => setShareOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(0,0,0,0.4)", display: "grid", placeItems: "center", padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: "min(460px,94vw)", background: "var(--ezd-bg-elev)", border: "1px solid var(--ezd-divider)", borderRadius: 16, padding: 20 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "var(--ezd-fg-strong)", display: "flex", alignItems: "center", gap: 8 }}><Share2 size={16} /> Share document</h3>
+              <button onClick={() => setShareOpen(false)} style={{ background: "none", border: "none", color: "var(--ezd-fg-muted)", cursor: "pointer" }}><X size={18} /></button>
+            </div>
+
+            {/* mode toggle */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              {([["view", "Read only", "Viewers can read & download"], ["edit", "Can edit", "Anyone with the link can edit"]] as const).map(([m, label, sub]) => {
+                const on = shareMode === m;
+                return (
+                  <button key={m} onClick={() => changeShareMode(m)} style={{ textAlign: "left", borderRadius: 12, padding: "10px 12px", cursor: "pointer", border: `1px solid ${on ? "var(--ezd-fg-strong)" : "var(--ezd-divider)"}`, background: on ? "var(--ezd-bg-hover)" : "transparent" }}>
+                    <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: "var(--ezd-fg-strong)" }}>{m === "view" ? <Eye size={13} /> : <Pencil size={13} />} {label}</span>
+                    <span style={{ display: "block", marginTop: 2, fontSize: 11, color: "var(--ezd-fg-quiet)" }}>{sub}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* link row */}
+            <div style={{ marginTop: 14, display: "flex", gap: 8 }}>
+              <input readOnly value={sharing ? "Creating link…" : shareUrl} style={{ flex: 1, minWidth: 0, borderRadius: 10, border: "1px solid var(--ezd-divider)", background: "var(--ezd-bg-card)", color: "var(--ezd-fg-muted)", padding: "9px 11px", fontSize: 12.5 }} />
+              <button onClick={copyShare} disabled={!shareUrl} style={{ display: "inline-flex", alignItems: "center", gap: 6, borderRadius: 10, border: "none", padding: "9px 14px", fontSize: 12.5, fontWeight: 600, cursor: shareUrl ? "pointer" : "default", background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)", opacity: shareUrl ? 1 : 0.5 }}>
+                {shareCopied ? <Check size={14} /> : <Copy size={14} />}{shareCopied ? "Copied" : "Copy"}
+              </button>
+            </div>
+            <p style={{ marginTop: 10, fontSize: 11.5, color: "var(--ezd-fg-quiet)" }}>Anyone with this link can open a live preview{shareMode === "edit" ? " and edit it" : ""}, and download a PDF.</p>
+          </div>
+        </div>
+      )}
 
       {wmEdit && (
         <div onClick={() => setWmEdit(false)} style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(0,0,0,0.35)", display: "grid", placeItems: "center", padding: 20 }}>
@@ -560,6 +660,82 @@ function SizePicker({ value, onPick }: { value: number; onPick: (px: number) => 
     </div>
   );
 }
+function TableDialog({ onClose, onInsert, getToken }: { onClose: () => void; onInsert: (headers: string[], rows: string[][]) => void; getToken: () => Promise<string | null> }) {
+  const [mode, setMode] = useState<"grid" | "describe">("grid");
+  const [rows, setRows] = useState(3);
+  const [cols, setCols] = useState(3);
+  const [desc, setDesc] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const insertGrid = () => {
+    const c = Math.max(1, Math.min(8, cols));
+    const r = Math.max(1, Math.min(30, rows));
+    const headers = Array.from({ length: c }, (_, i) => `Column ${i + 1}`);
+    const body = Array.from({ length: r }, () => Array.from({ length: c }, () => ""));
+    onInsert(headers, body);
+  };
+  const generate = async () => {
+    if (desc.trim().length < 3) { setErr("Describe the table first."); return; }
+    setLoading(true); setErr(null);
+    try {
+      const token = await getToken();
+      const res = await fetch("/api/doc-table", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ description: desc.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Failed to build table.");
+      onInsert(data.headers || [], data.rows || []);
+    } catch (e: any) { setErr(e?.message || "Failed to build table."); } finally { setLoading(false); }
+  };
+
+  const tab = (m: "grid" | "describe", label: string) => (
+    <button onClick={() => { setMode(m); setErr(null); }} style={{ flex: 1, padding: "8px 10px", borderRadius: 9, border: "1px solid " + (mode === m ? "var(--ezd-fg-strong)" : "var(--ezd-divider)"), background: mode === m ? "var(--ezd-bg-hover)" : "transparent", color: "var(--ezd-fg-strong)", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>{label}</button>
+  );
+
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(0,0,0,0.4)", display: "grid", placeItems: "center", padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: "min(460px,94vw)", background: "var(--ezd-bg-elev)", border: "1px solid var(--ezd-divider)", borderRadius: 16, padding: 18 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "var(--ezd-fg-strong)", display: "flex", alignItems: "center", gap: 8 }}><TableIcon size={16} /> Add a table</h3>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--ezd-fg-muted)", cursor: "pointer" }}><X size={18} /></button>
+        </div>
+
+        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>{tab("grid", "Rows & columns")}{tab("describe", "Describe with AI")}</div>
+
+        {mode === "grid" ? (
+          <>
+            <div style={{ display: "flex", gap: 16 }}>
+              <label style={{ fontSize: 13, color: "var(--ezd-fg-muted)" }}>Rows
+                <input type="number" min={1} max={30} value={rows} onChange={(e) => setRows(Math.min(30, Math.max(1, Number(e.target.value) || 1)))}
+                  style={{ marginLeft: 8, width: 64, borderRadius: 8, border: "1px solid var(--ezd-divider)", background: "var(--ezd-bg-card)", padding: "7px 9px", color: "var(--ezd-fg)" }} />
+              </label>
+              <label style={{ fontSize: 13, color: "var(--ezd-fg-muted)" }}>Columns
+                <input type="number" min={1} max={8} value={cols} onChange={(e) => setCols(Math.min(8, Math.max(1, Number(e.target.value) || 1)))}
+                  style={{ marginLeft: 8, width: 64, borderRadius: 8, border: "1px solid var(--ezd-divider)", background: "var(--ezd-bg-card)", padding: "7px 9px", color: "var(--ezd-fg)" }} />
+              </label>
+            </div>
+            <button onClick={insertGrid} style={{ marginTop: 16, width: "100%", borderRadius: 10, border: "none", padding: "10px", fontSize: 13.5, fontWeight: 600, cursor: "pointer", background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)" }}>Insert {rows}×{cols} table</button>
+          </>
+        ) : (
+          <>
+            <textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={4}
+              placeholder="e.g. A monthly expense list for my parents: rent, groceries, transport, utilities — with amounts and a total"
+              style={{ width: "100%", resize: "vertical", borderRadius: 10, border: "1px solid var(--ezd-divider)", background: "var(--ezd-bg-card)", padding: "10px 12px", fontSize: 13.5, lineHeight: 1.5, color: "var(--ezd-fg)", outline: "none" }} />
+            <button onClick={generate} disabled={loading} style={{ marginTop: 12, width: "100%", borderRadius: 10, border: "none", padding: "10px", fontSize: 13.5, fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)", opacity: loading ? 0.6 : 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+              {loading ? <><Spin size={15} className="animate-spin" /> Building…</> : <><Sparkles size={15} /> Generate table</>}
+            </button>
+          </>
+        )}
+        {err && <p style={{ marginTop: 10, fontSize: 12.5, color: "#ef4444" }}>{err}</p>}
+        <p style={{ marginTop: 12, fontSize: 11.5, color: "var(--ezd-fg-quiet)" }}>The table is added to your document — drag its handle to reposition, and edit any cell inline.</p>
+      </div>
+    </div>
+  );
+}
+
 function AddBlockMenu({ onAdd }: { onAdd: (t: DocBlockType) => void }) {
   const [open, setOpen] = useState(false);
   const types: [DocBlockType, string][] = [["heading", "Heading"], ["paragraph", "Paragraph"], ["bullets", "Bullet list"], ["numbered", "Numbered list"], ["table", "Table"], ["quote", "Quote"], ["callout", "Callout"], ["divider", "Divider"]];

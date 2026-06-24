@@ -73,6 +73,13 @@
       }
     },
 
+    "sharedDocs": {
+      ".read": true,
+      "$shareId": {
+        ".write": "(auth != null && newData.child('ownerUid').val() === auth.uid) || ((data.child('mode').val() === 'edit' || newData.child('mode').val() === 'edit') && newData.child('ownerUid').val() === data.child('ownerUid').val())"
+      }
+    },
+
     "analytics": {
       ".read": true,
       "$shareId": {

@@ -1434,6 +1434,7 @@ function Footer() {
               { label: "Examples", href: "#examples" },
               { label: "Pricing", href: "#pricing" },
               { label: "How-to guides", href: "/how-to" },
+              { label: "Explore everything", href: "/keywords" },
               { label: "AI document maker", href: "/docs" },
               { label: "Open the editor", href: "/app" },
             ]}

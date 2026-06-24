@@ -16,11 +16,11 @@ export type DocBlock =
   | { id: string; type: "paragraph"; text: string; align?: DocAlign; fontSize?: number }
   | { id: string; type: "bullets"; items: string[]; fontSize?: number }
   | { id: string; type: "numbered"; items: string[]; fontSize?: number }
-  | { id: string; type: "table"; headers: string[]; rows: string[][]; fontSize?: number }
+  | { id: string; type: "table"; headers: string[]; rows: string[][]; fontSize?: number; width?: number /* % 20-100 */; offsetX?: number /* px */; gap?: number /* px space above & below */ }
   | { id: string; type: "quote"; text: string; cite?: string; fontSize?: number }
   | { id: string; type: "callout"; tone: CalloutTone; text: string; fontSize?: number }
   | { id: string; type: "chart"; chart: import("./charts").ChartSpec; caption?: string }
-  | { id: string; type: "image"; url: string; caption?: string; width?: number /* % 20-100 */; align?: DocAlign }
+  | { id: string; type: "image"; url: string; caption?: string; width?: number /* % 20-100 */; align?: DocAlign; offsetX?: number /* px, horizontal nudge */; gap?: number /* px space above & below */; opacity?: number /* 0.1-1 */ }
   | { id: string; type: "divider" };
 
 export type DocBlockType = DocBlock["type"];
