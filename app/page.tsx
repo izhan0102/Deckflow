@@ -1452,6 +1452,7 @@ function Footer() {
             title="Company"
             items={[
               { label: "About / Dev's note", href: "/about" },
+              { label: "Meet the developer", href: "/developer" },
               { label: "Changelog", href: "/changelog" },
               { label: "Leave a review", href: "/feedback" },
               { label: "Contact", href: "/contact" },

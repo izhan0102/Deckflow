@@ -70,6 +70,7 @@ function build(): string {
   // Topic / keyword hub.
   entries.push(urlEntry("/keywords", 0.7, "weekly", now));
   entries.push(urlEntry("/about", 0.6, "monthly", now));
+  entries.push(urlEntry("/developer", 0.6, "monthly", now));
   entries.push(urlEntry("/changelog", 0.5, "weekly", now));
   entries.push(urlEntry("/contact", 0.4, "monthly", now));
   for (const p of ["/privacy", "/terms", "/refund", "/shipping"]) {
