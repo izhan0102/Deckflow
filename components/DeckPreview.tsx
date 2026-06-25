@@ -44,6 +44,8 @@ import VisualsDrawer from "./VisualsDrawer";
 import ImagesDrawer from "./ImagesDrawer";
 import { searchPexels, type PexelsPhoto } from "@/lib/pexels";
 import type { ChartSpec } from "@/lib/charts";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { duplicateSlide } from "@/lib/deckOps";
 
 const DENSITY_TABS: { id: ContentDensity; label: string }[] = [
   { id: "concise", label: "Concise" },
@@ -206,19 +208,39 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
     setCanUndo(hist.length > 1);
   }, [setDeck, setCanUndo]);
 
-  // Ctrl/Cmd+Z to undo, ignoring when the user is typing in an editable.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (!(e.ctrlKey || e.metaKey)) return;
-      if (e.key.toLowerCase() !== "z") return;
-      const tgt = e.target as HTMLElement;
-      if (tgt && (tgt.isContentEditable || /input|textarea|select/i.test(tgt.tagName))) return;
-      e.preventDefault();
-      undo();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [undo]);
+  // Global keyboard shortcuts for the deck editor.
+  // Replaces the previous single-action Ctrl+Z listener with a unified hook
+  // that covers undo, duplicate, delete, insert, and slide navigation.
+  useKeyboardShortcuts({
+    onUndo: undo,
+    onDuplicate: useCallback(() => {
+      if (deck.slides.length === 0) return;
+      const next = [...deck.slides];
+      next.splice(active + 1, 0, duplicateSlide(deck.slides[active]));
+      setDeck({ ...deck, slides: next });
+      setActive(active + 1);
+    }, [deck, active, setDeck]),
+    onDelete: useCallback(() => {
+      if (deck.slides.length <= 1) return;
+      const next = deck.slides.filter((_, i) => i !== active);
+      setDeck({ ...deck, slides: next });
+      setActive(Math.max(0, Math.min(next.length - 1, active)));
+    }, [deck, active, setDeck]),
+    onInsert: useCallback(() => {
+      const blank = {
+        layout: "bullets" as const,
+        title: "New slide",
+        bullets: ["Bullet one", "Bullet two", "Bullet three"],
+        annotations: [],
+      };
+      const next = [...deck.slides];
+      next.splice(active + 1, 0, blank);
+      setDeck({ ...deck, slides: next });
+      setActive(active + 1);
+    }, [deck, active, setDeck]),
+    onPrev: useCallback(() => setActive((a) => Math.max(0, a - 1)), []),
+    onNext: useCallback(() => setActive((a) => Math.min(deck.slides.length - 1, a + 1)), [deck.slides.length]),
+  });
   // Has the user already left a review? We only gate the first export.
   useEffect(() => {
     try {

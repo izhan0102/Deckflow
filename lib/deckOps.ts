@@ -350,3 +350,46 @@ export function applyDeckOps(deck: Deck, ops: DeckOp[]): {
     summary,
   };
 }
+
+/* ----------------------------- duplicate -------------------------------- */
+
+/**
+ * Return a deep clone of `slide` with a fresh unique id assigned to every
+ * sub-object that carries an `id` field (`uploadedImages`, `annotations`,
+ * `textBoxes`).  All other fields — layout, style overrides, element offsets,
+ * deco overrides, text content — are preserved verbatim so the duplicate is
+ * visually identical to the original.
+ *
+ * Using `structuredClone` (available in all modern runtimes / Node ≥ 17)
+ * ensures arrays-of-objects and nested records are deep-copied, not shared.
+ */
+function freshId(): string {
+  return `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+export function duplicateSlide(slide: Slide): Slide {
+  const clone: Slide = structuredClone(slide);
+
+  if (clone.uploadedImages) {
+    clone.uploadedImages = clone.uploadedImages.map((img) => ({
+      ...img,
+      id: freshId(),
+    }));
+  }
+
+  if (clone.annotations) {
+    clone.annotations = clone.annotations.map((ann) => ({
+      ...ann,
+      id: freshId(),
+    }));
+  }
+
+  if (clone.textBoxes) {
+    clone.textBoxes = clone.textBoxes.map((tb) => ({
+      ...tb,
+      id: freshId(),
+    }));
+  }
+
+  return clone;
+}
