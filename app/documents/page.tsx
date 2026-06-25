@@ -65,7 +65,7 @@ export default function DocumentsPage() {
           <div className="mt-6 space-y-3 text-[14px] leading-relaxed" style={{ color: "var(--ezd-fg-muted)" }}>
             <p><strong style={{ color: "var(--ezd-fg-strong)" }}>All-in-one tool:</strong> Presentations, documents, and resumes in one place. No need for separate subscriptions.</p>
             <p><strong style={{ color: "var(--ezd-fg-strong)" }}>Real PDF export:</strong> Clean, multi-page PDFs you can share, print, or email. No web-only lock-in.</p>
-            <p><strong style={{ color: "var(--ezd-fg-strong)" }}>Pro plan required:</strong> Documents are a premium feature. $5/month unlocks unlimited documents, presentations, and resumes.</p>
+            <p><strong style={{ color: "var(--ezd-fg-strong)" }}>Pro plan required:</strong> Documents are a premium feature. $1.99/month unlocks unlimited documents, presentations, and resumes.</p>
           </div>
         </div>
 
@@ -73,7 +73,7 @@ export default function DocumentsPage() {
           <Link href="/docs" className="inline-flex items-center gap-2 rounded-full px-8 py-3.5 text-[15px] font-semibold transition hover:opacity-90" style={{ background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)" }}>
             Start writing <ArrowRight size={16} />
           </Link>
-          <p className="mt-4 text-[13px]" style={{ color: "var(--ezd-fg-quiet)" }}>Pro plan • $5/month • Clean PDF export</p>
+          <p className="mt-4 text-[13px]" style={{ color: "var(--ezd-fg-quiet)" }}>Pro plan • $1.99/month • Clean PDF export</p>
         </div>
       </section>
     </main>

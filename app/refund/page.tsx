@@ -17,7 +17,7 @@ export default function RefundPage() {
       <h2>1. Plans</h2>
       <p>
         EXdeck offers a free plan and paid subscription plans (Pro at
-        US$5/month, plus Team and Organisation plans for shared seats). The free plan lets you
+        US$1.99/month, plus Team and Organisation plans for shared seats). The free plan lets you
         generate, edit, present, and export decks within its monthly limits.
         Paid plans remove those limits and unlock additional features.
       </p>

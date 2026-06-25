@@ -526,7 +526,7 @@ export default function LandingPage() {
               <tbody>
                 <tr style={{ borderBottom: "1px solid var(--ezd-divider)" }}>
                   <td className="py-4 pr-4 font-medium" style={{ color: "var(--ezd-fg-strong)" }}>Price (Pro)</td>
-                  <td className="px-3 py-4 text-center font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>$5/mo</td>
+                  <td className="px-3 py-4 text-center font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>$1.99/mo</td>
                   <td className="px-3 py-4 text-center" style={{ color: "var(--ezd-fg-muted)" }}>$15/mo</td>
                   <td className="px-3 py-4 text-center" style={{ color: "var(--ezd-fg-muted)" }}>$20/mo</td>
                   <td className="px-3 py-4 text-center" style={{ color: "var(--ezd-fg-muted)" }}>$15/mo</td>
@@ -581,7 +581,7 @@ export default function LandingPage() {
             <p>
               <span className="font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>Why EXdeck costs 3× less:</span> We're
               an indie project built for designers, developers, and students who need fast, honest presentations — not enterprise
-              sales teams. No bloat, no upsells, no tiered feature walls. You get everything at $5/month, and your decks export
+              sales teams. No bloat, no upsells, no tiered feature walls. You get everything at $1.99/month, and your decks export
               to real PowerPoint files you own forever.
             </p>
             <p>

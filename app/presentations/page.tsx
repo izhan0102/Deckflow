@@ -56,7 +56,7 @@ export default function PresentationsPage() {
         <div className="mt-20 rounded-2xl border p-8 sm:p-12" style={{ borderColor: "var(--ezd-divider)", background: "var(--ezd-bg-card)" }}>
           <h2 className="text-center text-2xl font-bold" style={{ color: "var(--ezd-fg-strong)" }}>Why Choose EXdeck for Presentations?</h2>
           <div className="mt-8 space-y-4 text-[14px] leading-relaxed" style={{ color: "var(--ezd-fg-muted)" }}>
-            <p><strong style={{ color: "var(--ezd-fg-strong)" }}>3× cheaper than competitors:</strong> $5/month for unlimited presentations vs $15-20/month for Gamma, Tome, or Beautiful.ai.</p>
+            <p><strong style={{ color: "var(--ezd-fg-strong)" }}>Up to 10× cheaper than competitors:</strong> $1.99/month for unlimited presentations vs $15-20/month for Gamma, Tome, or Beautiful.ai.</p>
             <p><strong style={{ color: "var(--ezd-fg-strong)" }}>True PowerPoint export:</strong> Most AI presentation tools lock you into their web editor. We give you real .pptx files you can edit anywhere.</p>
             <p><strong style={{ color: "var(--ezd-fg-strong)" }}>No design skills needed:</strong> AI picks layouts based on your content type — title hero for intros, bullets for points, charts for data, two-column for comparisons.</p>
             <p><strong style={{ color: "var(--ezd-fg-strong)" }}>Free plan available:</strong> 1 presentation per month, full AI generation, all themes and exports. No credit card required.</p>

@@ -68,7 +68,7 @@ export const PLANS: Record<PlanId, Plan> = {
   pro: {
     id: "pro",
     name: "Pro",
-    price: 5,
+    price: 1.99,
     decksPerMonth: Infinity,
     tagline: "Everything, unlimited.",
     features: {
@@ -181,7 +181,7 @@ export type Product = {
 
 export const PRODUCTS: Record<ProductId, Product> = {
   pro: {
-    id: "pro", name: "Pro", usd: 5, inr: 450, seats: 1,
+    id: "pro", name: "Pro", usd: 1.99, inr: 179, seats: 1,
     tagline: "Everything, unlimited — for one person.",
     highlights: ["Unlimited everything", "All Pro features", "No watermark"],
   },

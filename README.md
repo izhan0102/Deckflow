@@ -161,7 +161,7 @@ The AI decides on its own whether a chart belongs and which type fits the data â
 - Public **share links** with view analytics
 
 ### Plans & premium
-- **Free / Pro ($5) / Pro Plus ($10)** tiers, enforced both client-side (for UX) and server-side (non-bypassable)
+- **Free / Pro ($1.99/mo)** tiers, plus Team and Organisation plans for shared seats, enforced both client-side (for UX) and server-side (non-bypassable)
 - Free: 3 decks/month, watermark on exports, finishing features locked
 - Pro: 10 decks/month, speaker notes, Q&A prep, icons, reorder, handout, **change density**, **switch template**
 - Pro Plus: unlimited decks, everything in Pro, plus **translation**

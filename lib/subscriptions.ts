@@ -21,8 +21,8 @@ export type SubProduct = "pro" | "team" | "org";
  */
 const PLAN_IDS: Record<SubProduct, Record<SubCurrency, string>> = {
   pro: {
-    USD: process.env.RAZORPAY_PLAN_PRO_USD || "plan_T35qg8vcpqMB4s",
-    INR: process.env.RAZORPAY_PLAN_PRO_INR || "plan_T35zanYP9ILobd",
+    USD: process.env.RAZORPAY_PLAN_PRO_USD || "plan_T5v9NlSaQWIcUr",
+    INR: process.env.RAZORPAY_PLAN_PRO_INR || "plan_T5vAlCBagvKBsz",
   },
   team: {
     USD: process.env.RAZORPAY_PLAN_TEAM_USD || "",

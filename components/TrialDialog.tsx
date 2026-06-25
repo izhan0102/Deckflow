@@ -27,7 +27,7 @@ export default function TrialDialog({ onClose, reason, email }: { onClose: () =>
   }, []);
   const pick = (c: "USD" | "INR") => { pickedRef.current = true; setCurrency(c); };
 
-  const price = currency === "INR" ? "₹450" : "$5";
+  const price = currency === "INR" ? "₹179" : "$1.99";
 
   const start = async () => {
     if (!razorpayConfigured()) { setErr("Payments aren't configured yet."); return; }
