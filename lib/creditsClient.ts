@@ -13,9 +13,9 @@
  *   "credits": { "$uid": { ".read": "auth.uid === $uid", ".write": false } }
  */
 
-import { ref, onValue, get } from "firebase/database";
+import { ref, onValue, get, child } from "firebase/database";
 import { getFirebaseDb } from "./firebase";
-import { type PlanId, creditAllowance, creditPeriod, normalizePlan } from "./plans";
+import { type PlanId, creditAllowance, creditPeriod, normalizePlan, resolvePlanFromNode, DEFAULT_PLAN } from "./plans";
 
 export type CreditView = {
   plan: PlanId;
@@ -36,25 +36,37 @@ export function creditResetAtClient(plan: PlanId, now = new Date()): number {
   return Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 0, 0, 0, 0);
 }
 
-function view(node: any): CreditView {
-  const plan = normalizePlan(node?.plan);
+/**
+ * Build the view from the credits node + the user's AUTHORITATIVE plan (read
+ * from plans/{uid}). The credits node carries its own `plan`, but that's only
+ * refreshed server-side on the next AI call — so right after an upgrade it can
+ * be stale. We trust `realPlan` for allowance/period/reset, and only use the
+ * stored balance when it actually belongs to this plan + current period
+ * (otherwise show the full allowance the server will refill to on next use).
+ */
+function view(node: any, realPlan: PlanId): CreditView {
+  const plan = realPlan;
   const allowance = creditAllowance(plan);
-  const samePeriod = node && node.periodKey === periodKey(plan);
-  let balance = samePeriod && typeof node.balance === "number" ? node.balance : allowance;
+  const sameContext = node && node.periodKey === periodKey(plan) && normalizePlan(node.plan) === plan;
+  let balance = sameContext && typeof node.balance === "number" ? node.balance : allowance;
   balance = Math.max(0, Math.min(allowance, balance));
   return { plan, balance, allowance, resetAt: creditResetAtClient(plan), exhausted: balance <= 0 };
 }
 
-/** Live-watch a user's credit balance. Emits immediately, then on change. */
+/** Live-watch a user's credit balance + plan. Emits immediately, then on change. */
 export function watchCredits(uid: string, cb: (v: CreditView) => void): () => void {
   const db = getFirebaseDb();
   if (!db) {
     cb({ plan: "free", balance: creditAllowance("free"), allowance: creditAllowance("free"), resetAt: creditResetAtClient("free"), exhausted: false });
     return () => {};
   }
-  const node = ref(db, `credits/${uid}`);
-  const u = onValue(node, (snap) => cb(view(snap.exists() ? snap.val() : null)));
-  return () => u();
+  let creditNode: any = null;
+  let plan: PlanId = DEFAULT_PLAN;
+  let gotCredits = false, gotPlan = false;
+  const emit = () => { if (gotCredits && gotPlan) cb(view(creditNode, plan)); };
+  const u1 = onValue(ref(db, `credits/${uid}`), (snap) => { creditNode = snap.exists() ? snap.val() : null; gotCredits = true; emit(); });
+  const u2 = onValue(ref(db, `plans/${uid}`), (snap) => { plan = snap.exists() ? resolvePlanFromNode(snap.val()) : DEFAULT_PLAN; gotPlan = true; emit(); });
+  return () => { u1(); u2(); };
 }
 
 /** One-shot read of a user's credit view (for pre-submit UX gates). */
@@ -63,8 +75,12 @@ export async function readCredits(uid: string): Promise<CreditView> {
   const fallback: CreditView = { plan: "free", balance: creditAllowance("free"), allowance: creditAllowance("free"), resetAt: creditResetAtClient("free"), exhausted: false };
   if (!db) return fallback;
   try {
-    const snap = await get(ref(db, `credits/${uid}`));
-    return view(snap.exists() ? snap.val() : null);
+    const [cSnap, pSnap] = await Promise.all([
+      get(child(ref(db), `credits/${uid}`)),
+      get(child(ref(db), `plans/${uid}`)),
+    ]);
+    const plan = pSnap.exists() ? resolvePlanFromNode(pSnap.val()) : DEFAULT_PLAN;
+    return view(cSnap.exists() ? cSnap.val() : null, plan);
   } catch {
     return fallback;
   }
