@@ -39,7 +39,7 @@ export async function requireExai(uid: string): Promise<ExaiState> {
     throw new PlanLimitError(
       state.plan === "pro"
         ? "You've used today's EX-AI messages. They reset tomorrow."
-        : "You've used your 3 free EX-AI messages today. Upgrade to Pro for 100 a day.",
+        : "You've used your 3 free EX-AI messages today. Upgrade to Pro for 50 a day.",
       "exai_limit",
       429,
     );

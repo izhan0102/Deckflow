@@ -91,8 +91,7 @@ export default function ExAiChat() {
         <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
           {empty ? (
             <div className="flex flex-col items-center pt-10 text-center sm:pt-20">
-              <span className="grid h-14 w-14 place-items-center rounded-2xl" style={{ background: "var(--ezd-fg-strong)", color: "var(--ezd-bg-page)" }}><Sparkles size={26} /></span>
-              <h1 className="mt-5 text-[26px] font-bold tracking-tight sm:text-[32px]" style={{ color: "var(--ezd-fg-strong)" }}>How can I help you create?</h1>
+              <h1 className="text-[26px] font-bold tracking-tight sm:text-[32px]" style={{ color: "var(--ezd-fg-strong)" }}>How can I help you create?</h1>
               <p className="mt-2 max-w-md text-[14px]" style={{ color: "var(--ezd-fg-muted)" }}>Ask EX-AI anything about making presentations, documents, spreadsheets, resumes, or analysing files — I&rsquo;ll guide you and take you straight there.</p>
               <div className="mt-8 grid w-full max-w-xl gap-2.5 sm:grid-cols-2">
                 {SUGGESTIONS.map((s) => (

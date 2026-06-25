@@ -166,7 +166,7 @@ export function creditCost(action: CreditAction): number {
  */
 export const EXAI_DAILY: Record<PlanId, number> = {
   free: 3,
-  pro: 100,
+  pro: 50,
 };
 export function exaiDailyLimit(id: PlanId): number {
   return EXAI_DAILY[normalizePlan(id)];
