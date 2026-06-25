@@ -189,7 +189,15 @@ function inline(s: string, onNav: (href: string) => void): React.ReactNode {
     const lk = t.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
     if (lk) {
       const href = lk[2];
-      if (href.startsWith("/")) return <a key={i} onClick={() => onNav(href)} className="cursor-pointer font-semibold underline underline-offset-2" style={{ color: "var(--ezd-fg-strong)" }}>{lk[1]}</a>;
+      const label = lk[1].replace(/\s*[-→]+>?\s*$/, "");
+      if (href.startsWith("/")) {
+        // Internal action → render as an inline pill button that navigates.
+        return (
+          <button key={i} onClick={() => onNav(href)} className="mx-0.5 my-1 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13.5px] font-semibold align-middle transition hover:opacity-90" style={{ background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)" }}>
+            {label} <ArrowRight size={13} />
+          </button>
+        );
+      }
       return <a key={i} href={href} target="_blank" rel="noreferrer" className="underline underline-offset-2" style={{ color: "var(--ezd-fg-strong)" }}>{lk[1]}</a>;
     }
     return t;
