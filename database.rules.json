@@ -66,6 +66,13 @@
       }
     },
 
+    "exai": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": false
+      }
+    },
+
     "shared": {
       ".read": true,
       "$shareId": {

@@ -161,6 +161,18 @@ export function creditCost(action: CreditAction): number {
 }
 
 /**
+ * EX-AI assistant — a SEPARATE daily message allowance (not the credit pool).
+ * Free users get a small taste; Pro users get a generous daily cap.
+ */
+export const EXAI_DAILY: Record<PlanId, number> = {
+  free: 3,
+  pro: 100,
+};
+export function exaiDailyLimit(id: PlanId): number {
+  return EXAI_DAILY[normalizePlan(id)];
+}
+
+/**
  * Purchasable products. "pro" is the individual plan; "team" and "org" are
  * multi-seat plans that grant Pro to the owner plus a number of member seats
  * (members get Pro automatically when they sign in).

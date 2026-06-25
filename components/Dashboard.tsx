@@ -319,6 +319,19 @@ export default function Dashboard({
             </div>
           )}
 
+          <button
+            onClick={() => window.location.assign("/ex-ai")}
+            className="group mb-4 flex w-full max-w-4xl items-center gap-4 rounded-2xl border p-5 text-left transition hover:-translate-y-0.5"
+            style={{ borderColor: "var(--ezd-fg-strong)", background: "var(--ezd-bg-card)" }}
+          >
+            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl" style={{ background: "var(--ezd-fg-strong)", color: "var(--ezd-bg-page)" }}><Sparkles size={24} /></span>
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-2 text-[15px] font-bold" style={{ color: "var(--ezd-fg-strong)" }}>Ask EX-AI <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: "var(--ezd-bg-hover)", color: "var(--ezd-fg-muted)" }}>New</span></span>
+              <span className="mt-0.5 block text-[13px]" style={{ color: "var(--ezd-fg-muted)" }}>Your AI guide — ask it to make anything (deck, doc, sheet, resume) or how to use any feature, and it takes you right there.</span>
+            </span>
+            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-semibold transition group-hover:opacity-90" style={{ background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)" }}>Open EX-AI <ArrowRight size={14} /></span>
+          </button>
+
           <div className="grid w-full max-w-4xl gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <CreateCard
               icon={<Wand2 size={22} />}

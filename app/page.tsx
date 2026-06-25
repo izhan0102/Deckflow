@@ -297,7 +297,16 @@ export default function LandingPage() {
 
       {/* ================== Explore by Feature ================== */}
       <section className="relative z-10 mx-auto max-w-5xl px-5 pt-16 sm:px-6">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-7">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Link href="/ex-ai" className="group flex flex-col items-center gap-3 rounded-2xl border p-6 transition hover:border-white/25" style={{ borderColor: "var(--ezd-fg-strong)", background: "var(--ezd-bg-card)" }}>
+            <div className="grid h-12 w-12 place-items-center rounded-xl transition group-hover:scale-105" style={{ background: "var(--ezd-fg-strong)", color: "var(--ezd-bg-page)" }}>
+              <Sparkles size={20} />
+            </div>
+            <div className="text-center">
+              <div className="text-[13px] font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>Ask EX-AI</div>
+              <div className="mt-0.5 text-[11px]" style={{ color: "var(--ezd-fg-quiet)" }}>Your AI guide</div>
+            </div>
+          </Link>
           <Link href="/presentations" className="group flex flex-col items-center gap-3 rounded-2xl border p-6 transition hover:border-white/25" style={{ borderColor: "var(--ezd-hairline)", background: "var(--ezd-bg-card)" }}>
             <div className="grid h-12 w-12 place-items-center rounded-xl border transition group-hover:scale-105" style={{ borderColor: "var(--ezd-hairline)", background: "var(--ezd-bg-hover)", color: "var(--ezd-fg-strong)" }}>
               <Presentation size={20} />
@@ -1439,6 +1448,7 @@ function Footer() {
             title="Product"
             items={[
               { label: "Features", href: "#features" },
+              { label: "Ask EX-AI", href: "/ex-ai" },
               { label: "How it works", href: "#how" },
               { label: "Examples", href: "#examples" },
               { label: "Pricing", href: "#pricing" },

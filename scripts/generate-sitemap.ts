@@ -33,6 +33,7 @@ function build(): string {
   const entries: string[] = [];
 
   entries.push(urlEntry("/", 1.0, "weekly", now));
+  entries.push(urlEntry("/ex-ai", 0.9, "weekly", now));
 
   // High-intent keyword + competitor landing pages.
   for (const p of LANDING_PAGES) {
