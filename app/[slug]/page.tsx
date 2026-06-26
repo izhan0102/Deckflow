@@ -67,7 +67,7 @@ export default function LandingPage({ params }: { params: { slug: string } }) {
         />
       ))}
 
-      <main className="mx-auto max-w-3xl px-6 pb-16 pt-12">
+      <main className="relative z-10 mx-auto max-w-3xl px-6 pb-16 pt-32">
         <p className="text-[12px] font-semibold uppercase tracking-[0.22em] text-cyan-300/80">
           {page.keyword}
         </p>

@@ -11,22 +11,28 @@ import { LANDING_PAGES } from "@/lib/content";
  */
 export default function ContentShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-black text-white">
-      <header className="sticky top-0 z-40 border-b border-white/8 bg-black/80 backdrop-blur">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-3.5">
-          <Logo size="sm" />
+    <div className="relative min-h-screen overflow-x-hidden" style={{ background: "var(--ezd-bg-page)", color: "var(--ezd-fg)" }}>
+      {/* Light-mode dot texture (invisible in dark). */}
+      <div aria-hidden className="landing-bg" />
+
+      <header className="fixed inset-x-0 top-0 z-50 flex justify-center px-4 pt-3">
+        <nav
+          className="flex w-full max-w-3xl items-center justify-between gap-3 rounded-full border px-3 py-1.5 backdrop-blur-xl"
+          style={{ background: "var(--ezd-nav-bg)", borderColor: "var(--ezd-hairline)" }}
+        >
+          <Logo size="sm" href="/" />
           <Link
             href="/app"
             className="inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1.5 text-[12.5px] font-semibold text-black transition hover:bg-white/90"
           >
             Open the editor <ArrowRight size={13} />
           </Link>
-        </div>
+        </nav>
       </header>
 
       {children}
 
-      <footer className="border-t border-white/8">
+      <footer style={{ borderTop: "1px solid var(--ezd-hairline)" }}>
         <div className="mx-auto max-w-3xl px-6 py-10">
           <div className="grid grid-cols-2 gap-8 sm:grid-cols-3">
             <FooterCol
@@ -51,7 +57,7 @@ export default function ContentShell({ children }: { children: React.ReactNode }
               ]}
             />
           </div>
-          <div className="mt-8 border-t border-dashed border-white/10 pt-4 text-[11px] text-white/40">
+          <div className="mt-8 border-t border-dashed pt-4 text-[11px]" style={{ borderColor: "var(--ezd-hairline)", opacity: 0.4 }}>
             © {new Date().getFullYear()} EXdeck — the free AI PPT maker. Make
             PowerPoint presentations from text in seconds.
           </div>
@@ -70,13 +76,13 @@ function FooterCol({
 }) {
   return (
     <div>
-      <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ opacity: 0.4 }}>
         {title}
       </div>
       <ul className="mt-2 space-y-1.5 text-[12.5px]">
         {items.map((it) => (
           <li key={it.href}>
-            <Link href={it.href} className="text-white/65 transition hover:text-white">
+            <Link href={it.href} className="transition hover:opacity-100" style={{ opacity: 0.65 }}>
               {it.label}
             </Link>
           </li>
