@@ -167,7 +167,7 @@ export function softwareJsonLd() {
       "AI document analyser (any format, multi-doc synthesis)",
       "Free file converters (PDF, images, and more)",
       "200,000+ icons",
-      "45 themes and 32 fonts",
+      "45 themes and 28 fonts",
     ],
     browserRequirements: "Requires a modern web browser.",
   };

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles, ArrowUp, Loader2, Presentation, FileText, Table, Brain, ArrowRight } from "lucide-react";
+import { Sparkles, ArrowUp, Loader2, Presentation, FileText, Table, Brain, ArrowRight, X } from "lucide-react";
 import { onAuthStateChange, getIdToken, type AppUser } from "@/lib/auth";
 import { readExaiRemaining } from "@/lib/exaiClient";
 
@@ -14,7 +14,7 @@ const SUGGESTIONS = [
   { icon: Brain, label: "Analyse a PDF", q: "How do I analyse a PDF document?" },
 ];
 
-export default function ExAiChat() {
+export default function ExAiChat({ embedded = false, onClose }: { embedded?: boolean; onClose?: () => void } = {}) {
   const router = useRouter();
   const [user, setUser] = useState<AppUser | null>(null);
   const [msgs, setMsgs] = useState<Msg[]>([]);
@@ -66,14 +66,23 @@ export default function ExAiChat() {
   const empty = msgs.length === 0;
 
   return (
-    <div className="flex h-[100dvh] flex-col" style={{ background: "var(--ezd-bg-page)", color: "var(--ezd-fg)" }}>
-      <style>{`@keyframes exaiBlink{0%,100%{opacity:0.25}50%{opacity:1}}`}</style>
-      <style>{`@keyframes exaiBlink{0%,100%{opacity:0.25}50%{opacity:1}}`}</style>
+    <div className={embedded ? "flex h-full flex-col" : "flex h-[100dvh] flex-col"} style={{ background: "var(--ezd-bg-page)", color: "var(--ezd-fg)" }}>
+      <style>{`@keyframes exaiBlink{0%,100%{opacity:0.25}50%{opacity:1}}
+.exai-scroll{scrollbar-width:thin;scrollbar-color:rgba(0,0,0,0.22) transparent}
+.exai-scroll::-webkit-scrollbar{width:6px;height:6px}
+.exai-scroll::-webkit-scrollbar-thumb{background:rgba(0,0,0,0.22);border-radius:9999px}
+.exai-scroll::-webkit-scrollbar-track{background:transparent}`}</style>
       {/* header */}
       <header className="flex items-center justify-between border-b px-4 py-3 sm:px-6" style={{ borderColor: "var(--ezd-divider)" }}>
-        <button onClick={() => router.push("/app")} className="inline-flex items-center gap-1.5 text-[13px]" style={{ color: "var(--ezd-fg-muted)" }}>
-          <ArrowRight size={14} className="rotate-180" /> Dashboard
-        </button>
+        {embedded ? (
+          <button onClick={onClose} aria-label="Close" className="inline-flex items-center gap-1.5 text-[13px]" style={{ color: "var(--ezd-fg-muted)" }}>
+            <X size={16} /> Close
+          </button>
+        ) : (
+          <button onClick={() => router.push("/app")} className="inline-flex items-center gap-1.5 text-[13px]" style={{ color: "var(--ezd-fg-muted)" }}>
+            <ArrowRight size={14} className="rotate-180" /> Dashboard
+          </button>
+        )}
         <div className="flex items-center gap-2">
           <span className="grid h-7 w-7 place-items-center rounded-lg" style={{ background: "var(--ezd-fg-strong)", color: "var(--ezd-bg-page)" }}><Sparkles size={15} /></span>
           <div className="leading-tight">
@@ -87,17 +96,17 @@ export default function ExAiChat() {
       </header>
 
       {/* conversation */}
-      <div className="flex-1 overflow-y-auto">
+      <div className={embedded ? "flex-1 overflow-y-auto exai-scroll" : "flex-1 overflow-y-auto"}>
         <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
           {empty ? (
-            <div className="flex flex-col items-center pt-10 text-center sm:pt-20">
-              <h1 className="text-[26px] font-bold tracking-tight sm:text-[32px]" style={{ color: "var(--ezd-fg-strong)" }}>How can I help you create?</h1>
+            <div className={embedded ? "flex flex-col items-center pt-4 text-center" : "flex flex-col items-center pt-10 text-center sm:pt-20"}>
+              <h1 className={embedded ? "text-[20px] font-bold tracking-tight" : "text-[26px] font-bold tracking-tight sm:text-[32px]"} style={{ color: "var(--ezd-fg-strong)" }}>How can I help you create?</h1>
               <p className="mt-2 max-w-md text-[14px]" style={{ color: "var(--ezd-fg-muted)" }}>Ask EX-AI anything about making presentations, documents, spreadsheets, resumes, or analysing files — I&rsquo;ll guide you and take you straight there.</p>
-              <div className="mt-8 grid w-full max-w-xl gap-2.5 sm:grid-cols-2">
+              <div className={embedded ? "mt-5 grid w-full gap-2" : "mt-8 grid w-full max-w-xl gap-2.5 sm:grid-cols-2"}>
                 {SUGGESTIONS.map((s) => (
-                  <button key={s.label} onClick={() => send(s.q)} className="flex items-center gap-3 rounded-2xl border p-3.5 text-left transition hover:-translate-y-0.5" style={{ borderColor: "var(--ezd-divider)", background: "var(--ezd-bg-card)" }}>
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl" style={{ background: "var(--ezd-bg-hover)", color: "var(--ezd-fg-strong)" }}><s.icon size={17} /></span>
-                    <span className="text-[13.5px]" style={{ color: "var(--ezd-fg-muted)" }}>{s.label}</span>
+                  <button key={s.label} onClick={() => send(s.q)} className={embedded ? "flex items-center gap-2.5 rounded-xl border p-2.5 text-left transition hover:-translate-y-0.5" : "flex items-center gap-3 rounded-2xl border p-3.5 text-left transition hover:-translate-y-0.5"} style={{ borderColor: "var(--ezd-divider)", background: "var(--ezd-bg-card)" }}>
+                    <span className={embedded ? "grid h-7 w-7 shrink-0 place-items-center rounded-lg" : "grid h-9 w-9 shrink-0 place-items-center rounded-xl"} style={{ background: "var(--ezd-bg-hover)", color: "var(--ezd-fg-strong)" }}><s.icon size={embedded ? 14 : 17} /></span>
+                    <span className={embedded ? "text-[12px]" : "text-[13.5px]"} style={{ color: "var(--ezd-fg-muted)" }}>{s.label}</span>
                   </button>
                 ))}
               </div>

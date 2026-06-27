@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
-  AlertTriangle, ArrowRight, Clock, Copy, FileText, Home, Info, LayoutGrid,
+  AlertTriangle, ArrowRight, Clock, Copy, FileText, Home, LayoutGrid,
   LogOut, MoreVertical, Pencil, Plus, Search, Share2, Sparkles, Trash2, Wand2, X, Zap, Lock, Contact, Settings, MonitorPlay, Loader2, ArrowLeftRight, Table, Brain,
 } from "lucide-react";
 import { type AppUser, getIdToken } from "@/lib/auth";
@@ -16,6 +16,7 @@ import Logo from "./Logo";
 import ThemeToggle from "./ThemeToggle";
 import TrialDialog from "./TrialDialog";
 import ReportDialog from "./ReportDialog";
+import ExAiWidget from "./ExAiWidget";
 import { watchCredits, formatResetIn, type CreditView } from "@/lib/creditsClient";
 import { watchUserPlan, getUserPlan } from "@/lib/plan";
 import { watchMembership, type MemberPlan } from "@/lib/seats";
@@ -212,10 +213,7 @@ export default function Dashboard({
           <NavItem icon={<FileText size={15} />} label="My decks" href="/app/decks" count={decks.length || undefined} />
           <NavItem icon={<FileText size={15} />} label="My docs" href="/app/docs" />
           <NavItem icon={<Contact size={15} />} label="My resumes" href="/app/resumes" />
-          <NavItem icon={<LayoutGrid size={15} />} label="Templates" onClick={onStartFromTemplate} />
-          <NavItem icon={<ArrowLeftRight size={15} />} label="Convert files" href="/converter" />
           <NavItem icon={<Settings size={15} />} label="Settings" href="/app/settings" />
-          <NavItem icon={<Info size={15} />} label="About / Dev's note" href="/about" />
         </nav>
 
         {/* Combined plan + usage (#2) */}
@@ -319,18 +317,7 @@ export default function Dashboard({
             </div>
           )}
 
-          <button
-            onClick={() => window.location.assign("/ex-ai")}
-            className="group mb-4 flex w-full max-w-4xl items-center gap-4 rounded-2xl border p-5 text-left transition hover:-translate-y-0.5"
-            style={{ borderColor: "var(--ezd-fg-strong)", background: "var(--ezd-bg-card)" }}
-          >
-            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl" style={{ background: "var(--ezd-fg-strong)", color: "var(--ezd-bg-page)" }}><Sparkles size={24} /></span>
-            <span className="min-w-0 flex-1">
-              <span className="flex items-center gap-2 text-[15px] font-bold" style={{ color: "var(--ezd-fg-strong)" }}>Ask EX-AI <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: "var(--ezd-bg-hover)", color: "var(--ezd-fg-muted)" }}>New</span></span>
-              <span className="mt-0.5 block text-[13px]" style={{ color: "var(--ezd-fg-muted)" }}>Your AI guide — ask it to make anything (deck, doc, sheet, resume) or how to use any feature, and it takes you right there.</span>
-            </span>
-            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-semibold transition group-hover:opacity-90" style={{ background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)" }}>Open EX-AI <ArrowRight size={14} /></span>
-          </button>
+          <ExAiWidget />
 
           <div className="grid w-full max-w-4xl gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <CreateCard

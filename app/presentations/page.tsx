@@ -6,7 +6,7 @@ import { softwareJsonLd } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "AI Presentation Maker | Create PowerPoint Slides in Seconds - EXdeck",
-  description: "Free AI presentation maker that turns your brief into fully designed PowerPoint slides. Real charts, speaker notes, 37 themes, and instant .pptx export. No design skills needed.",
+  description: "Free AI presentation maker that turns your brief into fully designed PowerPoint slides. Real charts, speaker notes, 45 themes, and instant .pptx export. No design skills needed.",
   keywords: ["ai presentation maker", "ai ppt maker", "powerpoint generator", "presentation creator", "slide maker", "free ppt maker", "ai slides"],
   openGraph: {
     title: "AI Presentation Maker - Create Slides in Seconds",
@@ -48,7 +48,7 @@ export default function PresentationsPage() {
           <Feature icon={<Wand2 size={24} />} title="AI-Powered Generation" desc="Describe your topic in one line. AI picks the best layouts, writes content, and designs slides that fit your message." />
           <Feature icon={<BarChart3 size={24} />} title="Real Data Charts" desc="Automatic bar, line, pie, and area charts with your real data. No manual graphing — the AI decides when numbers need visuals." />
           <Feature icon={<MessageSquare size={24} />} title="Speaker Notes" desc="AI-generated speaker notes for every slide. Practice mode, teleprompter view, and Q&A prep included." />
-          <Feature icon={<Sparkles size={24} />} title="37 Premium Themes" desc="Professional color palettes, 28 Google fonts, and 27 background graphics. Canva-grade templates in one click." />
+          <Feature icon={<Sparkles size={24} />} title="45 Premium Themes" desc="Professional color palettes, 28 Google fonts, and 27 background graphics. Canva-grade templates in one click." />
           <Feature icon={<Languages size={24} />} title="Instant Translation" desc="Translate your entire deck into any language while preserving layout, charts, and formatting." />
           <Feature icon={<Download size={24} />} title="Real PowerPoint Export" desc="Download as .pptx (Microsoft PowerPoint) or .pdf. No lock-in — edit locally in PowerPoint, Keynote, or Google Slides." />
         </div>

@@ -87,6 +87,7 @@ const GOOGLE_FONTS_URL =
     "family=Oswald:wght@400;500;600;700",
     "family=Roboto+Slab:wght@400;500;700;800",
     "family=Fontdiner+Swanky",
+    "family=Bitcount+Single:wght@100..900",
     "family=Fredoka:wght@400;500;600;700",
     "family=JetBrains+Mono:wght@400;500;700",
   ].join("&") + "&display=swap";

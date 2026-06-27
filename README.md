@@ -141,7 +141,7 @@ The AI decides on its own whether a chart belongs and which type fits the data �
 ### Design
 - Premium **Canva/Gamma-grade templates** with hand-built low-opacity textured backgrounds
 - The **Concept** style — colorful numbered cards and a bold left-aligned hero — applied by default to every deck
-- 37 themes, 28 Google fonts, and 27 recolorable background graphics
+- 45 themes, 28 Google fonts, and 27 recolorable background graphics
 - Per-slide style variants you can switch on any slide (title, bullets, two-column, table, quote, section, closing)
 - 200,000 searchable icons (Iconify) plus in-house decorations
 

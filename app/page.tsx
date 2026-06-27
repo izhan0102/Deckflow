@@ -35,6 +35,8 @@ import type { Slide } from "@/lib/types";
  */
 
 const DISPLAY = '"Bricolage Grotesque", "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif';
+const MONO = '"JetBrains Mono", ui-monospace, SFMono-Regular, "Roboto Mono", monospace';
+const HERO = '"Bitcount Single", "Fontdiner Swanky", ui-sans-serif, system-ui, sans-serif';
 
 export default function LandingPage() {
   const router = useRouter();
@@ -64,7 +66,7 @@ export default function LandingPage() {
   return (
     <main
       className="relative min-h-screen overflow-x-hidden"
-      style={{ background: "var(--ezd-bg-page)", color: "var(--ezd-fg)" }}
+      style={{ background: "var(--ezd-bg-page)", color: "var(--ezd-fg)", fontFamily: DISPLAY }}
     >
       {/* FAQ structured data for Google rich results. */}
       <script
@@ -167,7 +169,7 @@ export default function LandingPage() {
               <h1
                 className="font-semibold"
                 style={{
-                  fontFamily: DISPLAY,
+                  fontFamily: HERO,
                   fontSize: "clamp(32px, 4.2vw, 54px)",
                   lineHeight: 1.04,
                   letterSpacing: "-0.035em",
@@ -258,48 +260,11 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ================== Two formats ================== */}
-      <section className="relative z-10 mx-auto max-w-5xl px-5 pt-12 sm:px-6">
-        <Reveal>
-          <SectionLabel
-            center
-            kicker="Two ways to create"
-            title="Decks and documents, one AI."
-            sub="Start from a single brief — EXdeck designs a polished presentation or writes a full document. Both stay fully editable and export cleanly."
-          />
-        </Reveal>
-        <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Reveal>
-            <FormatCard
-              icon={<Presentation size={18} />}
-              title="AI Presentations"
-              tag="Free to start"
-              body="Brief → template → a fully designed, editable slide deck with real data charts, themed layouts, speaker notes, and one-click PPTX & PDF export."
-              points={["9 smart slide layouts", "Real charts & 200k icons", "Present mode + share links"]}
-              cta="Make a presentation"
-              onClick={onGetStarted}
-            />
-          </Reveal>
-          <Reveal delay={80}>
-            <FormatCard
-              icon={<FileText size={18} />}
-              title="AI Documents"
-              tag="Pro"
-              pro
-              body="Write a structured, Word-style document with AI — headings, multi-column tables, charts, callouts, watermarks, and a clean multi-page PDF export."
-              points={["Tables, charts & callouts", "Inline editing + AI rewrites", "Templates, fonts & watermark"]}
-              cta="Make a document"
-              onClick={onGetStarted}
-            />
-          </Reveal>
-        </div>
-      </section>
-
       {/* ================== Explore by Feature ================== */}
       <section className="relative z-10 mx-auto max-w-5xl px-5 pt-16 sm:px-6">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Link href="/ex-ai" className="group flex flex-col items-center gap-3 rounded-2xl border p-6 transition hover:border-white/25" style={{ borderColor: "var(--ezd-fg-strong)", background: "var(--ezd-bg-card)" }}>
-            <div className="grid h-12 w-12 place-items-center rounded-xl transition group-hover:scale-105" style={{ background: "var(--ezd-fg-strong)", color: "var(--ezd-bg-page)" }}>
+          <Link href="/ex-ai" className="group flex flex-col items-center gap-3 rounded-2xl border p-6 transition hover:border-white/25" style={{ borderColor: "var(--ezd-hairline)", background: "var(--ezd-bg-card)" }}>
+            <div className="grid h-12 w-12 place-items-center rounded-xl border transition group-hover:scale-105" style={{ borderColor: "var(--ezd-hairline)", background: "var(--ezd-bg-hover)", color: "var(--ezd-fg-strong)" }}>
               <Sparkles size={20} />
             </div>
             <div className="text-center">
@@ -413,7 +378,7 @@ export default function LandingPage() {
             <FeatureCard
               icon={<LayoutTemplate size={16} />}
               title="Premium templates"
-              body="Canva/Gamma-grade designs with 37 themes, 28 fonts, and textured backgrounds. Switch the whole deck's look in one click."
+              body="Canva/Gamma-grade designs with 45 themes, 28 fonts, and textured backgrounds. Switch the whole deck's look in one click."
             />
           </Reveal>
           <Reveal className="md:col-span-2" delay={120}>
@@ -753,7 +718,7 @@ function SectionLabel({
 }: { kicker: string; title: string; sub?: string; center?: boolean }) {
   return (
     <div className={center ? "mx-auto max-w-2xl text-center" : ""}>
-      <div className="text-[10.5px] font-semibold uppercase tracking-[0.26em]" style={{ color: "var(--ezd-fg-quiet)" }}>
+      <div className="text-[10.5px] font-semibold uppercase tracking-[0.26em]" style={{ color: "var(--ezd-fg-quiet)", fontFamily: MONO }}>
         {kicker}
       </div>
       <h3
@@ -802,57 +767,6 @@ function FeatureCard({
   );
 }
 
-function FormatCard({
-  icon, title, tag, body, points, cta, onClick, pro,
-}: {
-  icon: React.ReactNode; title: string; tag: string; body: string; points: string[]; cta: string; onClick: () => void; pro?: boolean;
-}) {
-  return (
-    <div
-      className="group flex h-full flex-col rounded-2xl border p-6 transition hover:border-white/20"
-      style={{ borderColor: "var(--ezd-divider)", background: "var(--ezd-bg-card)" }}
-    >
-      <div className="flex items-center justify-between">
-        <div
-          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border"
-          style={{ borderColor: "var(--ezd-hairline)", background: "var(--ezd-bg-hover)", color: "var(--ezd-fg-strong)" }}
-        >
-          {icon}
-        </div>
-        <span
-          className="rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em]"
-          style={pro
-            ? { background: "var(--ezd-button-strong)", color: "var(--ezd-button-strong-fg)" }
-            : { border: "1px solid var(--ezd-hairline)", color: "var(--ezd-fg-muted)" }}
-        >
-          {tag}
-        </span>
-      </div>
-      <h4 className="mt-4 text-[17px] font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>{title}</h4>
-      <p className="mt-2 text-[13px] leading-relaxed" style={{ color: "var(--ezd-fg-muted)" }}>{body}</p>
-      <ul className="mt-4 space-y-1.5">
-        {points.map((p) => (
-          <li key={p} className="flex items-center gap-2 text-[12.5px]" style={{ color: "var(--ezd-fg-muted)" }}>
-            <span style={{ color: "var(--ezd-fg-strong)" }}>—</span>{p}
-          </li>
-        ))}
-      </ul>
-      <button
-        onClick={onClick}
-        className="mt-6 inline-flex items-center justify-center gap-2 self-start rounded-full px-5 py-2.5 text-[13.5px] font-semibold transition hover:opacity-90"
-        style={{ 
-          background: "var(--ezd-button-strong)", 
-          color: "var(--ezd-button-strong-fg)",
-          touchAction: "manipulation",
-          minHeight: "44px",
-        }}
-      >
-        {cta} <ArrowRight size={14} />
-      </button>
-    </div>
-  );
-}
-
 function MiniFeature({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) {
   return (
     <div
@@ -881,7 +795,7 @@ function MiniBrief() {
     >
       <div className="mb-2.5 flex items-center gap-1.5">
         <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--ezd-fg-quiet)" }} />
-        <span className="text-[9.5px] uppercase tracking-[0.22em]" style={{ color: "var(--ezd-fg-quiet)" }}>
+        <span className="text-[9.5px] uppercase tracking-[0.22em]" style={{ color: "var(--ezd-fg-quiet)", fontFamily: MONO }}>
           Brief
         </span>
       </div>
@@ -1077,7 +991,7 @@ function HowItWorks() {
               {String(s.n).padStart(2, "0")}
             </span>
             <div className="min-w-0 pt-0.5">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.26em]" style={{ color: "var(--ezd-fg-quiet)" }}>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.26em]" style={{ color: "var(--ezd-fg-quiet)", fontFamily: MONO }}>
                 {s.kicker}
               </div>
               <h4 className="mt-1.5 text-[16px] font-semibold leading-tight tracking-[-0.01em]" style={{ color: "var(--ezd-fg-strong)" }}>
@@ -1110,7 +1024,7 @@ function BriefVisual() {
     <HowVisualFrame>
       <div className="mb-2 flex items-center gap-1.5">
         <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--ezd-fg-quiet)" }} />
-        <span className="text-[9px] uppercase tracking-[0.2em]" style={{ color: "var(--ezd-fg-quiet)" }}>
+        <span className="text-[9px] uppercase tracking-[0.2em]" style={{ color: "var(--ezd-fg-quiet)", fontFamily: MONO }}>
           Brief · 76 words
         </span>
       </div>
@@ -1280,7 +1194,7 @@ function DeckSpecimen({
       <div className="flex items-center justify-between px-4 pb-3 pt-1">
         <span
           className="rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.16em]"
-          style={{ borderColor: "var(--ezd-divider)", color: "var(--ezd-fg-muted)" }}
+          style={{ borderColor: "var(--ezd-divider)", color: "var(--ezd-fg-muted)", fontFamily: MONO }}
         >
           {tag}
         </span>
@@ -1532,7 +1446,7 @@ function Footer() {
 function FooterCol({ title, items }: { title: string; items: { label: string; href: string }[] }) {
   return (
     <div>
-      <div className="text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ color: "var(--ezd-fg-quiet)" }}>
+      <div className="text-[10px] font-semibold uppercase tracking-[0.22em]" style={{ color: "var(--ezd-fg-quiet)", fontFamily: MONO }}>
         {title}
       </div>
       <ul className="mt-3 space-y-2 text-[12px]">
