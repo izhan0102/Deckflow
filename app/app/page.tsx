@@ -114,6 +114,11 @@ function PageInner() {
   // Synchronous lock so generate() can never run twice for one request
   // (would create two decks + double-charge quota).
   const generatingRef = useRef(false);
+  // Signature of the inputs used for the last generation this session. If the
+  // user asks for the exact same deck again, that's an implicit "regenerate":
+  // we want a fresh take, not the identical cached one — so we tell the server
+  // to bypass and refresh the generation cache (issue #141).
+  const lastGenSigRef = useRef<string>("");
   // When a template is picked, we keep its variant defaults so we can apply
   // them to every slide once generation finishes.
   const [templateVariants, setTemplateVariants] = useState<TemplateVariantDefaults | null>(null);
@@ -219,6 +224,19 @@ const retryGenerate = () => {
     const minDelay = new Promise<void>((r) => window.setTimeout(r, 10000));
     try {
       setLastDirectives(directives);
+      // Decide whether this is a "regenerate" of an identical request. Only
+      // the brief path is cached server-side, so the signature mirrors the
+      // server's cache key inputs. If it matches the last generation this
+      // session, the user is re-asking for the same deck and wants a fresh
+      // result — so bypass + refresh the cache.
+      const genSig = [
+        prompt.trim().toLowerCase(), String(slideCount),
+        (audience || "").toLowerCase(), (tone || "").toLowerCase(),
+        (density || "").toLowerCase(), includeReferences ? "1" : "0",
+        (directives || "").toLowerCase(),
+      ].join("|");
+      const regenerate = inputMode !== "content" && genSig === lastGenSigRef.current;
+      lastGenSigRef.current = genSig;
       const doFetch = async (forceRefresh = false) => {
         const token = await getIdToken(forceRefresh);
         const res = await fetch("/api/generate", {
@@ -227,7 +245,7 @@ const retryGenerate = () => {
             "Content-Type": "application/json",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
-          body: JSON.stringify({ prompt, slideCount, audience, tone, density, includeReferences, directives, sourceText: inputMode === "content" ? sourceText : "" }),
+          body: JSON.stringify({ prompt, slideCount, audience, tone, density, includeReferences, directives, regenerate, sourceText: inputMode === "content" ? sourceText : "" }),
         });
         return { res, data: await res.json().catch(() => ({})) };
       };
