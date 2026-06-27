@@ -86,3 +86,49 @@ export async function renderDeckDiagrams(deck: Deck, token?: string | null): Pro
   }));
   return changed ? { ...deck, slides } : deck;
 }
+
+
+/** Map a Mermaid source to its diagram type key. */
+export function mermaidType(code?: string): string {
+  const first = (code || "").trim().split(/\r?\n/)[0].trim().toLowerCase();
+  if (first.startsWith("flowchart") || first.startsWith("graph")) return "flowchart";
+  if (first.startsWith("sequencediagram")) return "sequence";
+  if (first.startsWith("mindmap")) return "mindmap";
+  if (first.startsWith("timeline")) return "timeline";
+  if (first.startsWith("erdiagram")) return "er";
+  if (first.startsWith("classdiagram")) return "class";
+  if (first.startsWith("statediagram")) return "state";
+  if (first.startsWith("journey")) return "journey";
+  if (first.startsWith("gantt")) return "gantt";
+  if (first.startsWith("pie")) return "pie";
+  return "flowchart";
+}
+
+export const DIAGRAM_TYPE_LABELS: Record<string, string> = {
+  flowchart: "Flowchart",
+  mindmap: "Mind map",
+  sequence: "Sequence",
+  timeline: "Timeline",
+  er: "ER diagram",
+  decision: "Decision tree",
+  orgchart: "Org chart",
+  network: "Network",
+  architecture: "Architecture",
+  class: "Class",
+  state: "State",
+};
+
+/** Broadly-applicable alternate types offered as style variants for a diagram. */
+export const DIAGRAM_VARIANT_CANDIDATES = ["flowchart", "mindmap", "sequence", "timeline"];
+
+/** Render Mermaid and return a data URL plus slide-space width/height (inches). */
+export async function renderMermaidSized(code: string, color: "black" | "white" = "black"): Promise<{ dataUrl: string; w: number; h: number } | null> {
+  const svg = await renderMermaidSvg(code, color);
+  if (!svg) return null;
+  const aspect = aspectOf(svg);
+  let w = 9.5;
+  let h = w / aspect;
+  if (h > 5.4) { h = 5.4; w = h * aspect; }
+  if (w > 11.5) { w = 11.5; h = w / aspect; }
+  return { dataUrl: mermaidSvgToDataUrl(svg), w, h };
+}

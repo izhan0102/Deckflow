@@ -144,6 +144,16 @@ function sanitizeMermaid(s: any): string {
     ? s.replace(/[\u0000-\u0008\u000B-\u001F\u007F\u200B-\u200F\uFEFF]/g, "").trim()
     : "";
 }
+/** Detect the diagram type from the first Mermaid keyword. */
+function diagramTypeOf(code: string): string {
+  const first = (code || "").trim().split(/\r?\n/)[0].trim().toLowerCase();
+  if (first.startsWith("flowchart") || first.startsWith("graph")) return "flowchart";
+  if (first.startsWith("sequencediagram")) return "sequence";
+  if (first.startsWith("mindmap")) return "mindmap";
+  if (first.startsWith("timeline")) return "timeline";
+  if (first.startsWith("erdiagram")) return "er";
+  return "flowchart";
+}
 function cleanList(arr: any): string[] {
   if (!Array.isArray(arr)) return [];
   return arr.map(clean).filter(Boolean);
@@ -169,6 +179,7 @@ function cleanTable(t: any): TableData | undefined {
 
 function specToSlide(spec: NewSlideSpec): Slide {
   if (typeof spec.diagram === "string" && spec.diagram.trim()) {
+    const src = sanitizeMermaid(spec.diagram);
     return {
       layout: "bullets",
       title: clean(spec.title) || "Diagram",
@@ -178,7 +189,8 @@ function specToSlide(spec: NewSlideSpec): Slide {
       uploadedImages: [{
         id: freshId(),
         kind: "diagram",
-        mermaid: sanitizeMermaid(spec.diagram),
+        mermaid: src,
+        diagramType: diagramTypeOf(src),
         dataUrl: "",
         x: 1.9, y: 1.7, w: 9.5, h: 5.2,
       }],
@@ -236,8 +248,8 @@ function applyPatch(slide: Slide, patch: SlidePatch): Slide {
     const src = sanitizeMermaid(patch.diagram);
     const imgs = [...(next.uploadedImages || [])];
     const di = imgs.findIndex((im) => im.kind === "diagram");
-    if (di >= 0) imgs[di] = { ...imgs[di], mermaid: src, dataUrl: "" };
-    else imgs.push({ id: freshId(), kind: "diagram", mermaid: src, dataUrl: "", x: 1.9, y: 1.7, w: 9.5, h: 5.2 });
+    if (di >= 0) imgs[di] = { ...imgs[di], mermaid: src, diagramType: diagramTypeOf(src), dataUrl: "", diagramVariants: undefined };
+    else imgs.push({ id: freshId(), kind: "diagram", mermaid: src, diagramType: diagramTypeOf(src), dataUrl: "", x: 1.9, y: 1.7, w: 9.5, h: 5.2 });
     next.uploadedImages = imgs;
     if (!next.bullets) next.bullets = [];
   }

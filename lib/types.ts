@@ -65,6 +65,11 @@ export type UploadedImage = {
   /** Mermaid source for kind === "diagram", kept so the diagram stays editable
    *  (click the diagram to reopen the studio and regenerate / replace it). */
   mermaid?: string;
+  /** Current diagram type (e.g. "flowchart", "mindmap") for kind === "diagram". */
+  diagramType?: string;
+  /** Alternate diagram-type renditions of the SAME content, generated up front
+   *  so the Style Variants panel can switch the diagram's type instantly. */
+  diagramVariants?: { type: string; label: string; mermaid: string }[];
   dataUrl: string;     // for "user": base64 data: URL. Empty for decoration/icon/chart.
   decorationId?: string;
   /** Iconify id like "tabler:rocket" or "mdi:home" — used when kind === "icon". */

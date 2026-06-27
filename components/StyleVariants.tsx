@@ -4,6 +4,7 @@ import type { Deck, Slide, SlideLayout } from "@/lib/types";
 import type { Theme } from "@/lib/themes";
 import SlideCanvas from "./SlideCanvas";
 import { Wand2 } from "lucide-react";
+import DiagramVariants from "./DiagramVariants";
 
 /**
  * Right-rail panel that shows preview thumbnails of the active slide
@@ -111,8 +112,12 @@ export default function StyleVariants({
   theme: Theme;
   onApply: (next: Slide) => void;
 }) {
+  const dia = (slide.uploadedImages || []).find((im) => im.kind === "diagram");
   const variants = useMemo<Variant[]>(() => variantsFor(slide.layout), [slide.layout]);
 
+  if (dia) {
+    return <DiagramVariants slide={slide} deck={deck} theme={theme} onApply={onApply} />;
+  }
   if (variants.length === 0) return null;
 
   const activeId = variants[0].current(slide);
