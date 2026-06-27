@@ -343,6 +343,13 @@ export default function Dashboard({
               onClick={() => window.location.assign("/spreadsheet")}
             />
             <CreateCard
+              icon={<Share2 size={22} />}
+              title="Make a diagram"
+              desc="Generate editable vector diagrams with AI — flowcharts, mind maps, timelines, ER, sequence and more. Edit the source, preview live, export SVG, PNG, or Mermaid."
+              cta="Open diagram studio"
+              onClick={() => window.location.assign("/diagram")}
+            />
+            <CreateCard
               icon={<Contact size={22} />}
               title="Make a resume"
               desc="Build a polished, ATS-friendly resume from templates — fill in your details, auto-fit to one page, and export a clean PDF. Free for everyone."

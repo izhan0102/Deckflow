@@ -104,6 +104,9 @@ export type NewSlideSpec = {
   chart?: ChartSpec;
   notes?: string;
   kicker?: string;
+  /** Mermaid source — when set, this slide becomes a diagram slide (a title
+   *  with the rendered diagram beneath it). The client renders the SVG. */
+  diagram?: string;
 };
 
 /** Patch shape — same vocabulary as the existing /api/edit-slide route. */
@@ -119,6 +122,8 @@ export type SlidePatch = {
   chart?: ChartSpec;
   layout?: SlideLayout;
   kicker?: string;
+  /** Replace/set this slide's diagram (Mermaid source). */
+  diagram?: string;
 };
 
 
@@ -132,6 +137,12 @@ const VALID_LAYOUTS: SlideLayout[] = [
 function clean(s: any): string {
   if (typeof s !== "string") return "";
   return s.replace(/[\u0000-\u001F\u007F\u200B-\u200F\uFEFF]/g, "").trim();
+}
+/** Like clean() but KEEPS newlines (\n) and tabs (\t) — Mermaid needs them. */
+function sanitizeMermaid(s: any): string {
+  return typeof s === "string"
+    ? s.replace(/[\u0000-\u0008\u000B-\u001F\u007F\u200B-\u200F\uFEFF]/g, "").trim()
+    : "";
 }
 function cleanList(arr: any): string[] {
   if (!Array.isArray(arr)) return [];
@@ -157,6 +168,22 @@ function cleanTable(t: any): TableData | undefined {
 }
 
 function specToSlide(spec: NewSlideSpec): Slide {
+  if (typeof spec.diagram === "string" && spec.diagram.trim()) {
+    return {
+      layout: "bullets",
+      title: clean(spec.title) || "Diagram",
+      bullets: [],
+      notes: spec.notes ? clean(spec.notes) : undefined,
+      annotations: [],
+      uploadedImages: [{
+        id: freshId(),
+        kind: "diagram",
+        mermaid: sanitizeMermaid(spec.diagram),
+        dataUrl: "",
+        x: 1.9, y: 1.7, w: 9.5, h: 5.2,
+      }],
+    };
+  }
   const layout: SlideLayout = VALID_LAYOUTS.includes(spec.layout) ? spec.layout : "bullets";
   return {
     layout,
@@ -204,6 +231,15 @@ function applyPatch(slide: Slide, patch: SlidePatch): Slide {
   if (patch.chart !== undefined) {
     const c = cleanChartSpec(patch.chart);
     if (c) { next.chart = c; if (next.layout !== "chart") next.layout = "chart"; }
+  }
+  if (typeof patch.diagram === "string" && patch.diagram.trim()) {
+    const src = sanitizeMermaid(patch.diagram);
+    const imgs = [...(next.uploadedImages || [])];
+    const di = imgs.findIndex((im) => im.kind === "diagram");
+    if (di >= 0) imgs[di] = { ...imgs[di], mermaid: src, dataUrl: "" };
+    else imgs.push({ id: freshId(), kind: "diagram", mermaid: src, dataUrl: "", x: 1.9, y: 1.7, w: 9.5, h: 5.2 });
+    next.uploadedImages = imgs;
+    if (!next.bullets) next.bullets = [];
   }
   return next;
 }

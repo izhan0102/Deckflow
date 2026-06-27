@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, Image as ImageIcon, FileText, ScanText, ShieldCheck, Zap, ArrowLeftRight } from "lucide-react";
+import { ArrowRight, Image as ImageIcon, FileText, ScanText, ShieldCheck, Zap, ArrowLeftRight, Table } from "lucide-react";
 import Logo from "@/components/Logo";
 import { CONVERTERS, CONVERTER_CATEGORIES } from "@/lib/converters";
 import { SITE_URL, faqListJsonLd, breadcrumbJsonLd, landingSoftwareJsonLd } from "@/lib/seo";
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image", title: TITLE, description: DESCRIPTION },
 };
 
-const CAT_ICON = { Images: ImageIcon, PDF: FileText, Text: ScanText } as const;
+const CAT_ICON = { Images: ImageIcon, PDF: FileText, Data: Table, Documents: FileText, Text: ScanText } as const;
 
 const FEATURES = [
   { icon: ShieldCheck, title: "100% private", body: "Every conversion runs on your device — files are never uploaded to a server." },

@@ -6,10 +6,13 @@
  */
 import {
   convertImage, imagesToPdf, pdfToImages, mergePdfs, splitPdf, ocrToText,
+  svgToRaster, pdfToText, txtToPdf, pptxToText, docxToText,
+  csvToJson, jsonToCsv, csvToExcel, excelToCsv, excelToJson, jsonToExcel,
+  heicToImage, addPagesToPdf,
   type ConvertResult, type ProgressCb,
 } from "./convert";
 
-export type ConverterCategory = "Images" | "PDF" | "Text";
+export type ConverterCategory = "Images" | "PDF" | "Data" | "Documents" | "Text";
 
 export type Converter = {
   slug: string;
@@ -124,6 +127,120 @@ export const CONVERTERS: Converter[] = [
     run: (f) => imagesToPdf(f),
   },
 
+  {
+    slug: "gif-to-png", category: "Images", name: "GIF to PNG",
+    title: "GIF to PNG Converter — Free, In Your Browser",
+    h1: "Convert GIF to PNG", tagline: "Turn a GIF into a lossless PNG image.",
+    description: "Free GIF to PNG converter. Convert a GIF to a lossless PNG in your browser — no upload, no watermark, no sign-up.",
+    keywords: ["gif to png", "convert gif to png", "gif to png converter", "save gif as png"],
+    accept: "image/gif", note: "Animated GIFs convert their first frame.",
+    steps: STEPS("Convert to PNG", "PNG"), faq: [FREE_FAQ, PRIVACY_FAQ],
+    run: (f) => convertImage(f[0], "image/png", "png"),
+  },
+  {
+    slug: "gif-to-jpg", category: "Images", name: "GIF to JPG",
+    title: "GIF to JPG Converter — Free Online",
+    h1: "Convert GIF to JPG", tagline: "Turn a GIF into a compact JPG image.",
+    description: "Free GIF to JPG converter. Convert a GIF to JPG in your browser — private, instant, no watermark or sign-up.",
+    keywords: ["gif to jpg", "gif to jpeg", "convert gif to jpg", "gif to jpg converter"],
+    accept: "image/gif", note: "Animated GIFs convert their first frame.",
+    steps: STEPS("Convert to JPG", "JPG"), faq: [FREE_FAQ, PRIVACY_FAQ],
+    run: (f) => convertImage(f[0], "image/jpeg", "jpg"),
+  },
+  {
+    slug: "bmp-to-png", category: "Images", name: "BMP to PNG",
+    title: "BMP to PNG Converter — Free & Private",
+    h1: "Convert BMP to PNG", tagline: "Turn bitmap BMP images into compact PNG.",
+    description: "Free BMP to PNG converter. Convert BMP bitmap images to PNG in your browser — no upload, instant, no watermark.",
+    keywords: ["bmp to png", "convert bmp to png", "bmp to png converter", "bitmap to png"],
+    accept: "image/bmp,.bmp",
+    steps: STEPS("Convert to PNG", "PNG"), faq: [FREE_FAQ, PRIVACY_FAQ],
+    run: (f) => convertImage(f[0], "image/png", "png"),
+  },
+  {
+    slug: "bmp-to-jpg", category: "Images", name: "BMP to JPG",
+    title: "BMP to JPG Converter — Free Online",
+    h1: "Convert BMP to JPG", tagline: "Turn bitmap BMP images into compact JPG.",
+    description: "Free BMP to JPG converter. Convert BMP bitmap images to JPG in your browser — private, instant, no sign-up.",
+    keywords: ["bmp to jpg", "bmp to jpeg", "convert bmp to jpg", "bitmap to jpg"],
+    accept: "image/bmp,.bmp",
+    steps: STEPS("Convert to JPG", "JPG"), faq: [FREE_FAQ, PRIVACY_FAQ],
+    run: (f) => convertImage(f[0], "image/jpeg", "jpg"),
+  },
+  {
+    slug: "svg-to-png", category: "Images", name: "SVG to PNG",
+    title: "SVG to PNG Converter — Free, Crisp Raster Export",
+    h1: "Convert SVG to PNG", tagline: "Rasterize SVG vector graphics into PNG.",
+    description: "Free SVG to PNG converter. Rasterize SVG vector graphics to a crisp PNG in your browser — private, instant, no sign-up.",
+    keywords: ["svg to png", "convert svg to png", "svg to png converter", "rasterize svg", "svg to image"],
+    accept: "image/svg+xml,.svg", note: "Vector SVG is rendered to a high-resolution PNG.",
+    steps: STEPS("Convert to PNG", "PNG"), faq: [FREE_FAQ, PRIVACY_FAQ],
+    run: (f) => svgToRaster(f[0], "image/png", "png"),
+  },
+  {
+    slug: "svg-to-jpg", category: "Images", name: "SVG to JPG",
+    title: "SVG to JPG Converter — Free Online",
+    h1: "Convert SVG to JPG", tagline: "Rasterize SVG vector graphics into JPG.",
+    description: "Free SVG to JPG converter. Rasterize SVG vector graphics to JPG in your browser — private, instant, no watermark.",
+    keywords: ["svg to jpg", "svg to jpeg", "convert svg to jpg", "svg to jpg converter"],
+    accept: "image/svg+xml,.svg", note: "Transparent areas are flattened onto a white background.",
+    steps: STEPS("Convert to JPG", "JPG"), faq: [FREE_FAQ, PRIVACY_FAQ],
+    run: (f) => svgToRaster(f[0], "image/jpeg", "jpg"),
+  },
+  {
+    slug: "avif-to-jpg", category: "Images", name: "AVIF to JPG",
+    title: "AVIF to JPG Converter — Free, In Your Browser",
+    h1: "Convert AVIF to JPG", tagline: "Turn modern AVIF images into compatible JPG.",
+    description: "Free AVIF to JPG converter. Convert AVIF images to widely-supported JPG in your browser — private, instant, no sign-up.",
+    keywords: ["avif to jpg", "avif to jpeg", "convert avif to jpg", "avif to jpg converter"],
+    accept: "image/avif,.avif", note: "Needs a browser that can decode AVIF (recent Chrome, Edge, Firefox).",
+    steps: STEPS("Convert to JPG", "JPG"), faq: [FREE_FAQ, PRIVACY_FAQ],
+    run: (f) => convertImage(f[0], "image/jpeg", "jpg"),
+  },
+  {
+    slug: "avif-to-png", category: "Images", name: "AVIF to PNG",
+    title: "AVIF to PNG Converter — Free & Private",
+    h1: "Convert AVIF to PNG", tagline: "Turn modern AVIF images into lossless PNG.",
+    description: "Free AVIF to PNG converter. Convert AVIF images to PNG in your browser — private, instant, no watermark.",
+    keywords: ["avif to png", "convert avif to png", "avif to png converter"],
+    accept: "image/avif,.avif", note: "Needs a browser that can decode AVIF (recent Chrome, Edge, Firefox).",
+    steps: STEPS("Convert to PNG", "PNG"), faq: [FREE_FAQ, PRIVACY_FAQ],
+    run: (f) => convertImage(f[0], "image/png", "png"),
+  },
+  {
+    slug: "compress-jpg", category: "Images", name: "Compress JPG",
+    title: "Compress JPG — Free Image Compressor, In Your Browser",
+    h1: "Compress a JPG", tagline: "Shrink JPG file size while keeping it sharp.",
+    description: "Free JPG compressor. Reduce JPG/JPEG file size in your browser with smart re-encoding — private, instant, no watermark or sign-up.",
+    keywords: ["compress jpg", "compress jpeg", "jpg compressor", "reduce jpg size", "shrink jpg", "compress image"],
+    accept: "image/jpeg", note: "Re-encodes at ~55% quality for a much smaller file.",
+    steps: STEPS("Compress the image", "JPG"), faq: [FREE_FAQ, PRIVACY_FAQ, { q: "Will it look worse?", a: "Compression is tuned to stay visually close to the original while cutting file size significantly. For photos and screenshots the difference is hard to notice." }],
+    run: (f) => convertImage(f[0], "image/jpeg", "jpg", 0.55),
+  },
+
+  {
+    slug: "heic-to-jpg", category: "Images", name: "HEIC to JPG",
+    title: "HEIC to JPG Converter — iPhone Photos to JPG, Free",
+    h1: "Convert HEIC to JPG", tagline: "Turn iPhone HEIC photos into universal JPG.",
+    description: "Free HEIC to JPG converter. Convert Apple iPhone HEIC/HEIF photos to widely-supported JPG right in your browser — private, instant, no upload, no watermark.",
+    keywords: ["heic to jpg", "heic to jpeg", "iphone photo to jpg", "convert heic to jpg", "heic to jpg converter", "heic converter", "apple heic to jpg", "iphone heic to jpg"],
+    accept: "image/heic,image/heif,.heic,.heif", note: "iPhone .heic/.heif photos are decoded right on your device.",
+    steps: STEPS("Convert to JPG", "JPG"),
+    faq: [FREE_FAQ, PRIVACY_FAQ, { q: "What is HEIC?", a: "HEIC (HEIF) is the high-efficiency photo format iPhones use by default. JPG is supported everywhere, so converting makes your photos easy to share and open on any device." }],
+    run: (f) => heicToImage(f[0], "image/jpeg", "jpg"),
+  },
+  {
+    slug: "heic-to-png", category: "Images", name: "HEIC to PNG",
+    title: "HEIC to PNG Converter — iPhone Photos to PNG, Free",
+    h1: "Convert HEIC to PNG", tagline: "Turn iPhone HEIC photos into lossless PNG.",
+    description: "Free HEIC to PNG converter. Convert Apple iPhone HEIC/HEIF photos to lossless PNG in your browser — private, instant, no upload or sign-up.",
+    keywords: ["heic to png", "iphone photo to png", "convert heic to png", "heic to png converter", "apple heic to png"],
+    accept: "image/heic,image/heif,.heic,.heif", note: "iPhone .heic/.heif photos are decoded right on your device.",
+    steps: STEPS("Convert to PNG", "PNG"),
+    faq: [FREE_FAQ, PRIVACY_FAQ],
+    run: (f) => heicToImage(f[0], "image/png", "png"),
+  },
+
   /* -------------------------------- PDF ------------------------------- */
   {
     slug: "pdf-to-jpg", category: "PDF", name: "PDF to JPG",
@@ -148,6 +265,17 @@ export const CONVERTERS: Converter[] = [
     run: (f, p) => pdfToImages(f[0], "image/png", "png", p),
   },
   {
+    slug: "pdf-to-webp", category: "PDF", name: "PDF to WebP",
+    title: "PDF to WebP Converter — Free, Small Page Images",
+    h1: "Convert PDF to WebP", tagline: "Turn every PDF page into a compact WebP.",
+    description: "Free PDF to WebP converter. Render each PDF page to a small, modern WebP in your browser, downloaded as a ZIP — private and instant.",
+    keywords: ["pdf to webp", "convert pdf to webp", "pdf to webp converter", "pdf page to webp"],
+    accept: "application/pdf", note: "Each page becomes a WebP; you get them all in a ZIP.",
+    steps: STEPS("Render to WebP", "ZIP of WebPs"),
+    faq: [FREE_FAQ, PRIVACY_FAQ, { q: "Why WebP?", a: "WebP pages are typically 25–35% smaller than PNG or JPG at the same quality — handy for the web." }],
+    run: (f, p) => pdfToImages(f[0], "image/webp", "webp", p),
+  },
+  {
     slug: "merge-pdf", category: "PDF", name: "Merge PDF",
     title: "Merge PDF — Combine PDFs Free, In Your Browser",
     h1: "Merge PDF files", tagline: "Combine multiple PDFs into one document.",
@@ -157,6 +285,17 @@ export const CONVERTERS: Converter[] = [
     steps: STEPS("Merge the PDFs", "merged PDF"),
     faq: [FREE_FAQ, PRIVACY_FAQ, { q: "Is the text still selectable?", a: "Yes — merging preserves the original vector text and quality of every page (it isn't flattened to images)." }],
     run: (f) => mergePdfs(f),
+  },
+  {
+    slug: "add-pages-to-pdf", category: "PDF", name: "Add Pages to PDF",
+    title: "Add Pages to PDF — Insert Pages & Images Free, In Browser",
+    h1: "Add pages to a PDF", tagline: "Combine PDFs and images into one PDF, in order.",
+    description: "Free add-pages-to-PDF tool. Append pages from other PDFs or add images (JPG, PNG, and more) as new pages into one PDF — in your browser, private, no watermark or sign-up.",
+    keywords: ["add pages to pdf", "insert pages into pdf", "add page to pdf", "combine pdf and images", "append pages to pdf", "add image to pdf", "insert pdf into pdf"],
+    accept: "application/pdf,image/*", multiple: true, note: "Add PDFs and/or images — combined into one PDF in the order you add them.",
+    steps: STEPS("Add the pages", "PDF"),
+    faq: [FREE_FAQ, PRIVACY_FAQ, { q: "Can I mix PDFs and images?", a: "Yes — add any combination of PDF files and images. PDF pages are copied as-is and each image becomes a full page, in the order you add them." }],
+    run: (f, p) => addPagesToPdf(f, p),
   },
   {
     slug: "split-pdf", category: "PDF", name: "Split PDF",
@@ -182,6 +321,113 @@ export const CONVERTERS: Converter[] = [
       { name: "Download the new PDF", text: "Save the reorganized PDF. Page content stays sharp and selectable." },
     ],
     faq: [FREE_FAQ, PRIVACY_FAQ, { q: "Does it keep the text?", a: "Yes — pages are copied as-is (vector text and images preserved), only reordered/rotated. Nothing is flattened to an image." }],
+  },
+
+  /* ------------------------------- Data ------------------------------- */
+  {
+    slug: "csv-to-json", category: "Data", name: "CSV to JSON",
+    title: "CSV to JSON Converter — Free, In Your Browser",
+    h1: "Convert CSV to JSON", tagline: "Turn a CSV table into a JSON array of objects.",
+    description: "Free CSV to JSON converter. Turn CSV rows into a clean JSON array of objects (first row becomes the keys) in your browser — private, instant, no sign-up.",
+    keywords: ["csv to json", "convert csv to json", "csv to json converter", "csv to json online"],
+    accept: "text/csv,.csv", note: "The first row is used as the JSON keys.",
+    steps: STEPS("Convert to JSON", "JSON file"), faq: [FREE_FAQ, PRIVACY_FAQ],
+    run: (f) => csvToJson(f[0]),
+  },
+  {
+    slug: "json-to-csv", category: "Data", name: "JSON to CSV",
+    title: "JSON to CSV Converter — Free Online",
+    h1: "Convert JSON to CSV", tagline: "Flatten a JSON array of objects into a CSV.",
+    description: "Free JSON to CSV converter. Turn a JSON array of objects into a spreadsheet-ready CSV (keys become columns) in your browser — private and instant.",
+    keywords: ["json to csv", "convert json to csv", "json to csv converter", "json array to csv"],
+    accept: "application/json,.json", note: "Works on a JSON array of objects (keys become columns).",
+    steps: STEPS("Convert to CSV", "CSV file"), faq: [FREE_FAQ, PRIVACY_FAQ],
+    run: (f) => jsonToCsv(f[0]),
+  },
+  {
+    slug: "csv-to-excel", category: "Data", name: "CSV to Excel",
+    title: "CSV to Excel (XLSX) Converter — Free, In Your Browser",
+    h1: "Convert CSV to Excel", tagline: "Turn a CSV into a real .xlsx workbook.",
+    description: "Free CSV to Excel converter. Turn a CSV file into a real .xlsx workbook (opens in Excel, Google Sheets, Numbers) in your browser — private, instant, no sign-up.",
+    keywords: ["csv to excel", "csv to xlsx", "convert csv to excel", "csv to excel converter", "csv to xlsx online"],
+    accept: "text/csv,.csv", note: "The first row is bolded as a header.",
+    steps: STEPS("Convert to Excel", "XLSX file"), faq: [FREE_FAQ, PRIVACY_FAQ],
+    run: (f) => csvToExcel(f[0]),
+  },
+  {
+    slug: "excel-to-csv", category: "Data", name: "Excel to CSV",
+    title: "Excel (XLSX) to CSV Converter — Free Online",
+    h1: "Convert Excel to CSV", tagline: "Turn the first sheet of an .xlsx into CSV.",
+    description: "Free Excel to CSV converter. Turn the first worksheet of an .xlsx file into a clean CSV in your browser — private, instant, no watermark.",
+    keywords: ["excel to csv", "xlsx to csv", "convert excel to csv", "excel to csv converter", "xlsx to csv online"],
+    accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", note: "The first worksheet is exported.",
+    steps: STEPS("Convert to CSV", "CSV file"), faq: [FREE_FAQ, PRIVACY_FAQ],
+    run: (f) => excelToCsv(f[0]),
+  },
+  {
+    slug: "excel-to-json", category: "Data", name: "Excel to JSON",
+    title: "Excel (XLSX) to JSON Converter — Free, In Your Browser",
+    h1: "Convert Excel to JSON", tagline: "Turn an .xlsx sheet into a JSON array.",
+    description: "Free Excel to JSON converter. Turn the first worksheet of an .xlsx into a JSON array of objects (header row becomes keys) in your browser — private and instant.",
+    keywords: ["excel to json", "xlsx to json", "convert excel to json", "excel to json converter"],
+    accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", note: "The first row is used as the JSON keys.",
+    steps: STEPS("Convert to JSON", "JSON file"), faq: [FREE_FAQ, PRIVACY_FAQ],
+    run: (f) => excelToJson(f[0]),
+  },
+  {
+    slug: "json-to-excel", category: "Data", name: "JSON to Excel",
+    title: "JSON to Excel (XLSX) Converter — Free Online",
+    h1: "Convert JSON to Excel", tagline: "Turn a JSON array of objects into an .xlsx.",
+    description: "Free JSON to Excel converter. Turn a JSON array of objects into a real .xlsx workbook (keys become columns) in your browser — private, instant, no sign-up.",
+    keywords: ["json to excel", "json to xlsx", "convert json to excel", "json to excel converter"],
+    accept: "application/json,.json", note: "Works on a JSON array of objects (keys become columns).",
+    steps: STEPS("Convert to Excel", "XLSX file"), faq: [FREE_FAQ, PRIVACY_FAQ],
+    run: (f) => jsonToExcel(f[0]),
+  },
+
+  /* ---------------------------- Documents ----------------------------- */
+  {
+    slug: "txt-to-pdf", category: "Documents", name: "TXT to PDF",
+    title: "TXT to PDF Converter — Free, In Your Browser",
+    h1: "Convert TXT to PDF", tagline: "Turn a plain-text file into a clean PDF.",
+    description: "Free TXT to PDF converter. Turn a plain-text (.txt) file into a clean, paginated A4 PDF in your browser — private, instant, no watermark or sign-up.",
+    keywords: ["txt to pdf", "text to pdf", "convert txt to pdf", "txt to pdf converter", "text file to pdf"],
+    accept: "text/plain,.txt", note: "Lines are wrapped and paginated automatically.",
+    steps: STEPS("Build the PDF", "PDF"), faq: [FREE_FAQ, PRIVACY_FAQ],
+    run: (f) => txtToPdf(f[0]),
+  },
+  {
+    slug: "pdf-to-text", category: "Documents", name: "PDF to Text",
+    title: "PDF to Text Converter — Extract Text Free, In Browser",
+    h1: "Convert PDF to text", tagline: "Pull the text layer out of a PDF, fast.",
+    description: "Free PDF to text converter. Extract the embedded text from a PDF to a .txt file in your browser — fast, private, no OCR needed. For scanned PDFs, use the OCR tool.",
+    keywords: ["pdf to text", "extract text from pdf", "pdf to txt", "convert pdf to text", "pdf text extractor"],
+    accept: "application/pdf", note: "Extracts the real text layer (not OCR). Scanned PDFs: use OCR PDF.",
+    steps: STEPS("Extract the text", "TXT file"), faq: [FREE_FAQ, PRIVACY_FAQ, { q: "What about scanned PDFs?", a: "This pulls the embedded text layer, which scanned/image PDFs don't have. For those, use the OCR PDF tool, which reads text from the page images." }],
+    run: (f, p) => pdfToText(f[0], p),
+  },
+
+  {
+    slug: "pptx-to-text", category: "Documents", name: "PPTX to Text",
+    title: "PPTX to Text — Extract PowerPoint Text Free, In Browser",
+    h1: "Convert PPTX to text", tagline: "Pull all the text out of a PowerPoint.",
+    description: "Free PPTX to text extractor. Pull every slide's text out of a PowerPoint (.pptx) into a clean .txt file in your browser — private, instant, no upload, no sign-up.",
+    keywords: ["pptx to text", "powerpoint to text", "extract text from pptx", "ppt to text", "pptx text extractor", "extract powerpoint text"],
+    accept: ".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation", note: "Reads the real slide text, slide by slide. No OCR needed.",
+    steps: STEPS("Extract the text", "TXT file"),
+    faq: [FREE_FAQ, PRIVACY_FAQ, { q: "Does it keep slide order?", a: "Yes — text is extracted slide by slide, in order, and each slide is labelled so you can tell them apart." }],
+    run: (f, p) => pptxToText(f[0], p),
+  },
+  {
+    slug: "docx-to-text", category: "Documents", name: "DOCX to Text",
+    title: "DOCX to Text — Extract Word Text Free, In Your Browser",
+    h1: "Convert DOCX to text", tagline: "Pull the text out of a Word document.",
+    description: "Free DOCX to text extractor. Pull the text out of a Word (.docx) document into a clean .txt file in your browser — private, instant, no upload or sign-up.",
+    keywords: ["docx to text", "word to text", "extract text from docx", "doc to text", "docx text extractor", "word document to text"],
+    accept: ".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document", note: "Reads the document body, headers, and footers.",
+    steps: STEPS("Extract the text", "TXT file"),
+    faq: [FREE_FAQ, PRIVACY_FAQ],
+    run: (f) => docxToText(f[0]),
   },
 
   /* ------------------------------- Text ------------------------------- */
@@ -217,7 +463,7 @@ export const CONVERTERS: Converter[] = [
   },
 ];
 
-export const CONVERTER_CATEGORIES: ConverterCategory[] = ["Images", "PDF", "Text"];
+export const CONVERTER_CATEGORIES: ConverterCategory[] = ["Images", "PDF", "Data", "Documents", "Text"];
 
 export function getConverter(slug: string): Converter | undefined {
   return CONVERTERS.find((c) => c.slug === slug);

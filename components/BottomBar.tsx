@@ -1,5 +1,5 @@
 "use client";
-import { Type, Image as ImageIcon, Images, BarChart3, NotebookText, MessageCircleQuestion, Languages, Palette, Grid3x3, Lock, Loader2, Sparkles } from "lucide-react";
+import { Type, Image as ImageIcon, Images, BarChart3, NotebookText, MessageCircleQuestion, Languages, Palette, Grid3x3, Lock, Loader2, Sparkles, Workflow } from "lucide-react";
 
 type Props = {
   placingText?: boolean;
@@ -14,6 +14,7 @@ type Props = {
   onAddImage: () => void;
   onAddPhoto: () => void;
   onAddVisuals: () => void;
+  onAddDiagram: () => void;
   onGenerateNotes: () => void;
   onQAPrep: () => void;
   onTranslate: () => void;
@@ -33,6 +34,7 @@ export default function BottomBar(p: Props) {
     { key: "image", Icon: ImageIcon, label: "Add image", onClick: p.onAddImage },
     { key: "photo", Icon: Images, label: "Stock photo", onClick: p.onAddPhoto },
     { key: "visuals", Icon: BarChart3, label: "Add chart / visual", onClick: p.onAddVisuals },
+    { key: "diagram", Icon: Workflow, label: "Add diagram", onClick: p.onAddDiagram },
     { key: "notes", Icon: NotebookText, label: p.notesLabel, onClick: p.onGenerateNotes, busy: p.notesLoading },
     { key: "qa", Icon: MessageCircleQuestion, label: "Prep for Q&A", onClick: p.onQAPrep, locked: p.qaLocked },
     { key: "translate", Icon: Languages, label: p.translating ? "Translating…" : "Translate deck", onClick: p.onTranslate, locked: p.translateLocked, busy: p.translating },

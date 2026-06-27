@@ -61,7 +61,10 @@ export type Reference = {
 export type UploadedImage = {
   id: string;
   /** "user" = uploaded photo. "decoration" = SVG decoration. "icon" = Iconify icon. "templateBg" = full-bleed template background. "chart" = data chart rendered from chartSpec. */
-  kind?: "user" | "decoration" | "icon" | "templateBg" | "chart";
+  kind?: "user" | "decoration" | "icon" | "templateBg" | "chart" | "diagram";
+  /** Mermaid source for kind === "diagram", kept so the diagram stays editable
+   *  (click the diagram to reopen the studio and regenerate / replace it). */
+  mermaid?: string;
   dataUrl: string;     // for "user": base64 data: URL. Empty for decoration/icon/chart.
   decorationId?: string;
   /** Iconify id like "tabler:rocket" or "mdi:home" — used when kind === "icon". */

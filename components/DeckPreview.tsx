@@ -42,6 +42,7 @@ import { applyCustomTemplateToDeck } from "@/lib/applyCustomTemplate";
 import { watchCustomTemplates, deleteCustomTemplate, type CustomTemplate } from "@/lib/customTemplates";
 import VisualsDrawer from "./VisualsDrawer";
 import ImagesDrawer from "./ImagesDrawer";
+import DiagramStudio from "./DiagramStudio";
 import { searchPexels, type PexelsPhoto } from "@/lib/pexels";
 import type { ChartSpec } from "@/lib/charts";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
@@ -144,6 +145,10 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
   const [placingText, setPlacingText] = useState(false);
+  const [diagramOpen, setDiagramOpen] = useState(false);
+  const [diagramPrompt, setDiagramPrompt] = useState("");
+  const [diagramEditId, setDiagramEditId] = useState<string | null>(null);
+  const [diagramEditCode, setDiagramEditCode] = useState("");
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
   const [canvasSelection, setCanvasSelection] = useState<CanvasSelection>(null);
   const [renderForPdf, setRenderForPdf] = useState(false);
@@ -500,6 +505,99 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
     reader.readAsDataURL(file);
   };
 
+  // ---- Diagram (v2): studio modal -> insert / new slide / replace ----
+  const diagramAspect = (svg: string): number => {
+    const vb = svg.match(/viewBox="[\d.]+ [\d.]+ ([\d.]+) ([\d.]+)"/);
+    if (vb) { const vw = parseFloat(vb[1]); const vh = parseFloat(vb[2]); if (vw > 0 && vh > 0) return vw / vh; }
+    return 16 / 9;
+  };
+  const diagramTitleFromCode = (code: string): string => {
+    const t = code.match(/^\s*title\s+(.+)$/m); if (t) return t[1].trim().slice(0, 70);
+    const dq = code.match(/["']([^"'\n]{2,60})["']/); if (dq) return dq[1].trim();
+    const rr = code.match(/\(\(\s*([^)\n]{2,60})\s*\)\)/); if (rr) return rr[1].trim();
+    return "Diagram";
+  };
+  const diagramImage = (svg: string, code: string, maxW: number, maxH: number): UploadedImage => {
+    const aspect = diagramAspect(svg);
+    let w = maxW;
+    let h = w / aspect;
+    if (h > maxH) { h = maxH; w = h * aspect; }
+    if (w > 12) { w = 12; h = w / aspect; }
+    return {
+      id: `dgm_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+      kind: "diagram",
+      mermaid: code,
+      dataUrl: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`,
+      x: (13.333 - w) / 2,
+      y: 0,
+      w,
+      h,
+    };
+  };
+
+  const openDiagram = () => {
+    const s = deck.slides[active];
+    const parts: string[] = [];
+    if (s?.title) parts.push(s.title);
+    if (s?.subtitle) parts.push(s.subtitle);
+    if (Array.isArray(s?.bullets)) parts.push(...s.bullets);
+    if (s?.body) parts.push(s.body);
+    (s?.textBoxes || []).forEach((t) => { if (t?.text) parts.push(t.text); });
+    setDiagramEditId(null);
+    setDiagramEditCode("");
+    setDiagramPrompt(parts.join(". ").replace(/\s+/g, " ").trim().slice(0, 600));
+    setDiagramOpen(true);
+  };
+
+  const insertDiagram = (svg: string, code: string) => {
+    if (!svg) return;
+    const img = diagramImage(svg, code, 8, 5.8);
+    img.y = (7.5 - img.h) / 2;
+    setDeck({
+      ...deck,
+      slides: deck.slides.map((s, i) =>
+        i === active ? { ...s, uploadedImages: [...(s.uploadedImages || []), img] } : s,
+      ),
+    });
+    setDiagramOpen(false);
+  };
+
+  // Insert a brand-new slide: a relevant title with the diagram image beneath it.
+  const insertDiagramNewSlide = (svg: string, code: string) => {
+    if (!svg) return;
+    const img = diagramImage(svg, code, 9.5, 5.2);
+    img.y = 1.7;
+    const newSlide: Slide = { layout: "bullets", title: diagramTitleFromCode(code), bullets: [], uploadedImages: [img] };
+    const next = [...deck.slides];
+    next.splice(active + 1, 0, newSlide);
+    setDeck({ ...deck, slides: next });
+    setActive(active + 1);
+    setDiagramOpen(false);
+  };
+
+  const replaceDiagram = (id: string, svg: string, code: string) => {
+    if (!svg) return;
+    const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+    setDeck({
+      ...deck,
+      slides: deck.slides.map((s, i) =>
+        i === active
+          ? { ...s, uploadedImages: (s.uploadedImages || []).map((im) => im.id === id ? { ...im, dataUrl, mermaid: code } : im) }
+          : s,
+      ),
+    });
+    setDiagramOpen(false);
+    setDiagramEditId(null);
+  };
+
+  const editDiagramElement = (id: string) => {
+    const im = (deck.slides[active]?.uploadedImages || []).find((x) => x.id === id);
+    if (!im) return;
+    setDiagramEditId(id);
+    setDiagramEditCode(im.mermaid || "");
+    setDiagramOpen(true);
+  };
+
   const addDecoration = (decId: string) => {
     const d = getDecoration(decId);
     if (!d) return;
@@ -651,6 +749,8 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
   };
 
   const editChartElement = (id: string) => {
+    const diag = (deck.slides[active]?.uploadedImages || []).find((im) => im.id === id);
+    if (diag?.kind === "diagram") { editDiagramElement(id); return; }
     if (id === "__slide__chart") {
       const spec = deck.slides[active]?.chart;
       if (spec) { setEditingChart({ id, spec }); setVisualsOpen(true); }
@@ -1536,6 +1636,7 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
         onAddImage={() => fileInputRef.current?.click()}
         onAddPhoto={openAddImages}
         onAddVisuals={() => { setEditingChart(null); setVisualsOpen(true); }}
+        onAddDiagram={openDiagram}
         onGenerateNotes={() => { if (hasNotes) { setNotesViewOpen(true); return; } requireFeatureOrUpgrade("speakerNotes", "Speaker notes are a Pro feature. Upgrade to generate them.", () => setNotesMenuOpen(true)); }}
         onQAPrep={() => requireFeatureOrUpgrade("qaPrep", "Q&A prep is a Pro feature. Upgrade to use it.", () => setQaOpen(true))}
         onTranslate={() => requireFeatureOrUpgrade("translate", "Translation is a Pro feature. Upgrade to translate decks.", () => setTranslateOpen(true))}
@@ -1557,6 +1658,30 @@ export default function DeckPreview({ deck, setDeck, theme, setTheme, onRestart,
               onApplySlide={replaceActive}
               onApplyDeck={setDeck}
             />
+          </div>
+        </div>
+      )}
+
+      {diagramOpen && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          style={{ background: "rgba(5,5,7,0.6)", backdropFilter: "blur(4px)" }}
+          onClick={(e) => { if (e.target === e.currentTarget) setDiagramOpen(false); }}
+        >
+          <div className="relative flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border shadow-2xl" style={{ borderColor: "var(--ezd-divider)", background: "var(--ezd-bg-page)" }}>
+            <div className="flex items-center justify-between border-b px-5 py-3" style={{ borderColor: "var(--ezd-divider)" }}>
+              <span className="text-[14px] font-semibold" style={{ color: "var(--ezd-fg-strong)" }}>{diagramEditId ? "Edit diagram" : "Insert a diagram"}</span>
+              <button onClick={() => { setDiagramOpen(false); setDiagramEditId(null); }} aria-label="Close" style={{ color: "var(--ezd-fg-quiet)" }}><X size={18} /></button>
+            </div>
+            <div className="overflow-auto p-4">
+              <DiagramStudio
+                mode={diagramEditId ? "replace" : "insert"}
+                onInsert={diagramEditId ? (svg, code) => replaceDiagram(diagramEditId, svg, code) : insertDiagram}
+                onInsertNewSlide={diagramEditId ? undefined : insertDiagramNewSlide}
+                initialPrompt={diagramEditId ? undefined : diagramPrompt}
+                initialCode={diagramEditId ? diagramEditCode : undefined}
+              />
+            </div>
           </div>
         </div>
       )}

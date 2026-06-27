@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { Monitor, X } from "lucide-react";
 
 /**
@@ -18,14 +19,22 @@ const STORAGE_KEY = "deckflow_mobile_notice_v2";
 
 export default function MobileGate() {
   const [show, setShow] = useState(false);
+  const pathname = usePathname();
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    // Suppress on /app/* routes — those force desktop mode via
-    // DesktopOnMobile, so the "made for desktop" warning would be
-    // contradictory. We still show it on the landing page, /auth, etc.
-    if (window.location.pathname.startsWith("/app")) return;
+    // Show the "made for desktop" notice ONLY on the app + interactive tool
+    // routes (dashboard, editors, tools). NEVER on the landing or any
+    // marketing/SEO/content page — a mobile interstitial there hurts Google's
+    // mobile-first ranking. (On /app the editor already forces a desktop
+    // viewport via DesktopOnMobile, so this rarely triggers there.)
+    const GATE_ROUTES = ["/app", "/docs", "/spreadsheet", "/pdf-to-ppt", "/resume", "/analyse"];
+    const onAppRoute = GATE_ROUTES.some((r) => pathname === r || pathname.startsWith(r + "/"));
+    if (!onAppRoute) {
+      setShow(false);
+      return;
+    }
 
     const isMobileView = () => {
       const narrow = window.innerWidth < 900;
@@ -51,7 +60,7 @@ export default function MobileGate() {
       window.removeEventListener("resize", refresh);
       window.removeEventListener("orientationchange", refresh);
     };
-  }, []);
+  }, [pathname]);
 
   const dismiss = () => {
     try {

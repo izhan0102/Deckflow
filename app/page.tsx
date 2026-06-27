@@ -338,6 +338,62 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ================== Beyond slides: docs & sheets ================== */}
+      <section id="docs-sheets" className="relative z-10 mx-auto max-w-5xl px-5 pt-16 sm:px-6">
+        <Reveal>
+          <SectionLabel
+            center
+            kicker="More than presentations"
+            title="Also an AI document & spreadsheet maker"
+            sub="EXdeck isn't only slides. The same AI writes structured, Word-style documents and builds live Excel spreadsheets from plain English — all editable, all exportable."
+          />
+        </Reveal>
+        <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Reveal>
+            <div className="flex h-full flex-col rounded-2xl border p-6 transition hover:border-white/20" style={{ borderColor: "var(--ezd-divider)", background: "var(--ezd-bg-card)" }}>
+              <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-xl border" style={{ borderColor: "var(--ezd-hairline)", background: "var(--ezd-bg-hover)", color: "var(--ezd-fg-strong)" }}>
+                <FileText size={18} />
+              </div>
+              <h3 className="text-[18px] font-semibold" style={{ fontFamily: DISPLAY, color: "var(--ezd-fg-strong)" }}>AI Document Maker</h3>
+              <p className="mt-2 text-[13.5px] leading-relaxed" style={{ color: "var(--ezd-fg-muted)" }}>
+                Describe a report, proposal, brief, or essay and AI writes a structured, Word-style document — headings, tables, data charts, images, and watermarks — with clean multi-page PDF export.
+              </p>
+              <ul className="mt-4 space-y-1.5">
+                {["Reports, proposals, case studies & essays", "Tables, charts, images & watermarks", "Inline editing + multi-page PDF export"].map((p) => (
+                  <li key={p} className="flex items-center gap-2 text-[12.5px]" style={{ color: "var(--ezd-fg-muted)" }}>
+                    <span style={{ color: "var(--ezd-fg-strong)" }}>—</span>{p}
+                  </li>
+                ))}
+              </ul>
+              <Link href="/documents" className="mt-6 inline-flex items-center gap-2 self-start text-[13.5px] font-semibold transition hover:opacity-80" style={{ color: "var(--ezd-fg-strong)" }}>
+                Explore the document maker <ArrowRight size={14} />
+              </Link>
+            </div>
+          </Reveal>
+          <Reveal delay={80}>
+            <div className="flex h-full flex-col rounded-2xl border p-6 transition hover:border-white/20" style={{ borderColor: "var(--ezd-divider)", background: "var(--ezd-bg-card)" }}>
+              <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-xl border" style={{ borderColor: "var(--ezd-hairline)", background: "var(--ezd-bg-hover)", color: "var(--ezd-fg-strong)" }}>
+                <Table size={18} />
+              </div>
+              <h3 className="text-[18px] font-semibold" style={{ fontFamily: DISPLAY, color: "var(--ezd-fg-strong)" }}>AI Spreadsheet Maker</h3>
+              <p className="mt-2 text-[13.5px] leading-relaxed" style={{ color: "var(--ezd-fg-muted)" }}>
+                Type what you want — &ldquo;make a table of this data&rdquo;, &ldquo;add a total column&rdquo; — and AI builds and edits the sheet with live formulas. Export to Excel (.xlsx) or PDF, right in your browser.
+              </p>
+              <ul className="mt-4 space-y-1.5">
+                {["Plain-English tables, totals & formulas", "Live SUM, AVERAGE, IF and more", "Excel (.xlsx) & PDF export, fully private"].map((p) => (
+                  <li key={p} className="flex items-center gap-2 text-[12.5px]" style={{ color: "var(--ezd-fg-muted)" }}>
+                    <span style={{ color: "var(--ezd-fg-strong)" }}>—</span>{p}
+                  </li>
+                ))}
+              </ul>
+              <Link href="/spreadsheet" className="mt-6 inline-flex items-center gap-2 self-start text-[13.5px] font-semibold transition hover:opacity-80" style={{ color: "var(--ezd-fg-strong)" }}>
+                Explore the spreadsheet maker <ArrowRight size={14} />
+              </Link>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
       {/* ================== Features (bento) ================== */}
       <section id="features" className="relative z-10 mx-auto max-w-6xl px-5 pb-8 pt-20 sm:px-6">
         <Reveal>

@@ -111,6 +111,7 @@ function detectScope(text: string): Scope | null {
     /\bsection\b/,
     /\b(slide \d+|first slide|last slide)\b/,
     /\b(rename the deck|deck title)\b/,
+    /\b(diagram|flowchart|mind ?map|sequence diagram|org chart|er diagram|decision tree|architecture diagram)\b/,
   ];
   if (deckSignals.some((rx) => rx.test(t))) return "deck";
   return null;
@@ -207,7 +208,7 @@ export default function DeckChat({
             "Content-Type": "application/json",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
-          body: JSON.stringify({ deck, instruction: text, history }),
+          body: JSON.stringify({ deck, instruction: text, history, slideIndex }),
         });
         const data = await res.json().catch(() => ({}));
         if (res.status === 403) {
@@ -218,7 +219,12 @@ export default function DeckChat({
         if (!res.ok) throw new Error(data?.error || `Request failed (${res.status}).`);
         const explanation: string = data?.explanation || "Deck updated.";
         const ops: any[] = Array.isArray(data?.ops) ? data.ops : [];
-        if (data?.deck && ops.length > 0) onApplyDeck(data.deck);
+        if (data?.deck && ops.length > 0) {
+          // The AI may have added/edited a diagram (Mermaid source, no image
+          // yet). Render those to SVG on the client before swapping the deck in.
+          const { renderDeckDiagrams } = await import("@/lib/diagramRender");
+          onApplyDeck(await renderDeckDiagrams(data.deck, token));
+        }
         setTurns((t) => t.map((tn) => tn.id === id
           ? { ...tn, status: "success", explanation }
           : tn));

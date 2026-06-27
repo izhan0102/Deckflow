@@ -3373,7 +3373,7 @@ function ImageBox({
     (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
     dragRef.current = null;
     // A click (negligible drag) on a chart opens the visuals editor.
-    if (d.mode === "move" && img.kind === "chart" && onEditChart) {
+    if (d.mode === "move" && (img.kind === "chart" || img.kind === "diagram") && onEditChart) {
       const moved = Math.hypot(e.clientX - d.startX, e.clientY - d.startY);
       if (moved < 5) onEditChart(img.id);
     }
@@ -3450,7 +3450,7 @@ function ImageBox({
           >
             ✕
           </button>
-          {img.kind === "chart" && onEditChart && (
+          {(img.kind === "chart" || img.kind === "diagram") && onEditChart && (
             <button
               data-no-drag
               onPointerDown={(e) => e.stopPropagation()}

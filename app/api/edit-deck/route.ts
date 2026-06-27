@@ -57,7 +57,8 @@ The available operations are:
        "body"?: string,                      // for quote/section
        "table"?: { "headers": string[], "rows": [string[]], "source": string },
        "kicker"?: string,                    // optional uppercase line
-       "notes"?: string
+       "notes"?: string,
+       "diagram"?: string                    // Mermaid source -> makes a diagram slide (see DIAGRAMS below)
      }
    }
 
@@ -80,7 +81,8 @@ The available operations are:
        "table"?: { "headers": string[], "rows": [string[]], "source": string },
        "layout"?: "...",                     // change the slide's layout
        "kicker"?: string,
-       "notes"?: string
+       "notes"?: string,
+       "diagram"?: string                    // set/replace this slide's diagram (full Mermaid source)
      }
    }
 
@@ -92,6 +94,64 @@ The available operations are:
 
 6. setDeckMeta
    { "type": "setDeckMeta", "title"?: string, "subtitle"?: string }
+
+DIAGRAMS (flowchart, mind map, timeline, ER, sequence, org chart, decision tree, network, architecture):
+- When the user asks to "make / add / draw / create a diagram" (or flowchart, mind map, timeline, ER diagram, sequence diagram, org chart, decision tree, network or architecture diagram), OR to "turn this into a diagram / visualize this", add a NEW slide via addSlide with a "diagram" field (Mermaid) plus a short, relevant "title". For a diagram slide do NOT also fill bullets/body/table.
+- Placement: insert the diagram slide RIGHT AFTER the slide the user is currently viewing (afterIndex = the "currently viewing slide index" given in the deck header line). If the current slide is the last slide, use slides.length - 2 instead so the diagram stays before the closing slide. Only place it elsewhere if the user explicitly says where.
+- Content: if the user specifies what it should contain, follow that exactly. If they DON'T, infer faithful, specific content from the named/target slide's title + bullets, or the deck topic — never generic placeholders.
+- Type: pick the BEST type for the meaning, not the simplest:
+    process / how-something-works / steps -> flowchart TD
+    ordered messages exchanged between parties -> sequenceDiagram
+    breakdown / hierarchy of one topic -> mindmap
+    an org / reporting structure -> flowchart TD (top role on top)
+    events across dates / years -> timeline
+    data entities & their relationships -> erDiagram
+    yes/no branching decisions -> flowchart TD with {"..."} decision nodes and -->|Yes| / -->|No|
+- Mermaid rules: "diagram" is valid Mermaid v11 starting with the diagram keyword; wrap any label with spaces/punctuation as A["Label"]; 4-12 nodes; use \n for line breaks inside the JSON string; no backticks.
+- Use these EXACT grammars (copy the structure, swap in your content; in the JSON these become a single "diagram" string with \n between the lines):
+  flowchart / org chart / decision tree / architecture / network:
+    flowchart TD
+      A(["Start"]) --> B["Step"]
+      B --> C{"Decision?"}
+      C -->|Yes| D["Path A"]
+      C -->|No| E["Path B"]
+  sequenceDiagram:
+    sequenceDiagram
+      participant Client
+      participant Server
+      Client->>Server: Request
+      Server-->>Client: Response
+  mindmap:
+    mindmap
+      root((Main Topic))
+        Subtopic A
+          Detail 1
+        Subtopic B
+  timeline:
+    timeline
+      title Project Timeline
+      2023 : Kickoff
+      2024 : Beta launch
+  erDiagram:
+    erDiagram
+      USER ||--o{ ORDER : places
+      USER {
+        string id PK
+        string name
+      }
+- To CHANGE an existing diagram: the snapshot shows that slide's current "diagram" (Mermaid). Emit patchSlide on that slide with an updated "diagram" string — regenerate the full Mermaid applying the user's change (e.g. "add a caching step", "use a sequence diagram instead").
+
+Diagram example — Instruction: "add a diagram of how JWT auth works"
+{
+  "ops": [
+    { "type": "addSlide", "afterIndex": 4, "slide": {
+        "title": "How JWT authentication works",
+        "diagram": "flowchart TD\n  A([\"User submits credentials\"]) --> B[\"Server validates them\"]\n  B --> C{\"Valid?\"}\n  C -->|Yes| D[\"Issue signed JWT\"]\n  C -->|No| E[\"Return 401\"]\n  D --> F([\"Client stores token\"])"
+    }}
+  ],
+  "explanation": "Added a flowchart of the JWT auth flow before the closing slide."
+}
+(afterIndex 4 is illustrative — use slides.length - 2 for "before closing".)
 
 CRITICAL rules:
 
@@ -211,11 +271,13 @@ export async function POST(req: NextRequest) {
   try {
     const uid = await authenticateRequest(req);
     await requireCredits(uid);
-    const { deck, instruction, history } = (await req.json()) as {
+    const { deck, instruction, history, slideIndex } = (await req.json()) as {
       deck: Deck;
       instruction: string;
       /** Compact recent edits, oldest -> newest. Used by the model as memory. */
       history?: { user: string; explanation?: string; scope?: "slide" | "deck" }[];
+      /** Index of the slide the user is currently viewing (0-based). */
+      slideIndex?: number;
     };
     if (!deck || !Array.isArray(deck.slides) || !instruction) {
       return NextResponse.json({ error: "deck + instruction required" }, { status: 400 });
@@ -225,6 +287,9 @@ export async function POST(req: NextRequest) {
     }
     // Prevent breaking out of the quoted prompt or confusing the LLM's JSON parsing
     const safeInstruction = instruction.replace(/\\/g, "\\\\").replace(/"/g, "\\\"");
+    const currentIndex = typeof slideIndex === "number" && slideIndex >= 0
+      ? Math.min(slideIndex, deck.slides.length - 1)
+      : deck.slides.length - 1;
 
     // Build a compact deck snapshot for the model. Keeping each slide
     // short stops the prompt from blowing past the TPM budget.
@@ -244,6 +309,7 @@ export async function POST(req: NextRequest) {
         bullets: s.bullets,
         bodyPreview: s.body ? s.body.slice(0, 240) : undefined,
         hasTable: !!s.table,
+        diagram: (s.uploadedImages || []).find((im) => im.kind === "diagram")?.mermaid,
       })),
     };
 
@@ -259,7 +325,7 @@ export async function POST(req: NextRequest) {
           { role: "system", content: SYSTEM_PROMPT },
           {
             role: "user",
-            content: `Current deck (slides.length = ${deck.slides.length}, last index = ${deck.slides.length - 1}):\n${JSON.stringify(compact, null, 2)}\n\n${
+            content: `Current deck (slides.length = ${deck.slides.length}, last index = ${deck.slides.length - 1}, the user is currently viewing slide index ${currentIndex}):\n${JSON.stringify(compact, null, 2)}\n\n${
               Array.isArray(history) && history.length > 0
                 ? `Recent edits (oldest -> newest, your memory of what just happened):\n${history
                     .slice(-6)
