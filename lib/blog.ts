@@ -330,6 +330,221 @@ BLOG_POSTS.push(
   },
 );
 
+BLOG_POSTS.push(
+  {
+    slug: "how-to-convert-pdf-to-powerpoint-free",
+    title: "How to Convert a PDF to PowerPoint for Free (Editable Slides)",
+    description:
+      "Turn a PDF into a real, editable PowerPoint for free — using AI to rebuild the content as proper slides instead of dumping uneditable text boxes. Step by step.",
+    h1: "How to Convert a PDF to PowerPoint for Free",
+    datePublished: "2026-06-25",
+    readMins: 6,
+    lede:
+      "You have a report, a paper, or a one-pager in PDF and you need it as a presentation. The usual \"PDF to PPT\" converters give you a mess of unaligned text boxes you can't really edit. Here's a cleaner approach: let AI read the PDF and rebuild it as real, editable slides.",
+    sections: [
+      {
+        h: "The fast way: rebuild the PDF as slides, don't dump it",
+        p: [
+          "A literal file conversion tries to trace every line of the PDF onto a slide. The result almost always breaks — text becomes dozens of separate boxes, columns collapse, and fonts shift. You spend longer fixing it than if you had started over.",
+          "The better route is to extract the meaning, not the pixels. Feed the PDF's content to an AI presentation maker, and it pulls out the key points, groups them into a logical narrative, and lays them out as clean slides you can actually edit.",
+        ],
+      },
+      {
+        h: "Convert a PDF to slides in four steps",
+        list: [
+          "Open the editor and start a new deck from your PDF's content — upload the file or paste the text.",
+          "Tell it your audience and how many slides you want, so the draft matches the talk you need to give.",
+          "Let the AI structure the content: an opening, grouped body sections, charts where there are real numbers, and a close.",
+          "Edit any slide inline, then download a real .pptx (or PDF) that opens in PowerPoint, Keynote, and Google Slides.",
+        ],
+      },
+      {
+        h: "Why \"editable\" is the part that matters",
+        p: [
+          "A presentation you can't change isn't finished — it's a screenshot. The whole point of converting to PowerPoint is to keep refining: tighten a headline, drop a weak slide, recolor to your brand, add a chart. Make sure whatever tool you use hands you a genuine .pptx, not a flat image or a locked file.",
+        ],
+      },
+      {
+        h: "When a plain converter is the right tool instead",
+        p: [
+          "Sometimes you don't want a presentation at all — you just need a file in a different format. For straight format jobs (PDF to images, extracting text, merging or adding pages) a simple converter is faster and runs right in your browser. Reach for the AI route specifically when the end goal is slides you'll present and edit.",
+        ],
+      },
+    ],
+    howTo: {
+      name: "How to convert a PDF to PowerPoint for free",
+      description:
+        "Use AI to turn a PDF's content into a real, editable PowerPoint, then export a .pptx or PDF.",
+      steps: [
+        { name: "Add your PDF", text: "Upload the PDF or paste its text into the editor to start a deck from it." },
+        { name: "Set audience and length", text: "Tell the AI who it's for and how many slides you want." },
+        { name: "Generate the slides", text: "Let the AI extract the key points, structure them, and add charts where there's data." },
+        { name: "Edit inline", text: "Rewrite headlines, cut weak slides, and match your theme." },
+        { name: "Export", text: "Download a real PowerPoint (.pptx) or a PDF." },
+      ],
+    },
+    faq: [
+      {
+        q: "Can I convert a PDF to PowerPoint for free?",
+        a: "Yes. EXdeck's free plan lets you turn a PDF's content into an editable deck and export a real .pptx within a monthly limit, with a small watermark on free exports.",
+      },
+      {
+        q: "Will the slides be editable?",
+        a: "Yes — because the content is rebuilt as native slides (not traced from the PDF), every headline, bullet, and element is fully editable, and the export is a genuine .pptx.",
+      },
+      {
+        q: "Does it keep the PDF's exact layout?",
+        a: "No, and that's intentional. Instead of copying the PDF's print layout, it re-lays the content out as proper presentation slides, which read far better on screen.",
+      },
+    ],
+    related: ["ppt-generator-from-pdf", "ai-presentation-from-pdf", "text-to-ppt"],
+  },
+  {
+    slug: "how-to-add-a-diagram-to-a-presentation",
+    title: "How to Add a Diagram or Flowchart to a Presentation",
+    description:
+      "Add a flowchart, mind map, timeline, or sequence diagram to your slides without fighting drawing tools — describe it in plain English and let AI draw it for you.",
+    h1: "How to Add a Diagram or Flowchart to a Presentation",
+    datePublished: "2026-06-26",
+    readMins: 6,
+    lede:
+      "A good diagram explains in five seconds what a paragraph can't. But drawing one — dragging boxes, aligning arrows, redoing it all when something changes — is the slowest part of slide-making. Here's how to add a clean diagram to a presentation in seconds.",
+    sections: [
+      {
+        h: "Two ways to add a diagram",
+        list: [
+          "In the deck editor, ask the AI for one: \"add a flowchart of how onboarding works\" and it builds the diagram and drops it into a new slide.",
+          "In the diagram studio, start from a template, describe what you want, and export the diagram as a sharp vector to drop anywhere.",
+        ],
+      },
+      {
+        h: "Pick the right type for what you're showing",
+        p: [
+          "The most common mistake is forcing every idea into a flowchart. Match the diagram to the meaning:",
+        ],
+        list: [
+          "A process or how-something-works → flowchart",
+          "A breakdown or hierarchy of one topic → mind map",
+          "Steps exchanged between people or systems, in order → sequence diagram",
+          "Events across dates or years → timeline",
+          "Data entities and how they relate → entity-relationship (ER) diagram",
+        ],
+      },
+      {
+        h: "Let the AI draw it from your slide",
+        p: [
+          "The fastest path is to not draw at all. Tell the AI what to diagram and it infers the content from your slide (or follows exactly what you describe), picks the best-fit type, and renders a clean diagram on a new slide — title and all. If you don't like the type it chose, switch it.",
+        ],
+      },
+      {
+        h: "Edit, restyle, and switch types instantly",
+        p: [
+          "A diagram on a slide should be as editable as the text. You can recolor it for light or dark slides, resize it, and — because the same content can be expressed several ways — swap the whole diagram to a different type (flowchart to mind map, say) from the style panel without redrawing anything.",
+        ],
+      },
+      {
+        h: "Export so it stays crisp",
+        p: [
+          "Diagrams should be vectors, not screenshots. When your diagram is rendered as SVG, it stays razor-sharp in both your PowerPoint and PDF export at any size — no blurry pasted images on the projector.",
+        ],
+      },
+    ],
+    howTo: {
+      name: "How to add a diagram to a presentation",
+      description:
+        "Add a flowchart, mind map, timeline, or sequence diagram to a slide using AI, then edit and export it.",
+      steps: [
+        { name: "Open your deck", text: "In the editor, go to the slide where the diagram belongs." },
+        { name: "Ask for a diagram", text: "Tell the AI what to diagram; it picks the best type and adds it on a new slide." },
+        { name: "Adjust the type", text: "Switch to a different diagram type from the style panel if you prefer." },
+        { name: "Restyle", text: "Recolor and resize the diagram to fit your slide." },
+        { name: "Export", text: "Download to PowerPoint or PDF — the diagram stays sharp as a vector." },
+      ],
+    },
+    faq: [
+      {
+        q: "How do I add a flowchart to PowerPoint without drawing it?",
+        a: "Describe the flowchart to EXdeck's AI in the editor. It generates the diagram and places it on a slide, which you can then edit and export to PowerPoint.",
+      },
+      {
+        q: "Can I change the diagram type after it's made?",
+        a: "Yes. The style panel can regenerate the same content as other diagram types — flowchart, mind map, sequence, timeline — so you can switch with one click.",
+      },
+      {
+        q: "Will the diagram look sharp when projected?",
+        a: "Yes. Diagrams render as vector SVG, so they stay crisp at any size in both the PowerPoint and PDF export.",
+      },
+    ],
+    related: ["ai-slide-maker", "ai-presentation-maker", "powerpoint-generator"],
+  },
+  {
+    slug: "what-is-a-mermaid-diagram",
+    title: "What Is a Mermaid Diagram? (And How to Use One in Slides)",
+    description:
+      "Mermaid turns simple text into flowcharts, mind maps, sequence diagrams, and more. Here's what it is, when to use it, and how to put one in a presentation.",
+    h1: "What Is a Mermaid Diagram?",
+    datePublished: "2026-06-27",
+    readMins: 5,
+    lede:
+      "Mermaid is a way to make diagrams by writing text instead of dragging shapes. You type a few lines describing the nodes and connections, and Mermaid renders a clean flowchart, mind map, or sequence diagram from it. Here's why that's useful — and how to get one into your slides.",
+    sections: [
+      {
+        h: "Diagrams from text, not drag-and-drop",
+        p: [
+          "With Mermaid, a flowchart is just a short block of text: you name the boxes and draw arrows between them with simple arrow syntax. A renderer turns that text into the actual diagram. It started in the developer and documentation world, where diagrams live alongside code and Markdown.",
+        ],
+      },
+      {
+        h: "Why text-based diagrams are worth it",
+        list: [
+          "Fast to edit — change a word, not a layout. No nudging boxes by a pixel.",
+          "Consistent — spacing, alignment, and arrows are handled for you.",
+          "Portable — the diagram is plain text you can version, diff, and reuse.",
+          "AI-friendly — a model can write the text for you from a plain-English description.",
+        ],
+      },
+      {
+        h: "The main Mermaid diagram types",
+        list: [
+          "Flowchart — processes, decisions, and how-it-works explanations",
+          "Sequence diagram — ordered messages between people or systems",
+          "Mind map — a topic broken into branches",
+          "Timeline — events across dates or years",
+          "Entity-relationship (ER) — data tables and how they relate",
+          "Class and state diagrams — for software design",
+        ],
+      },
+      {
+        h: "Putting a Mermaid diagram in a presentation",
+        p: [
+          "Normally you'd render the Mermaid somewhere else, export an image, and paste it into your slide — and re-do that dance every time you tweak it. EXdeck skips the round trip: it renders Mermaid directly onto a slide and keeps the source attached, so the diagram stays editable and exports as a crisp vector.",
+        ],
+      },
+      {
+        h: "You don't have to write the code",
+        p: [
+          "The catch with Mermaid has always been learning its syntax. With an AI presentation maker that's no longer a barrier — describe the diagram in plain English and the AI writes valid Mermaid for you, picks a sensible type, and places it on a slide. You can still open the source to fine-tune it if you want.",
+        ],
+      },
+    ],
+    faq: [
+      {
+        q: "What is a Mermaid diagram in simple terms?",
+        a: "It's a diagram created from text. You write a few lines describing boxes and arrows, and Mermaid renders a flowchart, mind map, sequence diagram, or similar from it.",
+      },
+      {
+        q: "Can I use Mermaid in PowerPoint?",
+        a: "Not directly in PowerPoint, but EXdeck renders Mermaid onto slides and exports a real .pptx, so the diagram ends up in your PowerPoint as a sharp vector.",
+      },
+      {
+        q: "Do I need to know Mermaid syntax?",
+        a: "No. With EXdeck you describe the diagram in plain English and the AI writes the Mermaid for you — though you can edit the source if you'd like.",
+      },
+    ],
+    related: ["ai-slide-maker", "ai-presentation-maker", "free-ppt-maker"],
+  },
+);
+
 export function getBlogPost(slug: string): BlogPost | undefined {
   return BLOG_POSTS.find((p) => p.slug === slug);
 }
