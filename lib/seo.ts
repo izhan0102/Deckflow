@@ -186,7 +186,7 @@ export function organizationJsonLd() {
     alternateName: BRAND_ALIASES,
     url: SITE_URL,
     logo: `${SITE_URL}/icon`,
-    sameAs: ["https://github.com/izhan0102/Deckflow"],
+    sameAs: ["https://github.com/izhan0102/exdeck"],
   };
 }
 

@@ -185,7 +185,7 @@ export default function AboutPage() {
               </div>
             </a>
             <a
-              href="https://github.com/izhan0102/Deckflow"
+              href="https://github.com/izhan0102/exdeck"
               target="_blank"
               rel="noreferrer"
               className="group flex items-center gap-3 rounded-xl border border-cyan-300/30 bg-cyan-300/5 p-4 transition hover:border-cyan-300/60 hover:bg-cyan-300/10"

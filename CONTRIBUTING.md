@@ -51,8 +51,8 @@ EXdeck welcomes contributors at all experience levels. If this is your first ope
 Click the **Fork** button on the GitHub repository page to create your own copy. Then clone it locally:
 
 ```bash
-git clone https://github.com/izhan0102/Deckflow.git
-cd Deckflow
+git clone https://github.com/izhan0102/exdeck.git
+cd exdeck
 ```
 
 **Step 2: Install dependencies**
@@ -87,7 +87,7 @@ Open [http://localhost:3000](http://localhost:3000).
 Before starting any new work, sync your fork with the upstream repository:
 
 ```bash
-git remote add upstream https://github.com/izhan0102/Deckflow.git
+git remote add upstream https://github.com/izhan0102/exdeck.git
 git fetch upstream
 git checkout main
 git merge upstream/main

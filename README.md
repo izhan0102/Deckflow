@@ -181,8 +181,8 @@ The AI decides on its own whether a chart belongs and which type fits the data â
 ## Setup
 
 ```bash
-git clone https://github.com/izhan0102/Deckflow.git
-cd Deckflow
+git clone https://github.com/izhan0102/exdeck.git
+cd exdeck
 npm install
 cp .env.local.example .env.local
 # fill in the values, then

@@ -1384,7 +1384,7 @@ function Footer() {
             </p>
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <a
-                href="https://github.com/izhan0102/Deckflow"
+                href="https://github.com/izhan0102/exdeck"
                 target="_blank" rel="noreferrer"
                 className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition hover:border-white/25"
                 style={{ 

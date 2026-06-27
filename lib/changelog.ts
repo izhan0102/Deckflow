@@ -27,7 +27,7 @@ export type ReleaseGroup = {
   items: ChangeItem[];
 };
 
-const REPO = "izhan0102/Deckflow";
+const REPO = "izhan0102/exdeck";
 const API = `https://api.github.com/repos/${REPO}/commits?per_page=100`;
 
 /** Map a commit subject to a category so each entry gets a clean tag. */

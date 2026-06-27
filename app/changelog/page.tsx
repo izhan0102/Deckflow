@@ -52,7 +52,7 @@ function Fallback() {
           The live changelog is taking a breather (GitHub rate limit). Check
           back shortly, or read the full history on{" "}
           <a
-            href="https://github.com/izhan0102/Deckflow/commits"
+            href="https://github.com/izhan0102/exdeck/commits"
             target="_blank"
             rel="noreferrer"
             className="text-white underline-offset-4 hover:underline"
