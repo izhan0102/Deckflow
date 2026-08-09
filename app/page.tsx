@@ -772,7 +772,7 @@ export default function LandingPage() {
 
       {/* ================== Final CTA ================== */}
       <section className="relative z-10 mx-auto max-w-4xl px-5 pb-20 sm:px-6">
-        <Reveal>
+        <Reveal once>
           <div
             className="relative overflow-hidden rounded-3xl border px-6 py-14 text-center sm:px-10"
             style={{ borderColor: "var(--ezd-divider)", background: "var(--ezd-bg-card)" }}
@@ -862,12 +862,14 @@ function Reveal({
   className = "",
   variant = "up",
   amount = 0.2,
+  once = false,
 }: {
   children: React.ReactNode;
   delay?: number;
   className?: string;
   variant?: RevealDirection;
   amount?: number;
+  once?: boolean;
 }) {
   const reduce = useReducedMotion();
   const offset = REVEAL_OFFSET[variant];
@@ -895,7 +897,7 @@ function Reveal({
       variants={variants}
       initial="hidden"
       whileInView="shown"
-      viewport={{ once: false, amount, margin: "0px 0px -8% 0px" }}
+      viewport={{ once, amount, margin: "0px 0px -8% 0px" }}
     >
       {children}
     </motion.div>
